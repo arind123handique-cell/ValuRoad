@@ -1267,3 +1267,168 @@ main {
   to { transform: rotate(360deg); }
 }
 
+/* Mobile elements default hidden on desktop */
+.mobile-top-bar {
+  display: none;
+}
+#mobile-menu-close-btn {
+  display: none;
+}
+
+/* Responsive Web Layout styles */
+@media (max-width: 768px) {
+  /* Navigation display overrides */
+  .mobile-top-bar {
+    display: flex !important;
+  }
+  #mobile-menu-close-btn {
+    display: block !important;
+  }
+  
+  body {
+    flex-direction: column !important;
+    overflow: hidden;
+  }
+  
+  /* Sidebar Drawer styling */
+  aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+  }
+  aside.active {
+    transform: translateX(0);
+  }
+  
+  /* Main Content Area */
+  main {
+    padding: 1.25rem 1rem !important;
+    height: calc(100vh - 60px) !important;
+    overflow-y: auto;
+  }
+  
+  /* Dashboard Header */
+  .dashboard-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .dashboard-header > div {
+    text-align: left;
+  }
+  .dashboard-header button, 
+  .dashboard-header .btn-primary, 
+  .dashboard-header .btn-secondary {
+    align-self: flex-start;
+  }
+  
+  /* Quick Metrics Cards Grid */
+  .metrics-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+    margin-bottom: 1.5rem;
+  }
+  
+  .metric-card {
+    padding: 1rem !important;
+    gap: 0.75rem !important;
+  }
+  .metric-card .value {
+    font-size: 1.2rem !important;
+  }
+  .metric-card .icon-wrapper {
+    padding: 0.5rem !important;
+  }
+  
+  /* Filter / Search Toolbar */
+  .toolbar {
+    padding: 1rem !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+  
+  .toolbar select, .search-input-wrapper {
+    width: 100% !important;
+  }
+  
+  /* Responsive Tables scrolling */
+  .reports-card {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .reports-table {
+    min-width: 650px; /* Force table layout to remain readable on scroll */
+  }
+  
+  /* Form panel spacing */
+  .form-panel {
+    padding: 1.25rem 1rem !important;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .form-group.full-width {
+    grid-column: span 1 !important;
+  }
+  
+  /* Checkboxes */
+  .infra-checkboxes {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+  
+  /* Modal responsive sizing */
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 1.5rem 1rem !important;
+    margin: 1rem !important;
+  }
+  
+  /* Canvas scale-down */
+  .canvas-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  
+  #sketcher-canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Signature drawing wrapper */
+  .signature-box-wrapper {
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics-row {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Stack buttons inside view headers on very narrow screens */
+  .dashboard-header {
+    align-items: stretch !important;
+  }
+  .dashboard-header button,
+  .dashboard-header .btn-primary,
+  .dashboard-header .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+

@@ -55,6 +55,33 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDsrSettings();
   setupGpsTracingModal();
   setupTheme();
+
+  // Mobile Navigation toggle
+  const openMenuBtn = document.getElementById('mobile-menu-open-btn');
+  const closeMenuBtn = document.getElementById('mobile-menu-close-btn');
+  const asideElement = document.querySelector('aside');
+
+  if (openMenuBtn && asideElement) {
+    openMenuBtn.addEventListener('click', () => {
+      asideElement.classList.add('active');
+    });
+  }
+
+  if (closeMenuBtn && asideElement) {
+    closeMenuBtn.addEventListener('click', () => {
+      asideElement.classList.remove('active');
+    });
+  }
+
+  const navButtons = document.querySelectorAll('aside nav button');
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        asideElement.classList.remove('active');
+      }
+    });
+  });
+
   const authOverlay = document.getElementById('auth-overlay');
   const sidebarProfile = document.getElementById('sidebar-user-profile');
   const userEmailDisplay = document.getElementById('user-email-display');
