@@ -2969,9 +2969,7 @@ function saveActiveEntryAndExportPDF() {
 // Save Modifications / Save & Finalize
 document.getElementById('editor-complete-btn').addEventListener('click', () => {
   if (validateEditorForm()) {
-    const isFinalize = document.getElementById('editor-complete-btn').innerText.includes('Finalize');
-
-    if (isFinalize) {
+    if (activeEntry.status !== 'completed') {
       if (confirm('Are you sure you want to finalize this valuation entry? (This will mark it as completed and lock it from accidental edits)')) {
         activeEntry.status = 'completed';
         saveActiveEntry_noExport();
@@ -2982,19 +2980,8 @@ document.getElementById('editor-complete-btn').addEventListener('click', () => {
     } else {
       if (confirm('Save modifications to this valuation report?')) {
         saveActiveEntry_noExport();
-        // Show brief confirmation
-        const btn = document.getElementById('editor-complete-btn');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="check"></i> Saved!';
-        btn.style.background = '#16a34a';
-        lucide.createIcons();
-        setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; lucide.createIcons(); }, 2000);
-
-        // Re-lock the inputs if it's completed
-        if (activeEntry.status === 'completed') {
-          toggleInputsLock(true);
-          loadEntryToEditor();
-        }
+        alert('Valuation report modifications saved successfully!');
+        if (activeProject) openProjectDetails(activeProject.id);
       }
     }
   }
