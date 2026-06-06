@@ -618,6 +618,52 @@ main {
   font-weight: 600;
 }
 
+/* Measurement Book Table */
+.mbook-container {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.mbook-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mbook-row:hover {
+  background: var(--accent-light);
+}
+
+.mbook-row td {
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.mbook-row input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  text-align: center;
+  padding: 0.1rem 0.15rem;
+  outline: none;
+  font-family: var(--font-main);
+}
+
+.mbook-row input:first-child {
+  text-align: left;
+}
+
+.mbook-row input:focus {
+  background: var(--accent-light);
+  border-radius: 0.2rem;
+}
+
+.mbook-row .m-desc {
+  text-align: left;
+}
+
 /* Custom DSR Autocomplete dropdown panel */
 .dsr-search-container {
   position: relative;

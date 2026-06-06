@@ -1597,9 +1597,7 @@ function addItem(type) {
     totalCost: 0.0,
     includeInValuation: true,
     excludeFromDepreciation: false,
-    l: '',
-    b: '',
-    h: '',
+    measurements: type === 'quantity-rate' ? [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }] : [],
     deductionPct: 0.0,
     deductionLabel: '',
     deductionAmount: 0
@@ -1648,12 +1646,50 @@ function renderItemRow(item) {
       </div>
     `;
   } else if (item.type === 'quantity-rate') {
+    // Migrate old single l/b/h to measurements array for backward compatibility
+    if (!item.measurements || !Array.isArray(item.measurements)) {
+      const legacyMeas = { id: 'M_' + Date.now(), description: '', nos: 1, l: item.l || '', b: item.b || '', h: item.h || '', subQty: item.quantity || 1 };
+      item.measurements = [legacyMeas];
+      delete item.l; delete item.b; delete item.h;
+    }
+
     detailHtml = `
       <div class="dsr-search-container">
         <input type="text" class="item-title-input bold dsr-search" placeholder="Type to search DSR item..." value="${item.title}">
         <div class="dsr-autocomplete-list" style="display: none;"></div>
       </div>
       <textarea class="item-desc-input" placeholder="Standard quantity description...">${item.description}</textarea>
+
+      <!-- Measurement Book Table -->
+      <div class="mbook-container" style="margin-top: 0.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+          <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Measurements</span>
+          <button type="button" class="btn-secondary add-mrow-btn" style="padding: 0.15rem 0.45rem; font-size: 0.7rem; display: flex; align-items: center; gap: 0.2rem;"><i data-lucide="plus" style="width: 11px; height: 11px;"></i> Add Row</button>
+        </div>
+        <table class="mbook-table" style="width: 100%; border-collapse: collapse; font-size: 0.72rem;">
+          <thead>
+            <tr style="color: var(--text-muted);">
+              <th style="text-align: left; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color);">Description</th>
+              <th style="text-align: center; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); width: 36px;">Nos</th>
+              <th style="text-align: center; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); width: 46px;">L</th>
+              <th style="text-align: center; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); width: 46px;">B</th>
+              <th style="text-align: center; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); width: 46px;">H</th>
+              <th style="text-align: right; padding: 0.15rem 0.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); width: 52px;">Qty</th>
+              <th style="width: 20px; border-bottom: 1px solid var(--border-color);"></th>
+            </tr>
+          </thead>
+          <tbody class="mbook-tbody">
+            <!-- Rows injected by JS -->
+          </tbody>
+          <tfoot>
+            <tr style="font-weight: 700; border-top: 1px solid var(--border-color);">
+              <td colspan="5" style="padding: 0.2rem 0.2rem; text-align: right; font-size: 0.72rem;">Total Qty:</td>
+              <td style="text-align: right; padding: 0.2rem 0.2rem; color: var(--accent);" class="mbook-total-cell">-</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
       
       <div class="item-deduction-container" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
         <div style="flex-shrink: 0; width: 120px;">
@@ -1744,12 +1780,8 @@ function renderItemRow(item) {
         ${unitOptionsHtml}
       </select>
       ${item.type === 'quantity-rate' ? `
-        <div class="item-measurements" style="display: flex; gap: 0.2rem; font-size: 0.7rem; margin-top: 0.25rem; align-items: center; justify-content: center; color: var(--text-muted);">
-          <input type="number" class="item-l-input" placeholder="L" value="${item.l !== undefined ? item.l : ''}" style="width: 35px; border: 1px solid var(--border-color) !important; border-radius: 0.25rem; text-align: center; padding: 0.15rem 0.05rem; font-size: 0.75rem; background: var(--bg-secondary); color: var(--text-primary);" title="Length">
-          <span>x</span>
-          <input type="number" class="item-b-input" placeholder="B" value="${item.b !== undefined ? item.b : ''}" style="width: 35px; border: 1px solid var(--border-color) !important; border-radius: 0.25rem; text-align: center; padding: 0.15rem 0.05rem; font-size: 0.75rem; background: var(--bg-secondary); color: var(--text-primary);" title="Breadth/Width">
-          <span>x</span>
-          <input type="number" class="item-h-input" placeholder="H" value="${item.h !== undefined ? item.h : ''}" style="width: 35px; border: 1px solid var(--border-color) !important; border-radius: 0.25rem; text-align: center; padding: 0.15rem 0.05rem; font-size: 0.75rem; background: var(--bg-secondary); color: var(--text-primary);" title="Height/Depth">
+        <div class="item-mbook-total" style="margin-top: 0.35rem; font-size: 0.75rem; color: var(--accent); font-weight: 600; text-align: center;">
+          Total: <span class="mbook-total-qty">${item.quantity.toFixed(3)}</span>
         </div>
       ` : ''}
     </div>
@@ -1836,47 +1868,13 @@ function renderItemRow(item) {
       updateRowTotal(item, tr);
     });
 
-    const lInput = tr.querySelector('.item-l-input');
-    const bInput = tr.querySelector('.item-b-input');
-    const hInput = tr.querySelector('.item-h-input');
-
-    const recalculateMeasurements = () => {
-      item.l = lInput.value.trim();
-      item.b = bInput.value.trim();
-      item.h = hInput.value.trim();
-
-      const lVal = parseFloat(item.l);
-      const bVal = parseFloat(item.b);
-      const hVal = parseFloat(item.h);
-
-      let qty = 1;
-      let hasMeasurement = false;
-
-      if (!isNaN(lVal) && lVal > 0) {
-        qty *= lVal;
-        hasMeasurement = true;
-      }
-      if (!isNaN(bVal) && bVal > 0) {
-        qty *= bVal;
-        hasMeasurement = true;
-      }
-      if (!isNaN(hVal) && hVal > 0) {
-        qty *= hVal;
-        hasMeasurement = true;
-      }
-
-      if (hasMeasurement) {
-        item.quantity = Number(qty.toFixed(3));
-        tr.querySelector('.item-qty-input').value = item.quantity;
-      }
-      updateRowTotal(item, tr);
-    };
-
-    lInput.addEventListener('input', recalculateMeasurements);
-    bInput.addEventListener('input', recalculateMeasurements);
-    hInput.addEventListener('input', recalculateMeasurements);
-
     setupDsrAutocomplete(tr.querySelector('.dsr-search'), item, tr);
+
+    // Render measurement book rows and wire add-row button
+    renderMeasurementBook(item, tr);
+    tr.querySelector('.add-mrow-btn').addEventListener('click', () => {
+      addMeasurementRow(item, tr);
+    });
   }
 
   const selectEl = tr.querySelector('.item-unit-select');
@@ -1921,6 +1919,19 @@ function updateRowTotal(item, tr) {
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
   } else if (item.type === 'quantity-rate') {
+    // Sum all measurement rows
+    if (item.measurements && item.measurements.length > 0) {
+      const totalQty = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
+      item.quantity = Number(totalQty.toFixed(3));
+      if (tr) {
+        const qtyInput = tr.querySelector('.item-qty-input');
+        const totalCell = tr.querySelector('.mbook-total-cell');
+        const totalQtySpan = tr.querySelector('.mbook-total-qty');
+        if (qtyInput) qtyInput.value = item.quantity;
+        if (totalCell) totalCell.textContent = item.quantity.toFixed(3) + ' ' + (item.unit || '');
+        if (totalQtySpan) totalQtySpan.textContent = item.quantity.toFixed(3);
+      }
+    }
     const rawCost = item.quantity * item.rate;
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
@@ -1933,6 +1944,113 @@ function updateRowTotal(item, tr) {
   }
   tr.querySelector('.item-cost-display').innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
   calculateAndRenderTotals();
+}
+
+// Measurement Book (Multi-row for quantity-rate items)
+function calcMeasurementSubQty(m) {
+  const nos = parseFloat(m.nos) || 0;
+  const l   = parseFloat(m.l)   || 0;
+  const b   = parseFloat(m.b)   || 0;
+  const h   = parseFloat(m.h)   || 0;
+
+  // If all dimension fields empty, treat as direct entry = nos value
+  if (m.l === '' && m.b === '' && m.h === '') {
+    return nos;
+  }
+  let dims = 1;
+  if (l > 0) dims *= l;
+  if (b > 0) dims *= b;
+  if (h > 0) dims *= h;
+  return Number((nos * dims).toFixed(3));
+}
+
+function renderMeasurementBook(item, tr) {
+  if (!item.measurements) item.measurements = [];
+  const tbody = tr.querySelector('.mbook-tbody');
+  tbody.innerHTML = '';
+  item.measurements.forEach(m => renderMeasurementRow(m, item, tr, tbody));
+  refreshMeasurementTotal(item, tr);
+}
+
+function renderMeasurementRow(m, item, tr, tbody) {
+  const mtr = document.createElement('tr');
+  mtr.dataset.mId = m.id;
+  mtr.className = 'mbook-row';
+
+  const inputStyle = `width:100%; border: none; background: transparent; color: var(--text-primary); font-size: 0.72rem; text-align: center; padding: 0.1rem 0; outline: none;`;
+  const descStyle  = `width:100%; border: none; background: transparent; color: var(--text-primary); font-size: 0.72rem; text-align: left; padding: 0.1rem 0; outline: none;`;
+
+  mtr.innerHTML = `
+    <td style="padding: 0.12rem 0.15rem;">
+      <input type="text" class="m-desc" value="${m.description || ''}" placeholder="e.g. Room 1" style="${descStyle}">
+    </td>
+    <td style="padding: 0.12rem 0.1rem;">
+      <input type="number" class="m-nos" value="${m.nos !== undefined ? m.nos : 1}" step="1" min="0" style="${inputStyle}">
+    </td>
+    <td style="padding: 0.12rem 0.1rem;">
+      <input type="number" class="m-l" value="${m.l !== undefined ? m.l : ''}" placeholder="L" step="0.001" style="${inputStyle}">
+    </td>
+    <td style="padding: 0.12rem 0.1rem;">
+      <input type="number" class="m-b" value="${m.b !== undefined ? m.b : ''}" placeholder="B" step="0.001" style="${inputStyle}">
+    </td>
+    <td style="padding: 0.12rem 0.1rem;">
+      <input type="number" class="m-h" value="${m.h !== undefined ? m.h : ''}" placeholder="H" step="0.001" style="${inputStyle}">
+    </td>
+    <td style="padding: 0.12rem 0.1rem; text-align: right; font-weight: 600; color: var(--accent); white-space: nowrap;" class="m-subqty-display">
+      ${(m.subQty || 0).toFixed(3)}
+    </td>
+    <td style="padding: 0.12rem 0.1rem; text-align: center;">
+      <button type="button" class="delete-mrow-btn" style="background: none; border: none; cursor: pointer; color: var(--danger); padding: 0; line-height: 1; font-size: 0.8rem;" title="Remove row">✕</button>
+    </td>
+  `;
+
+  tbody.appendChild(mtr);
+
+  const recalc = () => {
+    m.description = mtr.querySelector('.m-desc').value;
+    m.nos = mtr.querySelector('.m-nos').value.trim();
+    m.l   = mtr.querySelector('.m-l').value.trim();
+    m.b   = mtr.querySelector('.m-b').value.trim();
+    m.h   = mtr.querySelector('.m-h').value.trim();
+    m.subQty = calcMeasurementSubQty(m);
+    mtr.querySelector('.m-subqty-display').textContent = m.subQty.toFixed(3);
+    refreshMeasurementTotal(item, tr);
+    updateRowTotal(item, tr);
+  };
+
+  mtr.querySelector('.m-desc').addEventListener('input', recalc);
+  mtr.querySelector('.m-nos').addEventListener('input', recalc);
+  mtr.querySelector('.m-l').addEventListener('input', recalc);
+  mtr.querySelector('.m-b').addEventListener('input', recalc);
+  mtr.querySelector('.m-h').addEventListener('input', recalc);
+
+  mtr.querySelector('.delete-mrow-btn').addEventListener('click', () => {
+    item.measurements = item.measurements.filter(x => x.id !== m.id);
+    mtr.remove();
+    refreshMeasurementTotal(item, tr);
+    updateRowTotal(item, tr);
+  });
+}
+
+function addMeasurementRow(item, tr) {
+  if (!item.measurements) item.measurements = [];
+  const m = { id: 'M_' + Date.now() + Math.random().toString(36).substr(2, 4), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 };
+  item.measurements.push(m);
+  const tbody = tr.querySelector('.mbook-tbody');
+  renderMeasurementRow(m, item, tr, tbody);
+  refreshMeasurementTotal(item, tr);
+  updateRowTotal(item, tr);
+}
+
+function refreshMeasurementTotal(item, tr) {
+  const total = (item.measurements || []).reduce((s, m) => s + (parseFloat(m.subQty) || 0), 0);
+  item.quantity = Number(total.toFixed(3));
+  const qtyInput  = tr.querySelector('.item-qty-input');
+  const totalCell = tr.querySelector('.mbook-total-cell');
+  const totalQtySpan = tr.querySelector('.mbook-total-qty');
+  if (qtyInput) qtyInput.value = item.quantity;
+  if (totalCell) totalCell.textContent = item.quantity.toFixed(3) + ' ' + (item.unit || '');
+  if (totalQtySpan) totalQtySpan.textContent = item.quantity.toFixed(3);
 }
 
 // Plinth Area Rooms
@@ -2051,20 +2169,16 @@ function setupDsrAutocomplete(input, item, tr) {
         item.description = dsr.description;
         item.unit = dsr.unit;
         item.rate = dsr.rate;
-        item.l = '';
-        item.b = '';
-        item.h = '';
+        // Reset measurements to a single blank row
+        item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
+        item.quantity = 1;
         
         input.value = item.title;
         tr.querySelector('.item-desc-input').value = item.description;
         tr.querySelector('.item-qty-input').value = item.quantity;
 
-        const lInput = tr.querySelector('.item-l-input');
-        const bInput = tr.querySelector('.item-b-input');
-        const hInput = tr.querySelector('.item-h-input');
-        if (lInput) lInput.value = '';
-        if (bInput) bInput.value = '';
-        if (hInput) hInput.value = '';
+        // Re-render measurement book with fresh row
+        renderMeasurementBook(item, tr);
 
         const selectEl = tr.querySelector('.item-unit-select');
         if (selectEl) {

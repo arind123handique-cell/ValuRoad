@@ -87,20 +87,80 @@ function renderQuantityRateItem(item) {
     itemNoText = 'Item No. ' + itemNoText;
   }
 
-  let measurementText = '';
-  const lVal = parseFloat(item.l);
-  const bVal = parseFloat(item.b);
-  const hVal = parseFloat(item.h);
-  let dims = [];
-  if (!isNaN(lVal) && lVal > 0) dims.push(`${lVal.toFixed(2)}m`);
-  if (!isNaN(bVal) && bVal > 0) dims.push(`${bVal.toFixed(2)}m`);
-  if (!isNaN(hVal) && hVal > 0) dims.push(`${hVal.toFixed(2)}m`);
-  if (dims.length > 0) {
-    measurementText = ` (${dims.join(' x ')})`;
-  }
-
   const rawCost = item.quantity * item.rate;
   const hasDeduction = item.deductionPct > 0;
+
+  // Build measurement rows
+  let measurementRowsHtml = '';
+  const measurements = item.measurements && item.measurements.length > 0 ? item.measurements : [];
+
+  if (measurements.length > 0) {
+    const mRowsHtml = measurements.map(m => {
+      const nos = parseFloat(m.nos) || 0;
+      const l   = parseFloat(m.l);
+      const b   = parseFloat(m.b);
+      const h   = parseFloat(m.h);
+      const hasL = !isNaN(l) && m.l !== '';
+      const hasB = !isNaN(b) && m.b !== '';
+      const hasH = !isNaN(h) && m.h !== '';
+      const hasDims = hasL || hasB || hasH;
+      const subQty = parseFloat(m.subQty) || 0;
+
+      let dimStr = '';
+      if (hasDims) {
+        const parts = [];
+        if (hasL) parts.push(l.toFixed(3) + 'm');
+        if (hasB) parts.push(b.toFixed(3) + 'm');
+        if (hasH) parts.push(h.toFixed(3) + 'm');
+        dimStr = parts.join(' × ');
+      }
+
+      return `
+        <tr>
+          <td style="padding: 1px 4px; text-align: left;">${m.description || ''}</td>
+          <td style="padding: 1px 4px; text-align: center; width: 30px;">${nos}</td>
+          <td style="padding: 1px 4px; text-align: left; color: #334155;">${dimStr}</td>
+          <td style="padding: 1px 4px; text-align: right; font-weight: 600; width: 60px;">${subQty.toFixed(3)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    measurementRowsHtml = `
+      <div style="margin-left: 20mm; margin-bottom: 3px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; border-top: 1px solid #cbd5e1;">
+          <thead>
+            <tr style="color: #64748b; font-size: 8.5pt;">
+              <th style="padding: 1px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Description</th>
+              <th style="padding: 1px 4px; text-align: center; width: 30px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Nos</th>
+              <th style="padding: 1px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0;">L × B × H</th>
+              <th style="padding: 1px 4px; text-align: right; width: 60px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${mRowsHtml}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight: 700; border-top: 1px solid #cbd5e1;">
+              <td colspan="3" style="padding: 2px 4px; text-align: right; font-size: 9pt;">Total</td>
+              <td style="padding: 2px 4px; text-align: right;">${item.quantity.toFixed(3)} ${item.unit}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  } else {
+    // Fallback: no measurements
+    measurementRowsHtml = `
+      <div class="pdf-row" style="margin-bottom: 1px;">
+        <div style="margin-left: 20mm; width: 40mm; flex-shrink: 0;">Quantity</div>
+        <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+        <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
+          <span style="width: 35mm; text-align: left;">x &nbsp;&nbsp;&nbsp;&nbsp; ${item.quantity.toFixed(2)} ${item.unit} =</span>
+          <span style="width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}</span>
+        </div>
+      </div>
+    `;
+  }
 
   return `
     <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
@@ -109,23 +169,7 @@ function renderQuantityRateItem(item) {
       </div>
       ${item.description ? `<div style="margin-left: 20mm; font-style: italic; color: #334155; margin-bottom: 3px; font-size: 10pt;">${item.description}</div>` : ''}
       
-      <!-- Quantity Line -->
-      <div class="pdf-row" style="margin-bottom: 1px;">
-        <div style="margin-left: 20mm; width: 40mm; flex-shrink: 0;">Quantity${measurementText}</div>
-        <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-        <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
-          <span style="width: 35mm; text-align: left;">x &nbsp;&nbsp;&nbsp;&nbsp; ${item.quantity.toFixed(2)} ${item.unit} =</span>
-          <span style="width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}</span>
-        </div>
-      </div>
-      
-      <!-- Total Line -->
-      <div class="pdf-row" style="margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 45mm; font-weight: 500;">
-          <span style="display: inline-block; width: 35mm; text-align: right; margin-right: 5px;">Total =</span>
-          <span style="display: inline-block; width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}</span>
-        </div>
-      </div>
+      ${measurementRowsHtml}
       
       <!-- Rate Line -->
       <div class="pdf-row" style="margin-bottom: 1px;">
@@ -161,6 +205,7 @@ function renderQuantityRateItem(item) {
     </div>
   `;
 }
+
 
 function renderPlinthAreaItem(item) {
   let itemNoText = item.itemNo;
