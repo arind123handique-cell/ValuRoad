@@ -24,6 +24,7 @@ let originalEntryCopy = null;
 let customDsrCatalog = [];
 let gpsTraceNodes = [];
 let sketcher = null;
+let isNewEntryMode = false;
 
 const DEFAULT_NB_NOTE = `This estimate has been prepared as per Addl. District Commissioner cum Competent Authority (LA), Golaghat vide order No. 2/2023/KNP-NK-37/ Dtd. Golaghat the 8th Dec'2025. The area to be acquisitioned for proposed implementation of wildlife-friendly measures proposed on Kaziranga National Park (KNP) stretch of NH-37 from Kaliabor (Ch. 315+315) to Numaligarh (Ch. 402+300) of NH-37 (New NH-715) under Golaghat District was shown by the Revenue & NHAI Officials during the Joint Survey. The above mentioned particulars of Occupier is subjected to be verified by Competent Authority. The application of the valuation estimate is the discretion of the Competent Authority.`;
 
@@ -683,6 +684,7 @@ function saveProject() {
 function setupEditor() {
   document.getElementById('editor-back-btn').addEventListener('click', () => {
     if (confirmLeaveEditor()) {
+      isNewEntryMode = false;
       if (activeProject) {
         openProjectDetails(activeProject.id);
       } else {
@@ -709,6 +711,7 @@ function setupEditor() {
     document.getElementById('editor-complete-btn').style.display = 'inline-flex';
     document.getElementById('editor-complete-btn').innerHTML = '<i data-lucide="check-square"></i> Save Modifications';
     document.getElementById('editor-export-pdf-btn').style.display = 'inline-flex';
+    document.getElementById('editor-title').innerText = 'Edit Finalized Valuation';
     lucide.createIcons();
   });
 
@@ -849,6 +852,7 @@ function setupEditor() {
 
 function initNewOwnerEntry() {
   if (!activeProject) return;
+  isNewEntryMode = true;
   activeEntry = {
     id: 'OWNER_' + Date.now(),
     clientName: '',
@@ -886,6 +890,7 @@ function initNewOwnerEntry() {
 
 function editOwnerEntry(id) {
   if (!activeProject) return;
+  isNewEntryMode = false;
   const entry = activeProject.entries.find(e => e.id === id);
   if (!entry) return;
   activeEntry = JSON.parse(JSON.stringify(entry));
@@ -938,12 +943,21 @@ function loadEntryToEditor() {
     document.getElementById('editor-save-draft-btn').style.display = 'none';
     document.getElementById('editor-export-pdf-btn').style.display = 'inline-flex';
   } else {
-    document.getElementById('editor-title').innerText = activeEntry.status === 'draft' ? 'Edit Owner Valuation' : 'Edit Owner Valuation';
-    document.getElementById('editor-modify-btn').style.display = 'none';
-    document.getElementById('editor-complete-btn').style.display = 'inline-flex';
-    document.getElementById('editor-complete-btn').innerHTML = '<i data-lucide="check-square"></i> Save Modifications';
-    document.getElementById('editor-save-draft-btn').style.display = 'inline-flex';
-    document.getElementById('editor-export-pdf-btn').style.display = 'inline-flex';
+    if (isNewEntryMode) {
+      document.getElementById('editor-title').innerText = 'Add New Owner Entry';
+      document.getElementById('editor-modify-btn').style.display = 'none';
+      document.getElementById('editor-complete-btn').style.display = 'inline-flex';
+      document.getElementById('editor-complete-btn').innerHTML = '<i data-lucide="check-square"></i> Save & Finalize';
+      document.getElementById('editor-save-draft-btn').style.display = 'inline-flex';
+      document.getElementById('editor-export-pdf-btn').style.display = 'none';
+    } else {
+      document.getElementById('editor-title').innerText = 'Edit Owner Valuation';
+      document.getElementById('editor-modify-btn').style.display = 'none';
+      document.getElementById('editor-complete-btn').style.display = 'inline-flex';
+      document.getElementById('editor-complete-btn').innerHTML = '<i data-lucide="check-square"></i> Save & Finalize';
+      document.getElementById('editor-save-draft-btn').style.display = 'inline-flex';
+      document.getElementById('editor-export-pdf-btn').style.display = 'inline-flex';
+    }
     lucide.createIcons();
   }
 
@@ -2937,18 +2951,36 @@ function saveActiveEntryAndExportPDF() {
   exportToPDF(pdfData, activeEntry.sketcherImage);
 }
 
-// Save Modifications (no PDF)
+// Save Modifications / Save & Finalize
 document.getElementById('editor-complete-btn').addEventListener('click', () => {
   if (validateEditorForm()) {
-    if (confirm('Save modifications to this valuation report?')) {
-      saveActiveEntry_noExport();
-      // Show brief confirmation
-      const btn = document.getElementById('editor-complete-btn');
-      const orig = btn.innerHTML;
-      btn.innerHTML = '<i data-lucide="check"></i> Saved!';
-      btn.style.background = '#16a34a';
-      lucide.createIcons();
-      setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; lucide.createIcons(); }, 2000);
+    const isFinalize = document.getElementById('editor-complete-btn').innerText.includes('Finalize');
+
+    if (isFinalize) {
+      if (confirm('Are you sure you want to finalize this valuation entry? (This will mark it as completed and lock it from accidental edits)')) {
+        activeEntry.status = 'completed';
+        saveActiveEntry_noExport();
+        alert('Valuation entry finalized successfully!');
+        isNewEntryMode = false;
+        if (activeProject) openProjectDetails(activeProject.id);
+      }
+    } else {
+      if (confirm('Save modifications to this valuation report?')) {
+        saveActiveEntry_noExport();
+        // Show brief confirmation
+        const btn = document.getElementById('editor-complete-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check"></i> Saved!';
+        btn.style.background = '#16a34a';
+        lucide.createIcons();
+        setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; lucide.createIcons(); }, 2000);
+
+        // Re-lock the inputs if it's completed
+        if (activeEntry.status === 'completed') {
+          toggleInputsLock(true);
+          loadEntryToEditor();
+        }
+      }
     }
   }
 });
