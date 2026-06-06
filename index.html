@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ValuRoad - Valuation Projects Manager</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+  <!-- Left Sidebar Navigation -->
+  <aside>
+    <div class="brand">
+      <i data-lucide="map-pin"></i>
+      <h1>ValuRoad</h1>
+    </div>
+    <nav>
+      <button id="nav-projects-btn" class="active">
+        <i data-lucide="folder-kanban"></i> Projects List
+      </button>
+      <button id="nav-new-project-btn">
+        <i data-lucide="folder-plus"></i> New Project
+      </button>
+      <button id="nav-settings-btn">
+        <i data-lucide="database"></i> DSR Catalog / OCR
+      </button>
+      <button id="nav-pdf-template-btn">
+        <i data-lucide="file-text"></i> PDF Template
+      </button>
+    </nav>
+    <div class="nav-footer">
+      <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">v1.1.0 (Projects)</span>
+      <button class="theme-toggle" id="theme-toggle-btn" title="Toggle Theme">
+        <i data-lucide="moon" id="theme-icon"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Viewer -->
+  <main>
+
+    <!-- VIEW 1: PROJECTS LIST DASHBOARD -->
+    <div id="view-dashboard" class="view-container active">
+      <div class="dashboard-header">
+        <div>
+          <h2>Valuation Projects</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Select an infrastructure project to manage affected owner entries</p>
+        </div>
+        <button class="btn-primary" id="dash-create-project-btn">
+          <i data-lucide="folder-plus"></i> Create Project
+        </button>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="icon-wrapper"><i data-lucide="folder"></i></div>
+          <div>
+            <div class="label">Total Projects</div>
+            <div class="value" id="metric-total-projects">0</div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="icon-wrapper" style="color: #3b82f6; background-color: rgba(59, 130, 246, 0.1);"><i data-lucide="users"></i></div>
+          <div>
+            <div class="label">Affected Owners</div>
+            <div class="value" id="metric-total-owners">0</div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="icon-wrapper" style="color: #059669; background-color: rgba(16, 185, 129, 0.1);"><i data-lucide="check-square"></i></div>
+          <div>
+            <div class="label">Completed Valuation Entries</div>
+            <div class="value" id="metric-completed-owners">0</div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="icon-wrapper" style="color: #0d9488; background-color: rgba(13, 148, 136, 0.1);"><i data-lucide="indian-rupee"></i></div>
+          <div>
+            <div class="label">Cumulative Valuation</div>
+            <div class="value" id="metric-cumulative-valuation">Rs. 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Filter Toolbar -->
+      <div class="toolbar">
+        <div class="search-input-wrapper">
+          <i data-lucide="search"></i>
+          <input type="text" id="project-search" placeholder="Search projects by work description, route, or location...">
+        </div>
+      </div>
+
+      <!-- Projects Grid/Table -->
+      <div class="reports-card">
+        <table class="reports-table" id="projects-table">
+          <thead>
+            <tr>
+              <th style="width: 50%">Project Name / Work Details</th>
+              <th style="width: 15%">Location</th>
+              <th style="width: 12%">Owner Entries</th>
+              <th style="width: 13%">Total Valuation</th>
+              <th style="width: 10%">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="projects-list-body">
+            <!-- Dynamic Injection -->
+          </tbody>
+        </table>
+        <div class="empty-state" id="projects-empty-state">
+          <i data-lucide="folder-open" style="width: 48px; height: 48px;"></i>
+          <h3>No valuation projects found</h3>
+          <p>Create a new project (Work Name) to start listing affected properties.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: PROJECT DETAILS DASHBOARD (Listing Affected Owner Entries) -->
+    <div id="view-project-details" class="view-container">
+      <div class="dashboard-header" style="margin-bottom: 1rem;">
+        <div>
+          <button class="btn-secondary" id="project-back-btn" style="padding: 0.4rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.85rem;">
+            <i data-lucide="arrow-left"></i> Back to Projects
+          </button>
+          <h2 id="project-details-work-title">Project Name</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;"><i data-lucide="map-pin" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i> <span id="project-details-location">Location</span></p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; align-self: flex-end;">
+          <button class="btn-secondary" id="project-edit-work-btn" title="Edit Project Details">
+            <i data-lucide="settings"></i> Edit Project Details
+          </button>
+          <button class="btn-primary" id="project-add-owner-btn">
+            <i data-lucide="user-plus"></i> Add Affected Owner Entry
+          </button>
+        </div>
+      </div>
+
+      <!-- Project Statistics -->
+      <div class="metrics-row" style="margin-bottom: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="metric-card" style="padding: 1rem 1.25rem;">
+          <div class="icon-wrapper"><i data-lucide="users"></i></div>
+          <div>
+            <div class="label" style="font-size: 0.75rem;">Owner Properties</div>
+            <div class="value" id="proj-metric-owners" style="font-size: 1.25rem;">0</div>
+          </div>
+        </div>
+        <div class="metric-card" style="padding: 1rem 1.25rem;">
+          <div class="icon-wrapper" style="color: #059669; background-color: rgba(16, 185, 129, 0.1);"><i data-lucide="check-square"></i></div>
+          <div>
+            <div class="label" style="font-size: 0.75rem;">Completed</div>
+            <div class="value" id="proj-metric-completed" style="font-size: 1.25rem;">0</div>
+          </div>
+        </div>
+        <div class="metric-card" style="padding: 1rem 1.25rem;">
+          <div class="icon-wrapper" style="color: #3b82f6; background-color: rgba(59, 130, 246, 0.1);"><i data-lucide="indian-rupee"></i></div>
+          <div>
+            <div class="label" style="font-size: 0.75rem;">Total Project Cost</div>
+            <div class="value" id="proj-metric-cost" style="font-size: 1.25rem;">Rs. 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Owner Entries Table -->
+      <div class="reports-card">
+        <table class="reports-table" id="owner-entries-table">
+          <thead>
+            <tr>
+              <th style="width: 25%">Owner / Occupant</th>
+              <th style="width: 20%">Village / Location</th>
+              <th style="width: 20%">GPS Site Coordinates</th>
+              <th style="width: 15%">Valuation (Rs.)</th>
+              <th style="width: 10%">Status</th>
+              <th style="width: 10%">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="owner-entries-list-body">
+            <!-- Dynamic Injection -->
+          </tbody>
+        </table>
+        <div class="empty-state" id="owner-entries-empty-state">
+          <i data-lucide="users" style="width: 48px; height: 48px;"></i>
+          <h3>No owner entries in this project</h3>
+          <p>Add an affected owner entry (properties or building structures) to compute custom estimates.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: PROJECT CREATOR/EDITOR PANEL -->
+    <div id="view-project-editor" class="view-container">
+      <div class="dashboard-header">
+        <div>
+          <h2 id="proj-editor-title">Create Project</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Define the Name of Work description and general region</p>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <div class="form-panel">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="proj-work-name">Name of Work / Project Description</label>
+              <textarea id="proj-work-name" rows="3" placeholder="e.g., Valuation estimate of building/Structure in connection with implementation of wildlife-friendly measures proposed on NH-37..."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="proj-location">General Location / Route Segment</label>
+              <input type="text" id="proj-location" placeholder="e.g., Kaliabor to Numaligarh stretch of NH-37">
+            </div>
+            <div class="form-group full-width">
+              <label for="proj-nb-note">N.B. Note / Authority Reference (printed at bottom of reports)</label>
+              <textarea id="proj-nb-note" rows="3" placeholder="e.g., N.B:- This estimate has been prepared as per Addl. District Commissioner cum Competent Authority (LA), Golaghat vide order No. 2/2023/KNP-NK-37/ Dtd. Golaghat the 8th Dec'2025."></textarea>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; justify-content: flex-end;">
+            <button class="btn-secondary" id="proj-editor-cancel-btn">Cancel</button>
+            <button class="btn-primary" id="proj-editor-save-btn">Save Project</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: OWNER ENTRY ESTIMATE EDITOR -->
+    <div id="view-editor" class="view-container">
+      <div class="dashboard-header" style="margin-bottom: 1.5rem;">
+        <div>
+          <h2 id="editor-title">Affected Owner Valuation Editor</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Project: <strong id="editor-project-context-title">Project Title</strong></p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn-secondary" id="editor-back-btn">
+            <i data-lucide="arrow-left"></i> Cancel
+          </button>
+          <button class="btn-primary" id="editor-modify-btn" style="background-color: #2563eb; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); display: none;">
+            <i data-lucide="edit-3"></i> Modify Valuation
+          </button>
+          <button class="btn-primary" id="editor-save-draft-btn" style="background-color: #d97706; box-shadow: 0 4px 10px rgba(217, 119, 6, 0.2);">
+            <i data-lucide="save"></i> Save Draft
+          </button>
+          <button class="btn-primary" id="editor-complete-btn">
+            <i data-lucide="check-square"></i> Save Modifications
+          </button>
+          <button class="btn-primary" id="editor-export-pdf-btn" style="background-color: #0f766e; box-shadow: 0 4px 10px rgba(15, 118, 110, 0.25);">
+            <i data-lucide="file-down"></i> Export PDF
+          </button>
+        </div>
+      </div>
+
+
+      <!-- Warning alert for editing completed entries -->
+      <div id="editor-completed-warning" style="display: none; margin-bottom: 1.5rem; background-color: rgba(217, 119, 6, 0.1); border: 1px solid #d97706; color: #d97706; padding: 1rem 1.25rem; border-radius: 0.75rem; font-size: 0.9rem; font-weight: 500; align-items: center; gap: 0.75rem; border-left: 4px solid #d97706;">
+        <i data-lucide="alert-triangle" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
+        <span><strong>Attention:</strong> This valuation entry has been finalized. You are allowed to edit it; any fields that deviate from the locked version will be highlighted in amber.</span>
+      </div>
+
+      <!-- Editor Form Panels -->
+      <div class="editor-layout">
+        
+        <!-- PANEL A: OWNER DETAILS & SITE GPS -->
+        <div class="form-panel">
+          <h3>1. General Project Details</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="client-name">Name of Occupant / Owner</label>
+              <input type="text" id="client-name" placeholder="e.g., Renu Dutta Kalita">
+            </div>
+            <div class="form-group">
+              <label for="location">Location / Village / Gaon</label>
+              <input type="text" id="location" placeholder="e.g., Halowa Gaon">
+            </div>
+            <div class="form-group">
+              <label for="inspection-date">Inspection Date</label>
+              <input type="date" id="inspection-date">
+            </div>
+            <div class="form-group">
+              <label for="gps-coords">GPS Site Tagging</label>
+              <div class="gps-input-container">
+                <input type="text" id="gps-display" placeholder="Not tagged" readonly style="background-color: var(--bg-primary);">
+                <button type="button" class="btn-secondary" id="gps-tag-btn" title="Capture Geolocation" style="padding: 0.5rem 0.75rem;">
+                  <i data-lucide="map"></i> Tag
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL B: BUILDING AGE & DEPRECIATION -->
+        <div class="form-panel">
+          <h3>2. Building Age & Depreciation</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="construction-year">Year of Construction</label>
+              <input type="number" id="construction-year" placeholder="e.g., 2010">
+            </div>
+            <div class="form-group">
+              <label for="construction-year-comment">Basis for Year of Construction</label>
+              <input type="text" id="construction-year-comment" placeholder="e.g. As Stated by Gaon Pradhan">
+            </div>
+            <div class="form-group">
+              <label for="valuation-year">Year of Valuation</label>
+              <input type="number" id="valuation-year" value="2025">
+            </div>
+            <div class="form-group">
+              <label for="depreciation-pct">Annual Depreciation Rate (%)</label>
+              <input type="number" id="depreciation-pct" value="2.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="residual-life">Estimated Residual Life (Years)</label>
+              <input type="number" id="residual-life" placeholder="e.g., 40">
+            </div>
+            <div class="form-group">
+              <label for="construction-class">Construction Classification Class</label>
+              <select id="construction-class">
+                <option value="First Class">First Class (R.C.C. framed structural building)</option>
+                <option value="Second Class">Second Class (Semi-permanent structure / brick walls)</option>
+                <option value="Third Class">Third Class (Temporary / Bamboo / Timber frame)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL C: INFRASTRUCTURE & APPROACH -->
+        <div class="form-panel">
+          <h3>3. Site Infrastructure & Approach</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="road-width">Abutting Road Width (meters)</label>
+              <input type="number" id="road-width" placeholder="e.g., 12.0" step="0.1">
+            </div>
+            <div class="form-group full-width">
+              <label style="margin-bottom: 0.5rem; display: block;">Site Infrastructure Utilities Available</label>
+              <div class="infra-checkboxes">
+                <label class="check-label">
+                  <input type="checkbox" id="infra-electricity"> Electricity Connection
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="infra-water"> Water Connection
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="infra-sewer"> Sewerage Connection
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="infra-drainage"> Drainage Facility
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="infra-lighting"> Street Lighting
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL D: SPREADSHEET ESTIMATE BUILDER -->
+        <div class="form-panel">
+          <div class="estimate-builder-header">
+            <h3>4. Itemised Estimate Sheet</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn-secondary" id="add-quantity-item-btn" style="padding: 0.5rem 0.75rem;">
+                <i data-lucide="plus-circle"></i> Add Quantity/DSR
+              </button>
+              <button type="button" class="btn-secondary" id="add-plinth-item-btn" style="padding: 0.5rem 0.75rem;">
+                <i data-lucide="plus-circle"></i> Add Plinth Room
+              </button>
+              <button type="button" class="btn-secondary" id="add-lumpsum-item-btn" style="padding: 0.5rem 0.75rem;">
+                <i data-lucide="plus-circle"></i> Add Lump Sum
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="builder-table">
+              <thead>
+                <tr>
+                  <th style="width: 8%">Item No</th>
+                  <th style="width: 50%">Description / DSR Autocomplete Selector</th>
+                  <th style="width: 12%">Quantity</th>
+                  <th style="width: 12%">Rate (Rs.)</th>
+                  <th style="width: 13%">Cost (Rs.)</th>
+                  <th style="width: 5%">Opt</th>
+                </tr>
+              </thead>
+              <tbody id="estimate-items-body">
+                <!-- Dynamically Added Rows -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Services additions -->
+          <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="check-label">
+                <input type="checkbox" id="toggle-electrification"> Add Electrification (Lump Sum)
+              </label>
+              <input type="number" id="electrification-cost" value="135000" style="width: 150px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); display: none;">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="check-label">
+                <input type="checkbox" id="toggle-sanitary"> Add Water Supply & Sanitary (Lump Sum)
+              </label>
+              <input type="number" id="sanitary-cost" value="85000" style="width: 150px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); display: none;">
+            </div>
+            
+            <!-- Custom Service Items section -->
+            <div style="margin-top: 0.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Custom Lump Sum additions (Non-Schedule items)</label>
+                <button type="button" class="btn-secondary" id="add-custom-service-btn" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; height: auto;">
+                  <i data-lucide="plus"></i> Add Addition
+                </button>
+              </div>
+              <div id="custom-services-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <!-- Dynamic custom service rows -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL E: INTERACTIVE LINE PLAN SKETCHER -->
+        <div class="form-panel">
+          <div class="estimate-builder-header">
+            <h3>5. Line Plan & Site Layout</h3>
+            <button type="button" class="btn-secondary" id="sketcher-gps-trace-btn" style="padding: 0.5rem 0.75rem; color: var(--accent); border-color: var(--accent);">
+              <i data-lucide="navigation"></i> GPS Perimeter Tracing Wizard
+            </button>
+          </div>
+
+          <div class="sketcher-container">
+            <!-- ── TOOLBAR ROW 1: Tools ── -->
+            <div class="sketcher-toolbar" style="flex-wrap:wrap;gap:0.3rem;padding:0.4rem;">
+
+              <!-- Group: Select / Erase -->
+              <button type="button" id="tool-select" class="active" title="Select & Move"><i data-lucide="pointer"></i> Select</button>
+              <button type="button" id="tool-erase" style="color:var(--danger);" title="Click a shape to delete it"><i data-lucide="eraser"></i> Erase</button>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+
+              <!-- Group: Draw / Lines -->
+              <button type="button" id="tool-wall" title="Draw walls (click points, double-click or ✓ to close)"><i data-lucide="pencil-ruler"></i> Wall</button>
+              <button type="button" id="tool-freehand" title="Freehand pen"><i data-lucide="brush"></i> Pen</button>
+              <button type="button" id="tool-line" title="ROW / Reference line (dashed)"><i data-lucide="minus"></i> ROW Line</button>
+              <button type="button" id="tool-dimension" style="color:#2563eb;border-color:#2563eb;" title="Dimension annotation (auto-calculates in metres)"><i data-lucide="ruler"></i> Dimension</button>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+
+              <!-- Group: Shapes / Structures -->
+              <button type="button" id="tool-room" style="color:#0891b2;border-color:#0891b2;" title="Draw a room (polygon fill with label)"><i data-lucide="layers"></i> Room / Fill</button>
+              <button type="button" id="tool-building" title="Place rectangular building block"><i data-lucide="square"></i> Rect Building</button>
+              <button type="button" id="tool-polybuilding" title="Draw polygon building"><i data-lucide="hexagon"></i> Polygon Bldg</button>
+              <button type="button" id="tool-close-poly" style="display:none;background-color:var(--accent);color:white;" title="Close the current polygon / wall chain"><i data-lucide="check"></i> Close Shape</button>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+
+              <!-- Group: Site Features -->
+              <button type="button" id="tool-road" title="Place horizontal road strip"><i data-lucide="split"></i> Road</button>
+              <button type="button" id="tool-boundary-wall" title="Boundary wall with hatching"><i data-lucide="grip-horizontal"></i> Boundary Wall</button>
+              <button type="button" id="tool-gate" title="Gate (drag to set width)"><i data-lucide="door-closed"></i> Gate</button>
+              <button type="button" id="tool-gate-toran" title="Gate with Toran arch"><i data-lucide="crown"></i> Gate+Toran</button>
+              <button type="button" id="tool-custom-block" style="color:#7c3aed;border-color:#7c3aed;" title="Custom misc block (well, tank, etc.)"><i data-lucide="box"></i> Custom Block</button>
+              <button type="button" id="tool-text" title="Add text label"><i data-lucide="type"></i> Text</button>
+
+              <span style="flex-grow:1;"></span>
+
+              <!-- Undo / Redo / Clear -->
+              <button type="button" id="tool-undo" title="Undo (Ctrl+Z)" style="padding:0.3rem 0.5rem;height:auto;"><i data-lucide="undo-2"></i></button>
+              <button type="button" id="tool-redo" title="Redo (Ctrl+Y)" style="padding:0.3rem 0.5rem;height:auto;"><i data-lucide="redo-2"></i></button>
+              <button type="button" id="tool-clear" style="color:var(--danger);border-color:var(--danger);" title="Clear entire drawing"><i data-lucide="refresh-cw"></i> Clear</button>
+            </div>
+
+            <!-- ── TOOLBAR ROW 2: Scale + Zoom + Snap ── -->
+            <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:center;flex-wrap:wrap;background:var(--bg-secondary);padding:0.35rem 0.6rem;border-radius:0.5rem;border:1px solid var(--border-color);">
+              <i data-lucide="ruler" style="width:13px;height:13px;color:var(--text-secondary);flex-shrink:0;"></i>
+              <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;">Scale:</label>
+              <select id="sketcher-scale-select" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+                <option value="50">1:50 (1m=100px)</option>
+                <option value="100" selected>1:100 (1m=50px)</option>
+                <option value="200">1:200 (1m=25px)</option>
+                <option value="500">1:500 (1m=10px)</option>
+                <option value="1000">1:1000 (1m=5px)</option>
+              </select>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
+
+              <span id="sketcher-zoom-label" style="font-size:0.78rem;color:var(--text-secondary);min-width:58px;white-space:nowrap;">Zoom: 100%</span>
+              <button type="button" id="sketch-zoom-in-btn"  title="Zoom In"        style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="zoom-in"></i></button>
+              <button type="button" id="sketch-zoom-out-btn" title="Zoom Out"       style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="zoom-out"></i></button>
+              <button type="button" id="sketch-zoom-fit-btn" title="Fit to content" style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="expand"></i></button>
+              <button type="button" id="sketch-zoom-reset-btn" title="Reset view"   style="padding:0.22rem 0.4rem;height:auto;font-size:0.72rem;">1:1</button>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
+
+              <button type="button" id="sketch-a4-frame-btn" title="Toggle A4 PDF Bounds Guide" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border-color:#94a3b8;">
+                <i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 FRAME OFF
+              </button>
+              <div style="display:flex;gap:0.15rem;margin-left:0.2rem;">
+                <button type="button" id="sketch-pan-left-btn"  title="Pan Left"  style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-left"></i></button>
+                <button type="button" id="sketch-pan-up-btn"    title="Pan Up"    style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-up"></i></button>
+                <button type="button" id="sketch-pan-down-btn"  title="Pan Down"  style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-down"></i></button>
+                <button type="button" id="sketch-pan-right-btn" title="Pan Right" style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-right"></i></button>
+              </div>
+
+              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
+
+              <button type="button" id="sketch-snap-toggle" title="Toggle grid snap (G)" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border-color:#22c55e;">
+                <i data-lucide="grid" style="width:13px;height:13px;"></i> SNAP ON
+              </button>
+              <select id="sketch-grid-size" title="Grid size" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+                <option value="0.1">0.1m grid</option>
+                <option value="0.25">0.25m grid</option>
+                <option value="0.5" selected>0.5m grid</option>
+                <option value="1">1m grid</option>
+                <option value="2">2m grid</option>
+              </select>
+
+              <span style="font-size:0.72rem;color:var(--text-secondary);margin-left:auto;flex-shrink:0;">
+                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Shift</kbd> = 90° snap ·
+                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Space</kbd>+drag or
+                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">↕ scroll</kbd> = pan/zoom ·
+                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Del</kbd> = delete ·
+                Wall: click→click→dbl-click to end
+              </span>
+            </div>
+
+            <!-- ── Map Background Controls ── -->
+            <div class="sketcher-map-controls" style="display:flex;gap:0.5rem;margin-top:0.4rem;margin-bottom:0.4rem;align-items:center;background-color:var(--bg-secondary);padding:0.45rem 0.6rem;border-radius:0.5rem;border:1px solid var(--border-color);flex-wrap:wrap;">
+              <span style="font-weight:600;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:0.25rem;"><i data-lucide="map"></i> Map:</span>
+              <input type="text" id="map-search-input" placeholder="Address or Lat, Lon (e.g. 26.1234, 92.5678)" style="padding:0.3rem 0.5rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);flex-grow:1;min-width:170px;">
+              <select id="map-type-select" style="padding:0.3rem 0.5rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);">
+                <option value="satellite">Satellite</option>
+                <option value="road">Road Map</option>
+              </select>
+              <button type="button" class="btn-secondary" id="map-zoom-out-btn" style="padding:0.3rem 0.5rem;font-size:0.8rem;height:auto;" title="Map Zoom Out"><i data-lucide="zoom-out"></i></button>
+              <button type="button" class="btn-secondary" id="map-zoom-in-btn"  style="padding:0.3rem 0.5rem;font-size:0.8rem;height:auto;" title="Map Zoom In"><i data-lucide="zoom-in"></i></button>
+              <div style="display:flex;gap:0.15rem;">
+                <button type="button" class="btn-secondary" id="map-pan-left-btn"  style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-left"></i></button>
+                <button type="button" class="btn-secondary" id="map-pan-up-btn"    style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-up"></i></button>
+                <button type="button" class="btn-secondary" id="map-pan-down-btn"  style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-down"></i></button>
+                <button type="button" class="btn-secondary" id="map-pan-right-btn" style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-right"></i></button>
+              </div>
+              <button type="button" class="btn-primary"   id="map-load-btn"  style="padding:0.3rem 0.7rem;font-size:0.8rem;height:auto;">Load Map</button>
+              <button type="button" class="btn-secondary" id="map-clear-btn" style="padding:0.3rem 0.7rem;font-size:0.8rem;height:auto;color:var(--danger);border-color:var(--danger);background:transparent;">Remove</button>
+            </div>
+
+            <!-- ── Properties Panel ── -->
+            <div id="sketcher-properties-panel" style="display:none;background-color:var(--bg-primary);padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid var(--border-color);margin-top:0.4rem;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <span style="font-weight:600;font-size:0.85rem;color:var(--accent);">Shape Details:</span>
+
+              <!-- Structure type -->
+              <div id="prop-field-structure-type" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Structure Type:</label>
+                <select id="prop-input-structure-type" style="padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="">(None / Custom)</option>
+                  <option value="rcc">RCC Structure</option>
+                  <option value="assam">Assam Type Building</option>
+                  <option value="temp-building">Temporary Building</option>
+                  <option value="temp-shed">Temp Shed</option>
+                </select>
+              </div>
+
+              <!-- Block style -->
+              <div id="prop-field-block-style" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Block Style:</label>
+                <select id="prop-input-block-style" style="padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="misc">Miscellaneous</option>
+                  <option value="well">Tube Well / Bore Well</option>
+                  <option value="tank">Water Tank / Septic Tank</option>
+                  <option value="power">Generator / Power</option>
+                  <option value="compound">Compound / Enclosure</option>
+                </select>
+              </div>
+
+              <!-- Room fill color -->
+              <div id="prop-field-room-color" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Fill Color:</label>
+                <input type="color" id="prop-input-room-color" value="#bfdbfe" style="width:38px;height:28px;border:1px solid var(--border-color);border-radius:0.3rem;padding:2px;background:var(--bg-secondary);cursor:pointer;">
+              </div>
+
+              <!-- Label -->
+              <div id="prop-field-label" style="display:flex;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Label:</label>
+                <input type="text" id="prop-input-label" placeholder="e.g. Kitchen" style="width:145px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              </div>
+
+              <!-- Width -->
+              <div id="prop-field-width" style="display:flex;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Width:</label>
+                <input type="text" id="prop-input-width" placeholder="12.30m" style="width:75px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              </div>
+
+              <!-- Height -->
+              <div id="prop-field-height" style="display:flex;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Height:</label>
+                <input type="text" id="prop-input-height" placeholder="9.00m" style="width:75px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              </div>
+
+              <!-- Dim label (lines/walls) -->
+              <div id="prop-field-dim-label" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);"><i data-lucide="ruler" style="width:12px;height:12px;"></i> Dim:</label>
+                <input type="text" id="prop-input-dim-label" placeholder="5.20m" style="width:85px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);" title="Drag orange ◆ handle to reposition">
+                <span style="font-size:0.72rem;color:var(--text-muted);font-style:italic;">drag ◆ to move</span>
+              </div>
+
+              <!-- Road direction labels -->
+              <div id="prop-field-road" style="display:flex;gap:0.75rem;align-items:center;">
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">← Left:</label>
+                  <input type="text" id="prop-input-left" placeholder="To Kaliabor" style="width:95px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                </div>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Right →</label>
+                  <input type="text" id="prop-input-right" placeholder="To Numaligarh" style="width:95px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                </div>
+              </div>
+
+              <!-- Merge Button -->
+              <div id="prop-field-merge" style="display:none;align-items:center;gap:0.5rem;">
+                <button type="button" id="prop-btn-merge" class="btn-primary" style="padding:0.3rem 0.6rem;font-size:0.8rem;height:auto;background-color:var(--accent);border-color:var(--accent);">
+                  <i data-lucide="merge"></i> Merge Touching
+                </button>
+              </div>
+            </div>
+
+            <!-- ── Canvas ── -->
+            <div class="canvas-wrapper">
+              <canvas id="sketcher-canvas"></canvas>
+            </div>
+            <p style="font-size:0.78rem;color:var(--text-muted);font-style:italic;margin-top:0.3rem;">
+              <b>Select</b> → move/resize (drag corner handles). <b>Endpoint handles ●</b> reshape lines. <b>Orange ◆</b> repositions dimension labels. <b>Wall tool</b>: click points, dbl-click to end / ✓ Close Shape to close. <b>G</b> key toggles grid snap.
+            </p>
+          </div>
+
+
+
+        </div>
+
+        <!-- PANEL F: CAMERA PHOTOS EVIDENCE -->
+        <div class="form-panel">
+          <h3>6. Site Evidence Images</h3>
+          <div class="photo-uploader-box" id="photo-dropzone">
+            <i data-lucide="camera" style="width: 36px; height: 36px; margin-bottom: 0.5rem;"></i>
+            <p class="bold" style="color: var(--text-primary);">Take a photo or upload site images</p>
+            <p style="font-size: 0.8rem; margin-top: 0.25rem;">(Images are auto-compressed to ~100KB for offline performance)</p>
+            <input type="file" id="camera-file-input" accept="image/*" capture="camera" style="display: none;" multiple>
+          </div>
+
+          <!-- Thumbnail gallery -->
+          <div class="photo-thumbs-grid" id="photo-gallery-grid">
+            <!-- Dynamic -->
+          </div>
+        </div>
+
+
+
+      </div>
+    </div>
+
+    <!-- VIEW 5: DSR SETTINGS PANEL -->
+    <div id="view-settings" class="view-container">
+      <div class="dashboard-header">
+        <div>
+          <h2>DSR 2021 Reference Database</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Import custom OCR scan blocks or search preloaded CPWD rates</p>
+        </div>
+      </div>
+
+      <div class="editor-layout">
+        <div class="form-panel">
+          <h3>Import Scanned DSR OCR Text</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Copy a page of items from your DSR PDF and paste the OCR output below. The scanner will identify item numbers, descriptions, units, and rates automatically.
+          </p>
+
+          <div class="form-group full-width">
+            <label for="ocr-pasted-text">Paste Scan OCR Text Here</label>
+            <textarea id="ocr-pasted-text" class="ocr-textarea" placeholder="Example format:
+Item No 12.5 62 mm thick cement concrete flooring with concrete hardener topping... sqm Rate: 512.50
+OR
+Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+            <button class="btn-primary" id="ocr-parse-btn">
+              <i data-lucide="scan"></i> Parse Text Blocks
+            </button>
+            <button class="btn-secondary" id="ocr-save-catalog-btn" disabled>
+              <i data-lucide="database-backup"></i> Import items to Autocomplete
+            </button>
+          </div>
+        </div>
+
+        <div class="form-panel" id="ocr-preview-panel" style="display: none;">
+          <h3>Parsed Items Preview</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;" id="ocr-preview-count">0 items detected</p>
+          <div class="parsed-preview-panel">
+            <table class="reports-table" style="box-shadow: none;">
+              <thead>
+                <tr>
+                  <th style="width: 15%">Item Code</th>
+                  <th style="width: 55%">Description</th>
+                  <th style="width: 15%">Unit</th>
+                  <th style="width: 15%">Rate (Rs.)</th>
+                </tr>
+              </thead>
+              <tbody id="ocr-preview-tbody">
+                <!-- Preview details -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: GPS PERIMETER TRACING WIZARD -->
+    <div class="modal-overlay" id="gps-tracing-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>GPS Perimeter Tracing Wizard</h3>
+          <button class="close-btn" id="gps-modal-close-btn"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Walk the perimeter of the plot and record coordinates at each corner to map the site boundary and compute the area.
+          </p>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <button type="button" class="btn-primary" id="gps-record-node-btn">
+              <i data-lucide="plus-circle"></i> Record Corner Point
+            </button>
+            <button type="button" class="btn-danger" id="gps-clear-nodes-btn" style="background-color: var(--text-muted);">
+              Reset Nodes
+            </button>
+          </div>
+
+          <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem;">
+            <table class="reports-table" style="box-shadow: none;">
+              <thead>
+                <tr>
+                  <th>Corner</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                </tr>
+              </thead>
+              <tbody id="gps-recorded-nodes-body">
+                <tr><td colspan="3" class="text-muted" style="text-align: center; padding: 1rem;">No points recorded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="background-color: var(--accent-light); border-radius: 0.75rem; padding: 1rem;" id="gps-tracing-results" style="display: none;">
+            <h4 style="color: var(--accent); font-size: 0.95rem; margin-bottom: 0.5rem;">Perimeter Calculation Summary</h4>
+            <p style="font-size: 0.85rem; margin-bottom: 0.25rem;">Enclosed Area: <strong id="gps-results-area">0 sqm (0 sqf)</strong></p>
+            <p style="font-size: 0.85rem;">Boundaries detected: <strong id="gps-results-sides">0 sides</strong></p>
+          </div>
+
+          <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem; text-align: center;">
+            <button type="button" class="btn-secondary" id="gps-mock-trace-btn" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+              <i data-lucide="activity"></i> Load Demo Walkthrough Trace (10m x 15m Plot)
+            </button>
+          </div>
+
+          <!-- Google Earth Importer Section -->
+          <div style="margin-top: 1rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Import boundary from Google Earth (KML or Lat,Lon list)</label>
+            <textarea id="gps-ge-import-text" style="width: 100%; height: 75px; font-family: monospace; font-size: 0.8rem; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); resize: none;" placeholder="Example Lat,Lon list format:
+26.589100, 93.125600
+26.589100, 93.125735
+26.589235, 93.125735
+26.589235, 93.125600"></textarea>
+            <button type="button" class="btn-secondary" id="gps-ge-import-btn" style="margin-top: 0.5rem; font-size: 0.8rem; padding: 0.4rem 0.75rem; width: 100%; justify-content: center; color: var(--accent); border-color: var(--accent);">
+              <i data-lucide="download"></i> Parse & Load Coordinates
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button class="btn-secondary" id="gps-modal-cancel-btn">Cancel</button>
+          <button class="btn-primary" id="gps-modal-import-btn" disabled>Import Boundary Outline</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- VIEW 6: PDF TEMPLATE EDITOR -->
+  <div id="view-pdf-template" class="view-container">
+    <div class="dashboard-header">
+      <div>
+        <h2>PDF Template Settings</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Customise the layout, text, and style of your exported valuation report</p>
+      </div>
+      <button class="btn-primary" id="pdf-template-save-btn">
+        <i data-lucide="save"></i> Save Template
+      </button>
+    </div>
+
+    <div class="editor-layout" style="gap: 1.5rem;">
+
+      <!-- Left: Settings Form -->
+      <div class="form-panel" style="flex: 1; min-width: 0;">
+
+        <!-- Section: Report Header -->
+        <div class="form-section">
+          <div class="form-section-title">Report Header</div>
+
+          <div class="form-group">
+            <label class="form-label">Basis of Estimate Line</label>
+            <input id="tpl-basis-text" class="form-input" type="text"
+              placeholder="e.g. D.S.R for CPWD Building for the year 2021"
+              value="D.S.R for CPWD Building for the year 2021" />
+            <span class="form-hint">Shown below the project header on page 1</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Organisation / Department Name</label>
+            <input id="tpl-org-name" class="form-input" type="text"
+              placeholder="e.g. Central Public Works Department" />
+            <span class="form-hint">Shown as a header above the report (leave blank to hide)</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Report Sub-Title</label>
+            <input id="tpl-subtitle" class="form-input" type="text"
+              placeholder="e.g. VALUATION ESTIMATE FOR LAND ACQUISITION" />
+            <span class="form-hint">Appears as a bold sub-title line beneath the org name</span>
+          </div>
+        </div>
+
+        <!-- Section: Page Layout -->
+        <div class="form-section">
+          <div class="form-section-title">Page Layout</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Page Margin (mm)</label>
+              <input id="tpl-margin" class="form-input" type="number" min="4" max="30" value="8" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Base Font Size (pt)</label>
+              <select id="tpl-font-size" class="form-input">
+                <option value="9">9 pt</option>
+                <option value="10">10 pt</option>
+                <option value="10.5" selected>10.5 pt (Default)</option>
+                <option value="11">11 pt</option>
+                <option value="12">12 pt</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">PDF Image Quality</label>
+              <select id="tpl-img-quality" class="form-input">
+                <option value="0.80">80% – Smaller file</option>
+                <option value="0.92">92% – Balanced</option>
+                <option value="0.98" selected>98% – High quality</option>
+                <option value="1.00">100% – Lossless</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Line Plan Height</label>
+              <select id="tpl-lineplan-height" class="form-input">
+                <option value="150mm">150 mm – Compact</option>
+                <option value="170mm" selected>170 mm – Default</option>
+                <option value="190mm">190 mm – Large</option>
+                <option value="210mm">210 mm – Full page</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Footer / NB Note -->
+        <div class="form-section">
+          <div class="form-section-title">Default N.B. Note</div>
+          <div class="form-group">
+            <label class="form-label">Default N.B. note text</label>
+            <textarea id="tpl-nb-default" class="form-input" rows="4"
+              placeholder="This note appears at the bottom of every report by default. Individual reports can override it."
+              style="resize:vertical;"></textarea>
+            <span class="form-hint">Individual report N.B. notes override this default.</span>
+          </div>
+        </div>
+
+        <!-- Section: Depreciation Defaults -->
+        <div class="form-section">
+          <div class="form-section-title">Depreciation Defaults</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Default Depreciation Rate (% per year)</label>
+              <input id="tpl-dep-rate" class="form-input" type="number" min="0" max="10" step="0.5" value="1" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contractor Profit Deduction (%)</label>
+              <input id="tpl-contractor-pct" class="form-input" type="number" min="0" max="30" step="1" value="15" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: Preview Card -->
+      <div class="form-panel" style="flex: 1; min-width: 0;">
+        <div class="form-section">
+          <div class="form-section-title">PDF Page 1 Preview</div>
+          <div id="pdf-tpl-preview" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:20px;font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#000;line-height:1.6;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <!-- Rendered live by JS -->
+          </div>
+        </div>
+
+        <div class="form-section" style="margin-top:1rem;">
+          <div class="form-section-title">Photo Page Layout</div>
+          <div class="form-group">
+            <label class="form-label">Photos per row</label>
+            <select id="tpl-photos-per-row" class="form-input">
+              <option value="1">1 – Full width</option>
+              <option value="2" selected>2 – Side by side (Default)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Photo height in PDF</label>
+            <select id="tpl-photo-height" class="form-input">
+              <option value="50mm">50 mm – Small</option>
+              <option value="60mm" selected>60 mm – Default</option>
+              <option value="75mm">75 mm – Large</option>
+              <option value="90mm">90 mm – Extra large</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PDF HIDDEN GENERATOR FRAME -->
+  <div id="pdf-template"></div>
+
+  <!-- Entry Script -->
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>
