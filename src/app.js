@@ -514,7 +514,6 @@ function openProjectDetails(projectId) {
   switchView('projectDetails');
 }
 
-// Project Details Dashboard View
 function setupProjectDetails() {
   document.getElementById('project-back-btn').addEventListener('click', () => {
     switchView('dashboard');
@@ -531,6 +530,277 @@ function setupProjectDetails() {
       initNewOwnerEntry();
     }
   });
+
+  document.getElementById('proj-export-excel-btn').addEventListener('click', () => {
+    if (activeProject) exportProjectToExcel();
+  });
+
+  document.getElementById('proj-export-word-btn').addEventListener('click', () => {
+    if (activeProject) exportProjectToWord();
+  });
+
+  document.getElementById('proj-print-btn').addEventListener('click', () => {
+    if (activeProject) printProjectOwnerList();
+  });
+}
+
+function exportProjectToExcel() {
+  if (!activeProject || !activeProject.entries || activeProject.entries.length === 0) {
+    alert("No owner entries available to export.");
+    return;
+  }
+
+  const headers = [
+    "Owner / Occupant",
+    "Village / Location",
+    "GPS Latitude",
+    "GPS Longitude",
+    "Status",
+    "Total A (Structure Value)",
+    "Contractor Deduction (15%)",
+    "Total B (Net Structure Value)",
+    "Structure Age (Years)",
+    "Depreciation Rate (%)",
+    "Total Depreciation (%)",
+    "Depreciation Amount",
+    "Value After Depreciation",
+    "Electrification Cost",
+    "Sanitation Cost",
+    "Grand Total Valuation (Rs.)"
+  ];
+
+  const rows = activeProject.entries.map(e => [
+    e.clientName || "Unnamed Owner",
+    e.location || "N/A",
+    e.gpsLat || "",
+    e.gpsLon || "",
+    e.status || "draft",
+    e.totalA || 0,
+    e.contractorDeduction || 0,
+    e.totalB || 0,
+    e.structureAge || 0,
+    e.depreciationPct || 0,
+    e.totalDepreciationPct || 0,
+    e.depreciationAmount || 0,
+    e.totalAfterDepreciation || 0,
+    e.electrificationCost || 0,
+    e.sanitaryCost || 0,
+    e.grandTotal || 0
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => row.map(val => {
+      let cell = String(val === null || val === undefined ? '' : val);
+      if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+        cell = '"' + cell.replace(/"/g, '""') + '"';
+      }
+      return cell;
+    }).join(","))
+  ].join("\r\n");
+
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${activeProject.workName.replace(/\s+/g, '_')}_owner_list.csv`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function exportProjectToWord() {
+  if (!activeProject) return;
+  const entries = activeProject.entries || [];
+
+  if (entries.length === 0) {
+    alert("No owner entries available to export.");
+    return;
+  }
+
+  let rowsHtml = '';
+  entries.forEach((e, idx) => {
+    const gpsText = e.gpsLat && e.gpsLon ? `${parseFloat(e.gpsLat).toFixed(4)}, ${parseFloat(e.gpsLon).toFixed(4)}` : 'No GPS';
+    rowsHtml += `
+      <tr>
+        <td style="border: 1px solid #cccccc; padding: 8px;">${idx + 1}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px; font-weight: bold;">${e.clientName || 'Unnamed Owner'}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px;">${e.location || 'N/A'}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px; font-family: monospace;">${gpsText}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px; text-align: right; font-weight: bold; color: #1e3a8a;">Rs. ${formatIndianCurrency(e.grandTotal || 0)}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; background-color: ${e.status === 'completed' ? '#d1fae5; color: #065f46;' : '#fef3c7; color: #92400e;'}">${e.status}</span></td>
+      </tr>
+    `;
+  });
+
+  const totalCost = entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+  const completedCount = entries.filter(e => e.status === 'completed').length;
+
+  const htmlContent = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset="utf-8">
+      <title>${activeProject.workName}</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5; color: #333333; }
+        h1 { color: #1e3a8a; font-size: 24px; margin-bottom: 5px; }
+        h2 { color: #0f172a; font-size: 16px; margin-top: 0; }
+        .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .meta-table td { padding: 6px 0; font-size: 14px; }
+        .main-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .main-table th { background-color: #f1f5f9; border: 1px solid #cccccc; padding: 10px 8px; text-align: left; font-size: 13px; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <h1>Valuation Project Report</h1>
+      <h2>Project: ${activeProject.workName}</h2>
+      <hr style="border: 0; border-top: 1px solid #dddddd; margin-bottom: 20px;">
+      
+      <table class="meta-table">
+        <tr>
+          <td style="width: 25%; font-weight: bold;">Location / Section:</td>
+          <td>${activeProject.location || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold;">Total Affected Owners:</td>
+          <td>${entries.length}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold;">Completed Valuations:</td>
+          <td>${completedCount} of ${entries.length}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold;">Total Cost Estimate:</td>
+          <td style="font-weight: bold; color: #1e3a8a; font-size: 16px;">Rs. ${formatIndianCurrency(totalCost)}</td>
+        </tr>
+      </table>
+
+      <h3>Affected Properties List</h3>
+      <table class="main-table">
+        <thead>
+          <tr>
+            <th style="width: 5%;">Sl. No.</th>
+            <th style="width: 30%;">Owner / Occupant</th>
+            <th style="width: 20%;">Village / Location</th>
+            <th style="width: 20%;">GPS Coordinates</th>
+            <th style="width: 15%; text-align: right;">Valuation (Rs.)</th>
+            <th style="width: 10%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([htmlContent], { type: 'application/msword' });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${activeProject.workName.replace(/\s+/g, '_')}_valuation_report.doc`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function printProjectOwnerList() {
+  if (!activeProject) return;
+  const entries = activeProject.entries || [];
+
+  if (entries.length === 0) {
+    alert("No owner entries available to print.");
+    return;
+  }
+
+  let rowsHtml = '';
+  entries.forEach((e, idx) => {
+    const gpsText = e.gpsLat && e.gpsLon ? `${parseFloat(e.gpsLat).toFixed(4)}, ${parseFloat(e.gpsLon).toFixed(4)}` : 'No GPS';
+    rowsHtml += `
+      <tr>
+        <td>${idx + 1}</td>
+        <td class="bold">${e.clientName || 'Unnamed Owner'}</td>
+        <td>${e.location || 'N/A'}</td>
+        <td class="mono">${gpsText}</td>
+        <td class="text-right bold">Rs. ${formatIndianCurrency(e.grandTotal || 0)}</td>
+        <td class="text-center status-${e.status}">${e.status}</td>
+      </tr>
+    `;
+  });
+
+  const totalCost = entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+  const completedCount = entries.filter(e => e.status === 'completed').length;
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+    <head>
+      <title>Print - ${activeProject.workName}</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; line-height: 1.4; color: #333; }
+        .header { margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h1 { margin: 0 0 5px 0; font-size: 22px; color: #1e3a8a; }
+        .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; font-size: 14px; }
+        .meta-item { display: flex; }
+        .meta-label { font-weight: bold; width: 180px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+        .mono { font-family: monospace; }
+        .status-completed { color: #065f46; font-weight: bold; }
+        .status-draft { color: #92400e; font-style: italic; }
+        .no-print { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f1f5f9; padding: 10px; border-radius: 4px; }
+        @media print {
+          body { padding: 0; }
+          .no-print { display: none !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="no-print">
+        <span style="font-size: 12px; color: #475569;">Use your browser's Print dialog to print or save as PDF.</span>
+        <button onclick="window.print()" style="padding: 6px 12px; font-weight: bold; cursor: pointer; background: #1e3a8a; color: white; border: none; border-radius: 4px;">Print Now</button>
+      </div>
+      <div class="header">
+        <h1>Valuation Project Owner List</h1>
+        <div style="font-size: 14px; color: #666; margin-top: 3px;">Project Work: ${activeProject.workName}</div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-item"><span class="meta-label">Location / Section:</span><span>${activeProject.location || 'N/A'}</span></div>
+        <div class="meta-item"><span class="meta-label">Total Cost Estimate:</span><span class="bold">Rs. ${formatIndianCurrency(totalCost)}</span></div>
+        <div class="meta-item"><span class="meta-label">Total Affected Properties:</span><span>${entries.length}</span></div>
+        <div class="meta-item"><span class="meta-label">Completed Valuations:</span><span>${completedCount} of ${entries.length}</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 5%;">Sl. No.</th>
+            <th style="width: 30%;">Owner / Occupant</th>
+            <th style="width: 25%;">Village / Location</th>
+            <th style="width: 20%;">GPS Coordinates</th>
+            <th style="width: 12%; text-align: right;">Valuation</th>
+            <th style="width: 8%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 500);
+        }
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 function renderProjectDetails() {
