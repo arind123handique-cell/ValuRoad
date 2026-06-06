@@ -370,7 +370,11 @@ function loadProjects() {
 }
 
 function saveProjects() {
-  localStorage.setItem('projects', JSON.stringify(projects));
+  try {
+    localStorage.setItem('projects', JSON.stringify(projects));
+  } catch (e) {
+    console.warn('LocalStorage quota exceeded, skipping local cache save:', e);
+  }
 }
 
 function loadCustomDsrCatalog() {
@@ -382,7 +386,11 @@ function loadCustomDsrCatalog() {
 }
 
 function saveCustomDsrCatalog() {
-  localStorage.setItem('customDsrCatalog', JSON.stringify(customDsrCatalog));
+  try {
+    localStorage.setItem('customDsrCatalog', JSON.stringify(customDsrCatalog));
+  } catch (e) {
+    console.warn('LocalStorage quota exceeded for DSR Catalog:', e);
+  }
 }
 
 // Project Dashboard View
@@ -934,6 +942,11 @@ function renderCustomServiceRow(cs) {
 }
 
 function loadEntryToEditor() {
+  if (!activeEntry) return;
+  if (!activeEntry.items) activeEntry.items = [];
+  if (!activeEntry.customServices) activeEntry.customServices = [];
+  if (!activeEntry.status) activeEntry.status = 'draft';
+
   document.getElementById('editor-project-context-title').innerText = activeProject.workName || 'Untitled Project';
 
   if (activeEntry.status === 'completed') {
@@ -1712,6 +1725,8 @@ function setupDsrAutocomplete(input, item, tr) {
 
 function calculateAndRenderTotals() {
   if (!activeEntry) return;
+  if (!activeEntry.items) activeEntry.items = [];
+  if (!activeEntry.customServices) activeEntry.customServices = [];
 
   activeEntry.clientName = document.getElementById('client-name').value;
   activeEntry.location = document.getElementById('location').value;
