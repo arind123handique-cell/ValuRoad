@@ -1959,6 +1959,26 @@ function setupImageUploader() {
   });
 }
 
+async function uploadToCloudinary(base64Data) {
+  const url = `https://api.cloudinary.com/v1_1/dgauiflhx/image/upload`;
+  const formData = new FormData();
+  formData.append('file', base64Data);
+  formData.append('upload_preset', 'SakoriCloud');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.error?.message || 'Cloudinary upload failed');
+  }
+
+  const data = await res.json();
+  return data.secure_url;
+}
+
 function processImageFiles(files) {
   if (!activeEntry.photos) activeEntry.photos = [];
   
@@ -1993,12 +2013,34 @@ function processImageFiles(files) {
         ctx.drawImage(img, 0, 0, width, height);
 
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-        activeEntry.photos.push({
-          id: 'PHOTO_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        
+        const photoId = 'PHOTO_' + Date.now() + Math.random().toString(36).substr(2, 5);
+        const photoItem = {
+          id: photoId,
           data: compressedBase64,
-          caption: file.name.substring(0, 15) || 'Site View'
-        });
+          caption: file.name.substring(0, 15) || 'Site View',
+          uploading: true
+        };
+        activeEntry.photos.push(photoItem);
         renderPhotoGallery();
+
+        // Trigger Cloudinary upload asynchronously
+        uploadToCloudinary(compressedBase64)
+          .then(secureUrl => {
+            photoItem.data = secureUrl;
+            delete photoItem.uploading;
+            renderPhotoGallery();
+            
+            // Auto-save the entry so Firestore gets the final Cloudinary URL
+            saveActiveEntry_noExport();
+          })
+          .catch(err => {
+            console.error("Cloudinary upload error:", err);
+            alert(`Failed to upload photo "${file.name}": ${err.message}`);
+            // Remove placeholder on failure
+            activeEntry.photos = activeEntry.photos.filter(p => p.id !== photoId);
+            renderPhotoGallery();
+          });
       };
       img.src = e.target.result;
     };
@@ -2015,21 +2057,38 @@ function renderPhotoGallery() {
   activeEntry.photos.forEach(ph => {
     const card = document.createElement('div');
     card.className = 'photo-thumb-card';
+    card.style.position = 'relative';
+
+    let spinnerHtml = '';
+    if (ph.uploading) {
+      spinnerHtml = `
+        <div style="position: absolute; inset: 0; background: rgba(15, 23, 42, 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.5rem; color: #ffffff; z-index: 2; gap: 0.25rem;">
+          <div style="width: 1.5rem; height: 1.5rem; border: 2.5px solid rgba(255, 255, 255, 0.3); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+          <span style="font-size: 0.7rem; font-weight: 500; letter-spacing: 0.5px;">Uploading...</span>
+        </div>
+      `;
+    }
+
     card.innerHTML = `
-      <img src="${ph.data}" alt="evidence">
-      <input type="text" class="photo-caption-input" value="${ph.caption}" placeholder="Add caption...">
-      <button type="button" class="delete-thumb-btn" title="Delete Photo">x</button>
+      ${spinnerHtml}
+      <img src="${ph.data}" alt="evidence" style="opacity: ${ph.uploading ? 0.5 : 1}; transition: opacity 0.2s;">
+      <input type="text" class="photo-caption-input" value="${ph.caption}" placeholder="Add caption..." ${ph.uploading ? 'disabled' : ''}>
+      <button type="button" class="delete-thumb-btn" title="Delete Photo" ${ph.uploading ? 'disabled' : ''}>x</button>
     `;
     container.appendChild(card);
 
-    card.querySelector('.photo-caption-input').addEventListener('input', (e) => {
-      ph.caption = e.target.value;
-    });
+    if (!ph.uploading) {
+      card.querySelector('.photo-caption-input').addEventListener('input', (e) => {
+        ph.caption = e.target.value;
+        saveActiveEntry_noExport(); // Auto-save caption edit
+      });
 
-    card.querySelector('.delete-thumb-btn').addEventListener('click', () => {
-      activeEntry.photos = activeEntry.photos.filter(p => p.id !== ph.id);
-      card.remove();
-    });
+      card.querySelector('.delete-thumb-btn').addEventListener('click', () => {
+        activeEntry.photos = activeEntry.photos.filter(p => p.id !== ph.id);
+        card.remove();
+        saveActiveEntry_noExport(); // Auto-save removal
+      });
+    }
   });
 }
 
