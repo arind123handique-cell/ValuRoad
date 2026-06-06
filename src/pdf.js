@@ -574,7 +574,11 @@ export function exportToPDF(report, sketcherImage) {
   // Run html2pdf options
   const opt = {
     margin: [tpl.margin, tpl.margin, tpl.margin, tpl.margin],
-    filename: `Valuation_${(report.clientName || 'Owner').substring(0, 25).replace(/\s+/g, '_')}_${report.id}.pdf`,
+    filename: (() => {
+      const cleanName = (report.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+      const rawPart = `Valuation_${cleanName}_${report.id}`.replace(/_+/g, '_');
+      return rawPart.substring(0, 46).replace(/_$/, '') + '.pdf';
+    })(),
     image: { type: 'jpeg', quality: tpl.imgQuality },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }

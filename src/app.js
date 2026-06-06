@@ -602,8 +602,14 @@ function exportProjectToExcel() {
   const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
+  
+  // Truncate filename to 50 characters max
+  const cleanName = activeProject.workName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+  const namePart = cleanName.substring(0, 35).replace(/_$/, '');
+  const filename = `${namePart}_owner_list.csv`;
+  
   link.setAttribute("href", url);
-  link.setAttribute("download", `${activeProject.workName.replace(/\s+/g, '_')}_owner_list.csv`);
+  link.setAttribute("download", filename);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
@@ -699,8 +705,14 @@ function exportProjectToWord() {
   const blob = new Blob([htmlContent], { type: 'application/msword' });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
+  
+  // Truncate filename to 50 characters max
+  const cleanName = activeProject.workName.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+  const namePart = cleanName.substring(0, 29).replace(/_$/, '');
+  const filename = `${namePart}_valuation_report.doc`;
+  
   link.setAttribute("href", url);
-  link.setAttribute("download", `${activeProject.workName.replace(/\s+/g, '_')}_valuation_report.doc`);
+  link.setAttribute("download", filename);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
