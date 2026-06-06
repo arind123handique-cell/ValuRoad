@@ -445,9 +445,9 @@ export class SiteSketcher {
     });
 
     window.addEventListener('keydown', (e) => {
+      if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=true;
       if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
-      if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); this.undo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))) { e.preventDefault(); this.redo(); }
       if ((e.key==='Delete'||e.key==='Backspace')&&this.selectedShape) {
@@ -460,6 +460,7 @@ export class SiteSketcher {
       if (e.key==='g'||e.key==='G') { this.snapGrid=!this.snapGrid; this.draw(); }
     });
     window.addEventListener('keyup', (e) => {
+      if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=false;
       if (e.key===' ')     this.spaceDown=false;
     });
