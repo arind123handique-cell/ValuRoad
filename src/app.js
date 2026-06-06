@@ -1658,6 +1658,7 @@ function renderItemRow(item) {
         <input type="text" class="item-title-input bold dsr-search" placeholder="Type to search DSR item..." value="${item.title}">
         <div class="dsr-autocomplete-list" style="display: none;"></div>
       </div>
+      <div class="dsr-rate-hint" style="display:none;"></div>
       <textarea class="item-desc-input" placeholder="Standard quantity description...">${item.description}</textarea>
 
       <!-- Measurement Book Table -->
@@ -1869,6 +1870,25 @@ function renderItemRow(item) {
     });
 
     setupDsrAutocomplete(tr.querySelector('.dsr-search'), item, tr);
+
+    // Show rate hint from learned catalog if item title matches
+    const rateHintEl = tr.querySelector('.dsr-rate-hint');
+    const showDsrRateHint = (title) => {
+      if (!rateHintEl) return;
+      const codeMatch = (title || '').match(/DSR\s+(?:Item\s*No\.?\s*)?([0-9]+(?:\.[0-9]+)*)/i);
+      if (!codeMatch) { rateHintEl.style.display = 'none'; return; }
+      const code = codeMatch[1];
+      const learned = customDsrCatalog.find(d => d.code === code);
+      if (learned) {
+        rateHintEl.innerHTML = `⭐ Learned — last rate: <strong>Rs. ${formatIndianCurrency(learned.rate)} / ${learned.unit}</strong>
+          <span style="color:var(--text-muted); font-size:0.68rem; margin-left:0.35rem;">used ${learned.usageCount || 1}×</span>`;
+        rateHintEl.style.display = 'block';
+      } else {
+        rateHintEl.style.display = 'none';
+      }
+    };
+    showDsrRateHint(item.title);
+    tr.querySelector('.dsr-search').addEventListener('input', (e) => showDsrRateHint(e.target.value));
 
     // Render measurement book rows and wire add-row button
     renderMeasurementBook(item, tr);
@@ -2144,65 +2164,176 @@ function setupDsrAutocomplete(input, item, tr) {
     }
   });
 
+  function applyDsrItem(dsr) {
+    item.title = `DSR ${dsr.code}`;
+    item.description = dsr.description;
+    item.unit = dsr.unit;
+    item.rate = dsr.rate;
+    item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
+    item.quantity = 1;
+    
+    input.value = item.title;
+    tr.querySelector('.item-desc-input').value = item.description;
+    tr.querySelector('.item-qty-input').value = item.quantity;
+    renderMeasurementBook(item, tr);
+
+    const selectEl = tr.querySelector('.item-unit-select');
+    if (selectEl) {
+      const unitLower = (item.unit || '').toLowerCase();
+      let optExists = Array.from(selectEl.options).some(opt => opt.value.toLowerCase() === unitLower);
+      if (!optExists && item.unit) {
+        const newOpt = document.createElement('option');
+        newOpt.value = item.unit;
+        newOpt.textContent = item.unit;
+        selectEl.add(newOpt);
+      }
+      selectEl.value = item.unit;
+    }
+    tr.querySelector('.item-rate-input').value = item.rate;
+    updateRowTotal(item, tr);
+    list.style.display = 'none';
+  }
+
+  function renderItem(dsr, isLearned) {
+    const div = document.createElement('div');
+    div.className = 'dsr-autocomplete-item' + (isLearned ? ' dsr-learned' : '');
+    
+    const shortDesc = dsr.description.length > 80
+      ? dsr.description.substring(0, 80) + '…'
+      : dsr.description;
+
+    const learnedMeta = isLearned
+      ? `<span class="dsr-learned-badge">⭐ Learned</span>
+         ${dsr.usageCount ? `<span class="dsr-usage-count">${dsr.usageCount}×</span>` : ''}
+         ${dsr.lastUsedDate ? `<span class="dsr-last-used">${new Date(dsr.lastUsedDate).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}`
+      : `<span class="dsr-std-badge">Standard</span>`;
+
+    div.innerHTML = `
+      <div class="dsr-item-top">
+        <span class="code">DSR ${dsr.code}</span>
+        <div class="dsr-item-meta">${learnedMeta}</div>
+        <span class="dsr-rate-badge">Rs. ${formatIndianCurrency(dsr.rate)} / ${dsr.unit}</span>
+      </div>
+      <div class="dsr-item-desc">${shortDesc}</div>
+    `;
+
+    div.addEventListener('click', () => applyDsrItem(dsr));
+    return div;
+  }
+
   function showMatches(val) {
-    const catalog = [...DSR_CURATED, ...customDsrCatalog];
-    const query = val.toLowerCase();
+    const query = (val || '').toLowerCase().trim();
 
-    const matched = catalog.filter(dsr => 
-      dsr.code.toLowerCase().includes(query) || 
+    // Separate learned (custom) from standard curated
+    const learnedItems = customDsrCatalog.filter(dsr =>
+      !query || dsr.code.toLowerCase().includes(query) ||
       dsr.description.toLowerCase().includes(query)
-    ).slice(0, 10);
+    ).sort((a, b) => {
+      // Sort by usage count desc, then by date desc
+      const usageDiff = (b.usageCount || 0) - (a.usageCount || 0);
+      if (usageDiff !== 0) return usageDiff;
+      return (b.lastUsedDate || 0) - (a.lastUsedDate || 0);
+    }).slice(0, 5);
 
-    if (matched.length === 0) {
-      list.style.display = 'none';
+    // Standard curated items not already in learned
+    const learnedCodes = new Set(learnedItems.map(d => d.code));
+    const standardItems = DSR_CURATED.filter(dsr =>
+      !learnedCodes.has(dsr.code) &&
+      (!query || dsr.code.toLowerCase().includes(query) ||
+       dsr.description.toLowerCase().includes(query))
+    ).slice(0, 6);
+
+    if (learnedItems.length === 0 && standardItems.length === 0) {
+      // Show "Add to DSR" hint
+      list.innerHTML = `
+        <div class="dsr-no-results">
+          <span style="color:var(--text-muted); font-size:0.8rem;">No DSR match found for "<strong>${val}</strong>"</span>
+          <br><span style="font-size:0.75rem; color:var(--accent);">💡 Fill in details manually — it will be learned after saving.</span>
+        </div>`;
+      list.style.display = 'block';
       return;
     }
 
     list.innerHTML = '';
-    matched.forEach(dsr => {
-      const div = document.createElement('div');
-      div.className = 'dsr-autocomplete-item';
-      div.innerHTML = `<span class="code">${dsr.code}</span><span style="font-size:0.8rem;">${dsr.description.substring(0, 70)}...</span>`;
-      
-      div.addEventListener('click', () => {
-        item.title = `DSR Item No ${dsr.code}`;
-        item.description = dsr.description;
-        item.unit = dsr.unit;
-        item.rate = dsr.rate;
-        // Reset measurements to a single blank row
-        item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
-        item.quantity = 1;
-        
-        input.value = item.title;
-        tr.querySelector('.item-desc-input').value = item.description;
-        tr.querySelector('.item-qty-input').value = item.quantity;
 
-        // Re-render measurement book with fresh row
-        renderMeasurementBook(item, tr);
+    if (learnedItems.length > 0) {
+      const header = document.createElement('div');
+      header.className = 'dsr-section-header';
+      header.textContent = '⭐ Previously Used';
+      list.appendChild(header);
+      learnedItems.forEach(dsr => list.appendChild(renderItem(dsr, true)));
+    }
 
-        const selectEl = tr.querySelector('.item-unit-select');
-        if (selectEl) {
-          const unitLower = (item.unit || '').toLowerCase();
-          let optExists = Array.from(selectEl.options).some(opt => opt.value.toLowerCase() === unitLower);
-          if (!optExists && item.unit) {
-            const newOpt = document.createElement('option');
-            newOpt.value = item.unit;
-            newOpt.textContent = item.unit;
-            selectEl.add(newOpt);
-          }
-          selectEl.value = item.unit;
-        }
-        tr.querySelector('.item-rate-input').value = item.rate;
-
-        updateRowTotal(item, tr);
-        list.style.display = 'none';
-      });
-      list.appendChild(div);
-    });
+    if (standardItems.length > 0) {
+      const header = document.createElement('div');
+      header.className = 'dsr-section-header';
+      header.textContent = '📋 Standard DSR';
+      list.appendChild(header);
+      standardItems.forEach(dsr => list.appendChild(renderItem(dsr, false)));
+    }
 
     list.style.display = 'block';
   }
 }
+
+// ── DSR Rate Learning Engine ──────────────────────────────────────────────
+// Called after every save. Extracts DSR items from the entry and upserts
+// them into customDsrCatalog with updated rate, usage count, and date.
+function learnDsrRatesFromEntry(entry) {
+  if (!entry || !entry.items) return;
+  let changed = false;
+
+  entry.items.forEach(item => {
+    if (item.type !== 'quantity-rate' || !item.title || !item.rate) return;
+
+    // Parse DSR code from title (e.g., "DSR 2.8", "DSR Item No 2.8", "DSR Item No. 12.5")
+    const codeMatch = item.title.match(/DSR\s+(?:Item\s*No\.?\s*)?([0-9]+(?:\.[0-9]+)*)/i);
+    if (!codeMatch) return;
+
+    const code = codeMatch[1];
+    const description = item.description || '';
+    const unit = item.unit || '';
+    const rate = parseFloat(item.rate) || 0;
+    if (!code || rate === 0) return;
+
+    const existsIdx = customDsrCatalog.findIndex(c => c.code === code);
+    const now = Date.now();
+
+    if (existsIdx > -1) {
+      // Update existing learned entry
+      const existing = customDsrCatalog[existsIdx];
+      existing.rate = rate; // always update to latest used rate
+      existing.usageCount = (existing.usageCount || 0) + 1;
+      existing.lastUsedDate = now;
+      // Update description if the new one is longer/more complete
+      if (description && description.length > (existing.description || '').length) {
+        existing.description = description;
+      }
+      if (unit) existing.unit = unit;
+    } else {
+      // Add as new learned entry
+      customDsrCatalog.push({
+        code,
+        description,
+        unit,
+        rate,
+        category: 'learned',
+        usageCount: 1,
+        lastUsedDate: now
+      });
+    }
+    changed = true;
+  });
+
+  if (changed) {
+    saveCustomDsrCatalog();
+    if (auth.currentUser) {
+      saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog)
+        .catch(err => console.error('Error syncing learned DSR to Firestore:', err));
+    }
+  }
+}
+
 
 function calculateAndRenderTotals() {
   if (!activeEntry) return;
@@ -2464,6 +2595,10 @@ function saveActiveEntry(status = 'draft') {
   if (auth.currentUser) {
     saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
   }
+
+  // Auto-learn DSR rates from this entry's quantity-rate items
+  learnDsrRatesFromEntry(activeEntry);
+
   renderProjectDetails();
 }
 
