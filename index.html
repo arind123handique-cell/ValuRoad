@@ -12,6 +12,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- html2pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Tesseract.js (Client-side OCR) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
@@ -734,6 +736,25 @@
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
             Copy a page of items from your DSR PDF and paste the OCR output below. The scanner will identify item numbers, descriptions, units, and rates automatically.
           </p>
+
+          <!-- Drag-and-drop file uploader box -->
+          <div class="ocr-uploader-box" id="ocr-file-uploader">
+            <i data-lucide="image" style="width: 2rem; height: 2rem; color: var(--accent); margin-bottom: 0.5rem; display: inline-block;"></i>
+            <p style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Upload or Drop DSR Page Screenshot</p>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Supports PNG, JPG, JPEG (OCR extracts text automatically)</p>
+            <input type="file" id="ocr-file-input" accept="image/*" style="display: none;">
+          </div>
+
+          <!-- OCR Progress Bar Container -->
+          <div id="ocr-progress-container" style="display: none; margin-bottom: 1.25rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="ocr-progress-status">Initializing OCR Engine...</span>
+              <span style="font-size: 0.85rem; font-weight: 700; color: var(--accent);" id="ocr-progress-percent">0%</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;">
+              <div id="ocr-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.2s ease;"></div>
+            </div>
+          </div>
 
           <div class="form-group full-width">
             <label for="ocr-pasted-text">Paste Scan OCR Text Here</label>

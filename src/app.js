@@ -2587,6 +2587,96 @@ function setupDsrSettings() {
   const textInput = document.getElementById('ocr-pasted-text');
   const previewPanel = document.getElementById('ocr-preview-panel');
 
+  const ocrUploader = document.getElementById('ocr-file-uploader');
+  const ocrFileInput = document.getElementById('ocr-file-input');
+  const ocrProgressContainer = document.getElementById('ocr-progress-container');
+  const ocrProgressStatus = document.getElementById('ocr-progress-status');
+  const ocrProgressPercent = document.getElementById('ocr-progress-percent');
+  const ocrProgressBar = document.getElementById('ocr-progress-bar');
+
+  if (ocrUploader && ocrFileInput) {
+    ocrUploader.addEventListener('click', () => ocrFileInput.click());
+
+    ocrFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleOcrImageFile(file);
+    });
+
+    ocrUploader.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      ocrUploader.classList.add('drag-over');
+    });
+
+    ocrUploader.addEventListener('dragleave', () => {
+      ocrUploader.classList.remove('drag-over');
+    });
+
+    ocrUploader.addEventListener('drop', (e) => {
+      e.preventDefault();
+      ocrUploader.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        handleOcrImageFile(file);
+      } else {
+        alert('Please drop an image file.');
+      }
+    });
+  }
+
+  async function handleOcrImageFile(file) {
+    if (!ocrProgressContainer || !ocrProgressStatus || !ocrProgressPercent || !ocrProgressBar) return;
+    
+    ocrProgressContainer.style.display = 'block';
+    ocrProgressStatus.innerText = 'Initializing OCR Engine...';
+    ocrProgressPercent.innerText = '0%';
+    ocrProgressBar.style.width = '0%';
+
+    try {
+      console.log('Running client-side OCR on:', file.name);
+      
+      const { data: { text } } = await Tesseract.recognize(
+        file,
+        'eng',
+        {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round(m.progress * 100);
+              ocrProgressStatus.innerText = 'Extracting Text (OCR)...';
+              ocrProgressPercent.innerText = `${pct}%`;
+              ocrProgressBar.style.width = `${pct}%`;
+            } else {
+              let friendly = m.status.replace(/_/g, ' ');
+              friendly = friendly.charAt(0).toUpperCase() + friendly.slice(1);
+              ocrProgressStatus.innerText = `${friendly}...`;
+            }
+          }
+        }
+      );
+
+      console.log('OCR Extraction complete. Length:', text.length);
+      
+      if (textInput) {
+        textInput.value = text;
+        if (parseBtn) parseBtn.click();
+      }
+
+      ocrProgressStatus.innerText = 'Success!';
+      ocrProgressPercent.innerText = '100%';
+      ocrProgressBar.style.width = '100%';
+      
+      setTimeout(() => {
+        ocrProgressContainer.style.display = 'none';
+      }, 1500);
+
+    } catch (err) {
+      console.error('OCR Error:', err);
+      ocrProgressStatus.innerText = 'OCR Error!';
+      ocrProgressPercent.innerText = '';
+      ocrProgressBar.style.width = '0%';
+      alert('Failed to perform OCR on image: ' + err.message);
+    }
+  }
+
   if (parseBtn) {
     parseBtn.addEventListener('click', () => {
       const text = textInput.value;

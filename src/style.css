@@ -778,6 +778,23 @@ main {
   color: var(--accent);
 }
 
+.ocr-uploader-box {
+  border: 2px dashed var(--border-color);
+  border-radius: 0.75rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  margin-bottom: 1.25rem;
+}
+
+.ocr-uploader-box:hover, .ocr-uploader-box.drag-over {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-color: var(--accent-light);
+}
+
 .photo-thumbs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
