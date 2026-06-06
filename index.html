@@ -16,6 +16,44 @@
 </head>
 <body>
 
+  <!-- Authentication Overlay -->
+  <div id="auth-overlay" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+    <div class="auth-card" style="background: var(--bg-primary); border: 1px solid var(--border-color); width: 100%; max-width: 400px; padding: 2.5rem; border-radius: 1.25rem; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 1.5rem;">
+      <div style="text-align: center;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; background: var(--accent-light); color: var(--accent); border-radius: 0.75rem; margin-bottom: 1rem;">
+          <i data-lucide="map-pin" style="width: 1.75rem; height: 1.75rem;"></i>
+        </div>
+        <h2 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; color: var(--text-primary);">ValuRoad Cloud</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Sync your valuation projects across devices</p>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display: flex; background: var(--bg-secondary); padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+        <button type="button" id="auth-tab-login" style="flex: 1; border: none; background: var(--bg-primary); color: var(--text-primary); font-weight: 600; padding: 0.5rem; border-radius: 0.35rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">Log In</button>
+        <button type="button" id="auth-tab-signup" style="flex: 1; border: none; background: transparent; color: var(--text-secondary); font-weight: 500; padding: 0.5rem; border-radius: 0.35rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">Register</button>
+      </div>
+
+      <!-- Auth Form -->
+      <form id="auth-form" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Email Address</label>
+          <input type="email" id="auth-email" required placeholder="name@company.com" style="width: 100%; padding: 0.6rem 0.85rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); outline: none;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" minlength="6" style="width: 100%; padding: 0.6rem 0.85rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); outline: none;">
+        </div>
+
+        <div id="auth-error-msg" style="color: #ef4444; font-size: 0.8rem; display: none; margin-top: 0.25rem;"></div>
+
+        <button type="submit" id="auth-submit-btn" class="btn-primary" style="width: 100%; padding: 0.75rem; justify-content: center; font-weight: 600; margin-top: 0.5rem;">
+          Log In
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- Left Sidebar Navigation -->
   <aside>
     <div class="brand">
@@ -36,6 +74,18 @@
         <i data-lucide="file-text"></i> PDF Template
       </button>
     </nav>
+
+    <!-- User Profile Section -->
+    <div class="user-profile-section" id="sidebar-user-profile" style="margin-top: auto; margin-bottom: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: none; flex-direction: column; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
+        <i data-lucide="user" style="color: var(--accent); flex-shrink: 0; width: 16px; height: 16px;"></i>
+        <span id="user-email-display" style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">user@example.com</span>
+      </div>
+      <button type="button" class="btn-secondary" id="auth-logout-btn" style="width: 100%; padding: 0.4rem 0.75rem; font-size: 0.8rem; height: auto; display: flex; align-items: center; justify-content: center; gap: 0.35rem; border: 1px solid var(--border-color); background: transparent; border-radius: 0.5rem; cursor: pointer; color: var(--text-secondary); transition: all 0.2s;">
+        <i data-lucide="log-out" style="width: 14px; height: 14px;"></i> Log Out
+      </button>
+    </div>
+
     <div class="nav-footer">
       <span style="font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">v1.1.0 (Projects)</span>
       <button class="theme-toggle" id="theme-toggle-btn" title="Toggle Theme">

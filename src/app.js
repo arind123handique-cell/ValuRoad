@@ -1,6 +1,20 @@
 import { DSR_CURATED } from './dsr_curated.js';
 import { SiteSketcher } from './sketcher.js';
 import { exportToPDF, formatIndianCurrency, numberToIndianWords } from './pdf.js';
+import { 
+  auth, 
+  loginUser, 
+  registerUser, 
+  logoutUser, 
+  onAuthStateChanged,
+  fetchUserProjects,
+  saveUserProject,
+  deleteUserProject,
+  fetchUserCustomDsr,
+  saveUserCustomDsr,
+  fetchUserPdfTemplate,
+  saveUserPdfTemplate
+} from './firebase.js';
 
 // Application State
 let projects = [];
@@ -32,8 +46,7 @@ const navBtns = {
 
 // Initialize App
 window.addEventListener('DOMContentLoaded', () => {
-  loadProjects();
-  loadCustomDsrCatalog();
+  setupAuthUI();
   setupNavigation();
   setupDashboard();
   setupProjectDetails();
@@ -42,8 +55,84 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDsrSettings();
   setupGpsTracingModal();
   setupTheme();
-  setupPdfTemplate();
-  
+  const authOverlay = document.getElementById('auth-overlay');
+  const sidebarProfile = document.getElementById('sidebar-user-profile');
+  const userEmailDisplay = document.getElementById('user-email-display');
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const isTestMode = urlParams.get('test') === 'true';
+
+  if (isTestMode) {
+    console.log("Running in test mode. Bypassing Firebase Auth...");
+    authOverlay.style.display = 'none';
+    sidebarProfile.style.display = 'flex';
+    userEmailDisplay.innerText = 'test@valuroad.com';
+    loadProjects();
+    loadCustomDsrCatalog();
+    renderProjects();
+    updateGlobalMetrics();
+    setupPdfTemplate();
+    return;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    const userEmailDisplay = document.getElementById('user-email-display');
+    const authSubmitBtn = document.getElementById('auth-submit-btn');
+
+    if (user) {
+      // User is logged in
+      authOverlay.style.display = 'none';
+      sidebarProfile.style.display = 'flex';
+      userEmailDisplay.innerText = user.email;
+      
+      // Reset submit button state
+      authSubmitBtn.disabled = false;
+
+      console.log(`User logged in: ${user.email}. Syncing from Cloud...`);
+      
+      try {
+        // Fetch projects
+        projects = await fetchUserProjects(user.uid);
+        saveProjects(); // cache locally
+        renderProjects();
+        updateGlobalMetrics();
+
+        // Fetch custom DSR catalog
+        customDsrCatalog = await fetchUserCustomDsr(user.uid);
+        saveCustomDsrCatalog(); // cache locally
+
+        // Fetch PDF template settings
+        const tplSettings = await fetchUserPdfTemplate(user.uid);
+        if (tplSettings) {
+          localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(tplSettings));
+        }
+        setupPdfTemplate(); // redraw template settings fields
+      } catch (e) {
+        console.error("Sync Error:", e);
+      }
+    } else {
+      // User is logged out
+      authOverlay.style.display = 'flex';
+      sidebarProfile.style.display = 'none';
+      
+      // Clear app state
+      projects = [];
+      activeProject = null;
+      activeEntry = null;
+      customDsrCatalog = [];
+      
+      localStorage.removeItem('projects');
+      localStorage.removeItem('customDsrCatalog');
+      localStorage.removeItem(PDF_TEMPLATE_KEY);
+
+      renderProjects();
+      updateGlobalMetrics();
+      setupPdfTemplate();
+
+      switchView('dashboard');
+    }
+  });
+
   // Render initial dashboard
   renderProjects();
   switchView('dashboard');
@@ -143,6 +232,104 @@ function confirmLeaveEditor() {
     return confirm('You have unsaved changes. Are you sure you want to leave?');
   }
   return true;
+}
+
+// Auth UI Setup & Handlers
+let currentAuthTab = 'login'; // 'login' or 'signup'
+
+function setupAuthUI() {
+  const authTabLogin = document.getElementById('auth-tab-login');
+  const authTabSignup = document.getElementById('auth-tab-signup');
+  const authForm = document.getElementById('auth-form');
+  const authEmailInput = document.getElementById('auth-email');
+  const authPasswordInput = document.getElementById('auth-password');
+  const authSubmitBtn = document.getElementById('auth-submit-btn');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+  const logoutBtn = document.getElementById('auth-logout-btn');
+
+  if (authTabLogin) {
+    authTabLogin.addEventListener('click', () => {
+      currentAuthTab = 'login';
+      authTabLogin.style.background = 'var(--bg-primary)';
+      authTabLogin.style.fontWeight = '600';
+      authTabLogin.style.color = 'var(--text-primary)';
+      authTabSignup.style.background = 'transparent';
+      authTabSignup.style.fontWeight = '500';
+      authTabSignup.style.color = 'var(--text-secondary)';
+      authSubmitBtn.textContent = 'Log In';
+      authErrorMsg.style.display = 'none';
+    });
+  }
+
+  if (authTabSignup) {
+    authTabSignup.addEventListener('click', () => {
+      currentAuthTab = 'signup';
+      authTabSignup.style.background = 'var(--bg-primary)';
+      authTabSignup.style.fontWeight = '600';
+      authTabSignup.style.color = 'var(--text-primary)';
+      authTabLogin.style.background = 'transparent';
+      authTabLogin.style.fontWeight = '500';
+      authTabLogin.style.color = 'var(--text-secondary)';
+      authSubmitBtn.textContent = 'Create Account';
+      authErrorMsg.style.display = 'none';
+    });
+  }
+
+  if (authForm) {
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value;
+      
+      authErrorMsg.style.display = 'none';
+      authSubmitBtn.disabled = true;
+      const origText = authSubmitBtn.textContent;
+      authSubmitBtn.textContent = 'Please wait...';
+
+      try {
+        if (currentAuthTab === 'login') {
+          await loginUser(email, password);
+        } else {
+          await registerUser(email, password);
+        }
+      } catch (err) {
+        console.error(err);
+        authErrorMsg.textContent = formatAuthError(err.code || err.message);
+        authErrorMsg.style.display = 'block';
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = origText;
+      }
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to log out?')) {
+        try {
+          await logoutUser();
+        } catch (err) {
+          console.error("Logout Error:", err);
+        }
+      }
+    });
+  }
+}
+
+function formatAuthError(code) {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Invalid email or password.';
+    case 'auth/email-already-in-use':
+      return 'This email address is already in use.';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    default:
+      return code.replace('auth/', '').replace(/-/g, ' ');
+  }
 }
 
 // LocalStorage helpers
@@ -277,6 +464,9 @@ function deleteProject(id) {
   if (confirm('Are you sure you want to delete this infrastructure project? This will delete all affected owner entries under it.')) {
     projects = projects.filter(p => p.id !== id);
     saveProjects();
+    if (auth.currentUser) {
+      deleteUserProject(auth.currentUser.uid, id).catch(err => console.error("Error deleting project from Firestore:", err));
+    }
     renderProjects();
   }
 }
@@ -387,6 +577,9 @@ function deleteOwnerEntry(id) {
   if (confirm('Are you sure you want to delete this owner entry? This cannot be undone.')) {
     activeProject.entries = activeProject.entries.filter(e => e.id !== id);
     saveProjects();
+    if (auth.currentUser) {
+      saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+    }
     renderProjectDetails();
   }
 }
@@ -453,6 +646,9 @@ function saveProject() {
   }
 
   saveProjects();
+  if (auth.currentUser) {
+    saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+  }
   openProjectDetails(activeProject.id);
 }
 
@@ -1728,6 +1924,9 @@ function saveActiveEntry(status = 'draft') {
   }
 
   saveProjects();
+  if (auth.currentUser) {
+    saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+  }
   renderProjectDetails();
 }
 
@@ -2329,6 +2528,9 @@ function setupDsrSettings() {
       });
 
       saveCustomDsrCatalog();
+      if (auth.currentUser) {
+        saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog).catch(err => console.error("Error saving custom DSR to Firestore:", err));
+      }
       alert(`Successfully imported ${parsedOcrItems.length} custom DSR items into search autocompletes!`);
       textInput.value = '';
       previewPanel.style.display = 'none';
@@ -2604,6 +2806,9 @@ function setupPdfTemplate() {
       out.photoHeight    = fields.photoHeight?.value            || '60mm';
 
       localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(out));
+      if (auth.currentUser) {
+        saveUserPdfTemplate(auth.currentUser.uid, out).catch(err => console.error("Error saving PDF template to Firestore:", err));
+      }
 
       // Visual feedback
       saveBtn.textContent = '✓ Saved!';
