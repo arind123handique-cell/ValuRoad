@@ -14,6 +14,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Tesseract.js (Client-side OCR) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- PDF.js (Client-side PDF text extraction) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
@@ -739,16 +741,28 @@
 
           <!-- Drag-and-drop file uploader box -->
           <div class="ocr-uploader-box" id="ocr-file-uploader">
-            <i data-lucide="image" style="width: 2rem; height: 2rem; color: var(--accent); margin-bottom: 0.5rem; display: inline-block;"></i>
-            <p style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Upload or Drop DSR Page Screenshot</p>
-            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Supports PNG, JPG, JPEG (OCR extracts text automatically)</p>
-            <input type="file" id="ocr-file-input" accept="image/*" style="display: none;">
+            <i data-lucide="file-text" style="width: 2.5rem; height: 2.5rem; color: var(--accent); margin-bottom: 0.5rem; display: inline-block;"></i>
+            <p style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">Upload or Drop DSR PDF or Screenshot</p>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Supports PDF documents or PNG, JPG, JPEG images</p>
+            <input type="file" id="ocr-file-input" accept="application/pdf,image/*" style="display: none;">
+          </div>
+
+          <!-- PDF Page Range Settings -->
+          <div id="ocr-pdf-range-container" style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+            <div class="form-group" style="flex: 1;">
+              <label for="ocr-pdf-start-page" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">PDF Start Page</label>
+              <input type="number" id="ocr-pdf-start-page" value="1" min="1" placeholder="1" style="padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label for="ocr-pdf-end-page" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">PDF End Page</label>
+              <input type="number" id="ocr-pdf-end-page" min="1" placeholder="All Pages" style="padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+            </div>
           </div>
 
           <!-- OCR Progress Bar Container -->
           <div id="ocr-progress-container" style="display: none; margin-bottom: 1.25rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="ocr-progress-status">Initializing OCR Engine...</span>
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="ocr-progress-status">Initializing Parser...</span>
               <span style="font-size: 0.85rem; font-weight: 700; color: var(--accent);" id="ocr-progress-percent">0%</span>
             </div>
             <div style="width: 100%; height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;">

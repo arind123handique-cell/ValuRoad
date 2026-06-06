@@ -2599,7 +2599,15 @@ function setupDsrSettings() {
 
     ocrFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (file) handleOcrImageFile(file);
+      if (file) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          handleDsrPdfFile(file);
+        } else if (file.type.startsWith('image/')) {
+          handleOcrImageFile(file);
+        } else {
+          alert('Please upload a PDF or an image file.');
+        }
+      }
     });
 
     ocrUploader.addEventListener('dragover', (e) => {
@@ -2615,12 +2623,110 @@ function setupDsrSettings() {
       e.preventDefault();
       ocrUploader.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) {
-        handleOcrImageFile(file);
-      } else {
-        alert('Please drop an image file.');
+      if (file) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          handleDsrPdfFile(file);
+        } else if (file.type.startsWith('image/')) {
+          handleOcrImageFile(file);
+        } else {
+          alert('Please drop a PDF or an image file.');
+        }
       }
     });
+  }
+
+  async function handleDsrPdfFile(file) {
+    if (!ocrProgressContainer || !ocrProgressStatus || !ocrProgressPercent || !ocrProgressBar) return;
+    
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    } else {
+      alert('PDF.js library is not loaded yet. Please check your internet connection.');
+      return;
+    }
+
+    ocrProgressContainer.style.display = 'block';
+    ocrProgressStatus.innerText = 'Loading DSR PDF...';
+    ocrProgressPercent.innerText = '0%';
+    ocrProgressBar.style.width = '0%';
+
+    try {
+      console.log('Reading DSR PDF file:', file.name);
+      
+      const fileReader = new FileReader();
+      const loadPromise = new Promise((resolve, reject) => {
+        fileReader.onload = function() { resolve(new Uint8Array(this.result)); };
+        fileReader.onerror = function(e) { reject(e); };
+      });
+      fileReader.readAsArrayBuffer(file);
+      const typedarray = await loadPromise;
+
+      const pdf = await pdfjsLib.getDocument(typedarray).promise;
+      console.log('PDF document loaded. Total pages:', pdf.numPages);
+
+      const startPageInput = document.getElementById('ocr-pdf-start-page');
+      const endPageInput = document.getElementById('ocr-pdf-end-page');
+      
+      let startPage = parseInt(startPageInput?.value) || 1;
+      let endPage = parseInt(endPageInput?.value) || pdf.numPages;
+
+      startPage = Math.max(1, Math.min(pdf.numPages, startPage));
+      endPage = Math.max(startPage, Math.min(pdf.numPages, endPage));
+
+      console.log(`Extracting pages ${startPage} to ${endPage}...`);
+      
+      let fullText = '';
+      const totalPagesToParse = (endPage - startPage) + 1;
+      
+      for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+        const pageIndex = (pageNum - startPage) + 1;
+        const progressPct = Math.round(((pageIndex - 1) / totalPagesToParse) * 100);
+        
+        ocrProgressStatus.innerText = `Extracting PDF Page ${pageNum} of ${endPage}...`;
+        ocrProgressPercent.innerText = `${progressPct}%`;
+        ocrProgressBar.style.width = `${progressPct}%`;
+
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+
+        const lineMap = {};
+        textContent.items.forEach(item => {
+          const y = Math.round(item.transform[5] * 10) / 10;
+          if (!lineMap[y]) lineMap[y] = [];
+          lineMap[y].push(item);
+        });
+
+        const sortedYs = Object.keys(lineMap).map(Number).sort((a, b) => b - a);
+        const pageText = sortedYs.map(y => {
+          const items = lineMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
+          return items.map(item => item.str).join(' ');
+        }).join('\n');
+
+        fullText += pageText + '\n';
+      }
+
+      console.log('PDF Text extraction complete. Total characters:', fullText.length);
+
+      if (textInput) {
+        textInput.value = fullText;
+        if (parseBtn) parseBtn.click();
+      }
+
+      ocrProgressStatus.innerText = 'Success!';
+      ocrProgressPercent.innerText = '100%';
+      ocrProgressBar.style.width = '100%';
+
+      setTimeout(() => {
+        ocrProgressContainer.style.display = 'none';
+      }, 1500);
+
+    } catch (err) {
+      console.error('PDF Extraction Error:', err);
+      ocrProgressStatus.innerText = 'Extraction Error!';
+      ocrProgressPercent.innerText = '';
+      ocrProgressBar.style.width = '0%';
+      alert('Failed to parse DSR PDF: ' + err.message);
+    }
   }
 
   async function handleOcrImageFile(file) {
