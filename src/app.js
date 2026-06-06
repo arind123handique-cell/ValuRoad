@@ -616,6 +616,83 @@ function exportProjectToExcel() {
   document.body.removeChild(link);
 }
 
+function exportSingleEstimateToExcel(entryId) {
+  if (!activeProject) return;
+  const entry = activeProject.entries.find(e => e.id === entryId);
+  if (!entry) return;
+
+  const headers = [
+    "Item No",
+    "Item Type",
+    "Title",
+    "Description",
+    "Quantity",
+    "Unit",
+    "Rate (Rs.)",
+    "Total Cost (Rs.)",
+    "Deduction (%)",
+    "Deduction Justification",
+    "Net Cost (Rs.)",
+    "Add to Valuation",
+    "Exclude from Depreciation"
+  ];
+
+  const items = entry.items || [];
+  const rows = items.map(item => {
+    const deductPct = item.deductionPct || 0;
+    const netCost = Math.round(item.totalCost * (1 - deductPct / 100));
+    return [
+      item.itemNo || "",
+      item.type || "",
+      item.title || "",
+      item.description || "",
+      item.quantity || "",
+      item.unit || "",
+      item.rate || 0,
+      item.totalCost || 0,
+      deductPct,
+      item.deductionLabel || "",
+      netCost,
+      item.includeInValuation ? "Yes" : "No",
+      item.excludeFromDepreciation ? "Yes" : "No"
+    ];
+  });
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => row.map(val => {
+      let cell = String(val === null || val === undefined ? '' : val);
+      if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+        cell = '"' + cell.replace(/"/g, '""') + '"';
+      }
+      return cell;
+    }).join(","))
+  ].join("\r\n");
+
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  // Truncate filename to 50 characters max
+  const cleanName = (entry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+  const namePart = cleanName.substring(0, 33).replace(/_$/, '');
+  const filename = `${namePart}_estimate_items.csv`;
+
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function printSingleEstimate(entryId) {
+  if (!activeProject) return;
+  const entry = activeProject.entries.find(e => e.id === entryId);
+  if (!entry) return;
+  exportToPDF(entry, entry.sketcherImage, true);
+}
+
 function exportProjectToWord() {
   if (!activeProject) return;
   const entries = activeProject.entries || [];
@@ -850,7 +927,9 @@ function renderProjectDetails() {
         <td>
           <div class="action-btns" onclick="event.stopPropagation();">
             <button class="edit-btn" title="Edit Owner Valuation" data-id="${e.id}"><i data-lucide="edit-2"></i></button>
+            <button class="excel-btn" title="Export to Excel" data-id="${e.id}"><i data-lucide="file-spreadsheet"></i></button>
             <button class="pdf-btn" title="Export PDF" data-id="${e.id}"><i data-lucide="file-down"></i></button>
+            <button class="print-btn" title="Print Estimate" data-id="${e.id}"><i data-lucide="printer"></i></button>
             <button class="delete-btn" title="Delete Owner Entry" data-id="${e.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>
           </div>
         </td>
@@ -865,8 +944,14 @@ function renderProjectDetails() {
     tbody.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', () => editOwnerEntry(btn.dataset.id));
     });
+    tbody.querySelectorAll('.excel-btn').forEach(btn => {
+      btn.addEventListener('click', () => exportSingleEstimateToExcel(btn.dataset.id));
+    });
     tbody.querySelectorAll('.pdf-btn').forEach(btn => {
       btn.addEventListener('click', () => runPdfExport(btn.dataset.id));
+    });
+    tbody.querySelectorAll('.print-btn').forEach(btn => {
+      btn.addEventListener('click', () => printSingleEstimate(btn.dataset.id));
     });
     tbody.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', () => deleteOwnerEntry(btn.dataset.id));

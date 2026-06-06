@@ -296,7 +296,7 @@ function renderLumpSumItem(item) {
   `;
 }
 
-export function exportToPDF(report, sketcherImage) {
+export function exportToPDF(report, sketcherImage, isPrint = false) {
   const tpl = getPdfTemplateSettings();
 
   const includedItems = report.items.filter(item => item.includeInValuation);
@@ -571,19 +571,63 @@ export function exportToPDF(report, sketcherImage) {
     container.innerHTML = html;
   }
 
-  // Run html2pdf options
-  const opt = {
-    margin: [tpl.margin, tpl.margin, tpl.margin, tpl.margin],
-    filename: (() => {
-      const cleanName = (report.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-      const rawPart = `Valuation_${cleanName}_${report.id}`.replace(/_+/g, '_');
-      return rawPart.substring(0, 46).replace(/_$/, '') + '.pdf';
-    })(),
-    image: { type: 'jpeg', quality: tpl.imgQuality },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
+  if (isPrint) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Print Estimate - ${(report.clientName || 'Owner')}</title>
+        <style>
+          @media print {
+            body { padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+          }
+          .no-print {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 10px;
+            font-family: sans-serif;
+            font-size: 13px;
+            color: #334155;
+            border-bottom: 1px solid #cbd5e1;
+            margin-bottom: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print">
+          <span>Use your browser's Print dialog to print this estimate report or save it as a PDF.</span>
+          <button onclick="window.print()" style="padding: 6px 12px; font-weight: bold; cursor: pointer; background: #1e3a8a; color: white; border: none; border-radius: 4px;">Print Now</button>
+        </div>
+        <div style="padding: 10px 20px;">
+          ${html}
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  } else {
+    // Run html2pdf options
+    const opt = {
+      margin: [tpl.margin, tpl.margin, tpl.margin, tpl.margin],
+      filename: (() => {
+        const cleanName = (report.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        const rawPart = `Valuation_${cleanName}_${report.id}`.replace(/_+/g, '_');
+        return rawPart.substring(0, 46).replace(/_$/, '') + '.pdf';
+      })(),
+      image: { type: 'jpeg', quality: tpl.imgQuality },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
-  // Generate PDF and trigger download
-  html2pdf().from(html).set(opt).save();
+    // Generate PDF and trigger download
+    html2pdf().from(html).set(opt).save();
+  }
 }
