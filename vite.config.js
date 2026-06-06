@@ -6,7 +6,6 @@ export default defineConfig({
     open: true
   },
   build: {
-    outDir: 'dist',
-    minify: 'terser'
+    outDir: 'dist'
   }
 });
