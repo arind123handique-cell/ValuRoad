@@ -2269,10 +2269,10 @@ function calculateAndRenderTotals() {
   activeEntry.grandTotal = Math.round(grandTotal);
 
   const table = document.querySelector('.builder-table');
-  let tfoot = table.querySelector('tfoot');
+  // Use native tFoot property (direct child only) to avoid matching nested mbook-table tfoot elements
+  let tfoot = table.tFoot;
   if (!tfoot) {
-    tfoot = document.createElement('tfoot');
-    table.appendChild(tfoot);
+    tfoot = table.createTFoot();
   }
   tfoot.className = 'summary-rows';
   tfoot.innerHTML = `
