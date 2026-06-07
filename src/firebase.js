@@ -13,7 +13,9 @@ import {
   setDoc, 
   deleteDoc, 
   collection, 
-  getDocs 
+  getDocs,
+  query,
+  where
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -47,25 +49,104 @@ export function logoutUser() {
 export { onAuthStateChanged };
 
 // Firestore Database Sync Helpers
-export async function fetchUserProjects(uid) {
-  const projectsCol = collection(db, 'users', uid, 'projects');
-  const snapshot = await getDocs(projectsCol);
+export async function fetchUserProjects(uid, email = "") {
   const projects = [];
-  snapshot.forEach(doc => {
-    projects.push({ id: doc.id, ...doc.data() });
-  });
+  const projectIds = new Set();
+
+  try {
+    // 1. Fetch projects owned by the user in root collection
+    const ownedQuery = query(collection(db, 'projects'), where('ownerId', '==', uid));
+    const ownedSnapshot = await getDocs(ownedQuery);
+    ownedSnapshot.forEach(doc => {
+      projects.push({ id: doc.id, ...doc.data() });
+      projectIds.add(doc.id);
+    });
+
+    // 2. Fetch projects shared with this user's email in root collection
+    if (email) {
+      const sharedQuery = query(collection(db, 'projects'), where('sharedWith', 'array-contains', email));
+      const sharedSnapshot = await getDocs(sharedQuery);
+      sharedSnapshot.forEach(doc => {
+        if (!projectIds.has(doc.id)) {
+          projects.push({ id: doc.id, ...doc.data() });
+          projectIds.add(doc.id);
+        }
+      });
+    }
+
+    // 3. Fetch legacy user-isolated projects
+    const legacyCol = collection(db, 'users', uid, 'projects');
+    const legacySnapshot = await getDocs(legacyCol);
+    legacySnapshot.forEach(doc => {
+      if (!projectIds.has(doc.id)) {
+        projects.push({ id: doc.id, ...doc.data() });
+        projectIds.add(doc.id);
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching projects:", err);
+  }
+
   return projects;
 }
 
 export async function saveUserProject(uid, project) {
   if (!project.id) return;
-  const projectDoc = doc(db, 'users', uid, 'projects', String(project.id));
+
+  // Initialize sharing and ownership fields if not present
+  if (!project.ownerId) {
+    project.ownerId = uid;
+  }
+  if (!project.ownerEmail && auth.currentUser) {
+    project.ownerEmail = auth.currentUser.email;
+  }
+  if (!project.sharedWith) {
+    project.sharedWith = [];
+  }
+
+  // Save to the root 'projects' collection
+  const projectDoc = doc(db, 'projects', String(project.id));
   await setDoc(projectDoc, project);
+
+  // Clean up legacy document if it exists to complete migration
+  try {
+    const legacyDoc = doc(db, 'users', uid, 'projects', String(project.id));
+    const legacySnap = await getDoc(legacyDoc);
+    if (legacySnap.exists()) {
+      await deleteDoc(legacyDoc);
+      console.log(`Migrated legacy project ${project.id} to root collection.`);
+    }
+  } catch (err) {
+    console.warn("Could not delete legacy project document:", err);
+  }
 }
 
 export async function deleteUserProject(uid, projectId) {
-  const projectDoc = doc(db, 'users', uid, 'projects', String(projectId));
-  await deleteDoc(projectDoc);
+  const rootDocRef = doc(db, 'projects', String(projectId));
+  try {
+    const rootSnap = await getDoc(rootDocRef);
+    if (rootSnap.exists()) {
+      const data = rootSnap.data();
+      if (data.ownerId === uid) {
+        // Owner deletes the document
+        await deleteDoc(rootDocRef);
+      } else if (data.sharedWith && auth.currentUser) {
+        // Collaborator just removes themselves from shared list
+        const updatedSharedWith = data.sharedWith.filter(email => email !== auth.currentUser.email);
+        await setDoc(rootDocRef, { ...data, sharedWith: updatedSharedWith });
+      }
+    }
+  } catch (err) {
+    console.error("Error deleting root project:", err);
+  }
+
+  // Always attempt to delete legacy project for cleanup
+  try {
+    const legacyDoc = doc(db, 'users', uid, 'projects', String(projectId));
+    await deleteDoc(legacyDoc);
+  } catch (err) {
+    // Ignore legacy delete failures
+  }
 }
 
 export async function fetchUserCustomDsr(uid) {

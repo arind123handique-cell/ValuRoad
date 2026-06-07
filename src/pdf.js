@@ -309,7 +309,7 @@ function renderLumpSumItem(item) {
       
       <div class="pdf-row" style="margin-bottom: 1px;">
         <div style="margin-left: 20mm; flex-grow: 1;">
-          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)} &nbsp;&nbsp;&nbsp;&nbsp; (Lump Sum approved rate)
+          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)} &nbsp;&nbsp;&nbsp;&nbsp; --------L/S
         </div>
         <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
           = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}

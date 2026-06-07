@@ -891,6 +891,38 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
       </div>
     </div>
 
+    <!-- MODAL: PROJECT SHARING -->
+    <div class="modal-overlay" id="share-project-modal">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h3>Share Project</h3>
+          <button class="close-btn" id="share-modal-close-btn"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding-top: 0.5rem;">
+          <p id="share-project-title" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem; color: var(--accent);"></p>
+          
+          <div style="margin-bottom: 1.5rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Invite Collaborator (by Email)</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="email" id="share-email-input" placeholder="collaborator@example.com" style="flex-grow: 1; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;">
+              <button type="button" class="btn-primary" id="share-add-btn" style="padding: 0.5rem 1rem;">Share</button>
+            </div>
+            <p id="share-error-msg" style="color: var(--danger); font-size: 0.75rem; margin-top: 0.25rem; display: none;"></p>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">People with Access</label>
+            <div id="share-collaborators-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.5rem; background-color: var(--bg-secondary);">
+              <!-- Rendered collaborators will go here -->
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+          <button class="btn-secondary" id="share-modal-done-btn" style="padding: 0.5rem 1.25rem;">Done</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- VIEW 6: PDF TEMPLATE EDITOR -->

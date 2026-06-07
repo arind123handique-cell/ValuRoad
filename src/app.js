@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupEditor();
   setupDsrSettings();
   setupGpsTracingModal();
+  setupProjectSharingModal();
   setupTheme();
 
   // Mobile Navigation toggle
@@ -120,7 +121,7 @@ window.addEventListener('DOMContentLoaded', () => {
       
       try {
         // Fetch projects
-        projects = await fetchUserProjects(user.uid);
+        projects = await fetchUserProjects(user.uid, user.email);
         saveProjects(); // cache locally
         renderProjects();
         updateGlobalMetrics();
@@ -431,9 +432,19 @@ function renderProjects() {
       const entriesCount = p.entries ? p.entries.length : 0;
       const totalValuation = p.entries ? p.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0) : 0;
 
+      // Determine ownership and sharing status
+      const isOwner = !p.ownerId || (auth.currentUser && p.ownerId === auth.currentUser.uid);
+      let shareBadge = '';
+      if (!isOwner) {
+        shareBadge = `<span class="project-share-badge shared-in" style="background-color: var(--accent-light); color: var(--accent); font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; display: inline-block; margin-top: 0.25rem; font-weight: 500;">Shared by ${p.ownerEmail || 'another user'}</span>`;
+      } else if (p.sharedWith && p.sharedWith.length > 0) {
+        shareBadge = `<span class="project-share-badge shared-out" style="background-color: #f0fdf4; color: #15803d; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; display: inline-block; margin-top: 0.25rem; font-weight: 500;">Shared with ${p.sharedWith.length} user${p.sharedWith.length > 1 ? 's' : ''}</span>`;
+      }
+
       tr.innerHTML = `
         <td>
           <div style="font-weight: 600; font-size: 0.95rem;">${p.workName || 'Untitled Project'}</div>
+          ${shareBadge}
         </td>
         <td>
           <div style="color: var(--text-muted); font-size: 0.85rem;">${p.location || 'N/A'}</div>
@@ -443,6 +454,7 @@ function renderProjects() {
         <td>
           <div class="action-btns" onclick="event.stopPropagation();">
             <button class="view-btn" title="View Project Details" data-id="${p.id}"><i data-lucide="eye"></i></button>
+            <button class="share-btn" title="${isOwner ? 'Share Project' : 'View Collaborators'}" data-id="${p.id}" style="color: var(--accent);"><i data-lucide="share-2"></i></button>
             <button class="delete-btn" title="Delete Project" data-id="${p.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>
           </div>
         </td>
@@ -456,6 +468,9 @@ function renderProjects() {
 
     tbody.querySelectorAll('.view-btn').forEach(btn => {
       btn.addEventListener('click', () => openProjectDetails(btn.dataset.id));
+    });
+    tbody.querySelectorAll('.share-btn').forEach(btn => {
+      btn.addEventListener('click', () => openShareModal(btn.dataset.id));
     });
     tbody.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', () => deleteProject(btn.dataset.id));
@@ -497,7 +512,15 @@ function updateGlobalMetrics() {
 }
 
 function deleteProject(id) {
-  if (confirm('Are you sure you want to delete this infrastructure project? This will delete all affected owner entries under it.')) {
+  const p = projects.find(proj => proj.id === id);
+  if (!p) return;
+
+  const isOwner = !p.ownerId || (auth.currentUser && p.ownerId === auth.currentUser.uid);
+  const msg = isOwner 
+    ? 'Are you sure you want to delete this infrastructure project? This will delete all affected owner entries under it.'
+    : 'Are you sure you want to remove this shared project from your dashboard? You will lose access to it.';
+
+  if (confirm(msg)) {
     projects = projects.filter(p => p.id !== id);
     saveProjects();
     if (auth.currentUser) {
@@ -3750,6 +3773,183 @@ function setupPdfTemplate() {
         saveBtn.style.background = '';
         lucide.createIcons();
       }, 2000);
+    });
+  }
+}
+
+// Project Sharing Modal
+function setupProjectSharingModal() {
+  const modal = document.getElementById('share-project-modal');
+  const closeBtn = document.getElementById('share-modal-close-btn');
+  const doneBtn = document.getElementById('share-modal-done-btn');
+  const addBtn = document.getElementById('share-add-btn');
+  const emailInput = document.getElementById('share-email-input');
+  const errorMsg = document.getElementById('share-error-msg');
+  const listContainer = document.getElementById('share-collaborators-list');
+  const titleText = document.getElementById('share-project-title');
+
+  let currentSharingProjectId = null;
+
+  const closeModal = () => {
+    modal.classList.remove('active');
+    currentSharingProjectId = null;
+    emailInput.value = '';
+    errorMsg.style.display = 'none';
+  };
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (doneBtn) doneBtn.addEventListener('click', closeModal);
+
+  window.openShareModal = async (projectId) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    currentSharingProjectId = projectId;
+    titleText.innerText = `Project: ${project.workName || 'Untitled Project'}`;
+    emailInput.value = '';
+    errorMsg.style.display = 'none';
+
+    // Show modal
+    modal.classList.add('active');
+
+    renderCollaborators(project);
+  };
+
+  function renderCollaborators(project) {
+    listContainer.innerHTML = '';
+    
+    // Check if the current user is the owner
+    const isOwner = !project.ownerId || (auth.currentUser && project.ownerId === auth.currentUser.uid);
+
+    // Disable input and add button if not owner
+    if (!isOwner) {
+      emailInput.disabled = true;
+      addBtn.disabled = true;
+      emailInput.placeholder = "Only the project owner can share";
+    } else {
+      emailInput.disabled = false;
+      addBtn.disabled = false;
+      emailInput.placeholder = "collaborator@example.com";
+    }
+
+    // Always show owner first
+    const ownerEmail = project.ownerEmail || (isOwner && auth.currentUser ? auth.currentUser.email : 'Unknown Owner');
+    const ownerDiv = document.createElement('div');
+    ownerDiv.className = 'collaborator-item';
+    ownerDiv.style = 'display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;';
+    ownerDiv.innerHTML = `
+      <span style="font-weight: 600;">${ownerEmail} <span style="font-size: 0.75rem; font-weight: normal; color: var(--accent); margin-left: 0.5rem;">(Owner)</span></span>
+    `;
+    listContainer.appendChild(ownerDiv);
+
+    // Show collaborators
+    const sharedWith = project.sharedWith || [];
+    if (sharedWith.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.style = 'padding: 0.75rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;';
+      emptyDiv.innerText = 'No collaborators yet.';
+      listContainer.appendChild(emptyDiv);
+    } else {
+      sharedWith.forEach(email => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'collaborator-item';
+        itemDiv.style = 'display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;';
+        
+        const emailSpan = document.createElement('span');
+        emailSpan.innerText = email;
+        itemDiv.appendChild(emailSpan);
+
+        if (isOwner) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.style = 'background: none; border: none; color: var(--danger); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.25rem;';
+          removeBtn.title = 'Remove collaborator';
+          removeBtn.innerHTML = '<i data-lucide="user-minus" style="width: 16px; height: 16px;"></i>';
+          removeBtn.addEventListener('click', async () => {
+            if (confirm(`Are you sure you want to remove access for ${email}?`)) {
+              project.sharedWith = project.sharedWith.filter(e => e !== email);
+              
+              // Save
+              saveProjects();
+              if (auth.currentUser) {
+                await saveUserProject(auth.currentUser.uid, project);
+              }
+              renderCollaborators(project);
+              renderProjects();
+            }
+          });
+          itemDiv.appendChild(removeBtn);
+        }
+
+        listContainer.appendChild(itemDiv);
+      });
+      lucide.createIcons();
+    }
+  }
+
+  const handleAddCollaborator = async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    if (!email) return;
+
+    errorMsg.style.display = 'none';
+
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorMsg.innerText = "Please enter a valid email address.";
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    const project = projects.find(p => p.id === currentSharingProjectId);
+    if (!project) return;
+
+    if (!project.sharedWith) {
+      project.sharedWith = [];
+    }
+
+    if (project.sharedWith.includes(email)) {
+      errorMsg.innerText = "This project is already shared with this user.";
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    if (auth.currentUser && email === auth.currentUser.email.toLowerCase()) {
+      errorMsg.innerText = "You cannot share the project with yourself.";
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    project.sharedWith.push(email);
+    emailInput.value = '';
+
+    // Save project
+    saveProjects();
+    if (auth.currentUser) {
+      addBtn.disabled = true;
+      try {
+        await saveUserProject(auth.currentUser.uid, project);
+      } catch (err) {
+        console.error("Error updating project sharing:", err);
+        errorMsg.innerText = "Failed to update sharing settings in Firestore.";
+        errorMsg.style.display = 'block';
+        project.sharedWith.pop(); // Revert
+        saveProjects();
+      } finally {
+        addBtn.disabled = false;
+      }
+    }
+
+    renderCollaborators(project);
+    renderProjects();
+  };
+
+  if (addBtn) addBtn.addEventListener('click', handleAddCollaborator);
+  if (emailInput) {
+    emailInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddCollaborator();
+      }
     });
   }
 }
