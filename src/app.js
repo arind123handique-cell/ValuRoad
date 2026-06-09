@@ -225,7 +225,25 @@ function setupNavigation() {
   }
   if (navBtns.settings) {
     navBtns.settings.addEventListener('click', () => {
-      if (confirmLeaveEditor()) switchView('settings');
+      if (confirmLeaveEditor()) {
+        switchView('settings');
+        // Refresh the catalog table with latest data every time the view opens
+        const tbody = document.getElementById('catalog-table-body');
+        const lbl   = document.getElementById('catalog-count-label');
+        const srch  = document.getElementById('catalog-search-input');
+        if (tbody) {
+          const q = srch ? srch.value : '';
+          const total = customDsrCatalog.length;
+          if (lbl) lbl.textContent = `${total} saved item${total !== 1 ? 's' : ''} in your catalog`;
+          if (total === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Your catalog is empty. Add items above or save an estimate.</td></tr>`;
+          } else {
+            // Trigger full re-render by dispatching an input event on the search box
+            if (srch) srch.dispatchEvent(new Event('input'));
+            else tbody.dispatchEvent(new CustomEvent('catalog-refresh'));
+          }
+        }
+      }
     });
   }
   if (navBtns.pdfTemplate) {
@@ -4039,6 +4057,176 @@ function setupDsrSettings() {
       codeInput.value = '';
       rateInput.value = '';
       descInput.value = '';
+
+      // Refresh catalog table
+      renderCatalogTable('');
+    });
+  }
+
+  // ── Saved DSR Catalog Table ──────────────────────────────────────────────
+  const catalogTbody    = document.getElementById('catalog-table-body');
+  const catalogSearch   = document.getElementById('catalog-search-input');
+  const catalogCountLbl = document.getElementById('catalog-count-label');
+  const catalogSaveBtn  = document.getElementById('catalog-save-changes-btn');
+  const catalogClearBtn = document.getElementById('catalog-delete-all-btn');
+
+  function renderCatalogTable(filterText) {
+    if (!catalogTbody) return;
+    const q = (filterText || '').toLowerCase().trim();
+
+    const filtered = customDsrCatalog.filter(item => {
+      if (!q) return true;
+      return (item.title || item.code || '').toLowerCase().includes(q) ||
+             (item.description || '').toLowerCase().includes(q) ||
+             (item.code || '').toLowerCase().includes(q);
+    });
+
+    const total = customDsrCatalog.length;
+    if (catalogCountLbl) {
+      catalogCountLbl.textContent = q
+        ? `Showing ${filtered.length} of ${total} saved item${total !== 1 ? 's' : ''}`
+        : `${total} saved item${total !== 1 ? 's' : ''} in your catalog`;
+    }
+
+    if (filtered.length === 0) {
+      catalogTbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">
+        ${q ? `No items matching "<strong>${filterText}</strong>"` : 'Your catalog is empty. Add items above or save an estimate.'}
+      </td></tr>`;
+      return;
+    }
+
+    catalogTbody.innerHTML = '';
+    filtered.forEach(item => {
+      const isCustom = item.category === 'custom';
+      const isLearned = item.category === 'learned';
+
+      // Badge color & label
+      const badgeStyle = isCustom
+        ? 'background:#0d9488; color:#fff;'
+        : isLearned
+          ? 'background:#7c3aed; color:#fff;'
+          : 'background:#1e3a5f; color:#fff;';
+      const badgeLabel = isCustom ? '💾 My Item' : isLearned ? '⭐ Learned' : '📋 Manual';
+
+      const usageText = item.usageCount
+        ? `<span style="font-weight:600;">${item.usageCount}×</span>`
+        : '—';
+
+      const displayTitle = isCustom
+        ? (item.title || item.code)
+        : `DSR ${item.code}`;
+
+      const tr = document.createElement('tr');
+      tr.dataset.code = item.code;
+      tr.innerHTML = `
+        <td style="font-weight:600; font-size:0.82rem; color:var(--accent); white-space:nowrap; padding:0.55rem 0.75rem;">${displayTitle}</td>
+        <td style="text-align:center; padding:0.55rem 0.5rem;">
+          <span style="font-size:0.7rem; padding:0.2rem 0.45rem; border-radius:99px; ${badgeStyle}">${badgeLabel}</span>
+        </td>
+        <td style="padding:0.45rem 0.6rem;">
+          <div class="cat-desc-cell" contenteditable="true"
+            style="min-height:1.4em; font-size:0.84rem; color:var(--text-primary); outline:none; border-bottom:1px dashed transparent; cursor:text;"
+            data-field="description"
+            onFocus="this.style.borderBottomColor='var(--accent)'"
+            onBlur="this.style.borderBottomColor='transparent'"
+          >${item.description || ''}</div>
+        </td>
+        <td style="text-align:center; padding:0.45rem 0.5rem;">
+          <select class="cat-unit-select" style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:0.35rem; padding:0.25rem 0.4rem; font-size:0.82rem; color:var(--text-primary); cursor:pointer;">
+            ${['sqm','sqft','sqf','cum','nos','Rm','kg','ls','set','bag','lump'].map(u =>
+              `<option value="${u}" ${(item.unit||'').toLowerCase() === u.toLowerCase() ? 'selected' : ''}>${u}</option>`
+            ).join('')}
+          </select>
+        </td>
+        <td style="text-align:right; padding:0.45rem 0.6rem;">
+          <input type="number" class="cat-rate-input" value="${item.rate || 0}" step="0.01" min="0"
+            style="width:90px; text-align:right; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:0.35rem; padding:0.25rem 0.4rem; font-size:0.84rem; color:var(--text-primary); outline:none;">
+        </td>
+        <td style="text-align:center; padding:0.45rem; color:var(--text-muted); font-size:0.82rem;">${usageText}</td>
+        <td style="text-align:center; padding:0.45rem;">
+          <button class="cat-delete-btn" title="Delete this item"
+            style="background:transparent; border:none; color:#ef4444; cursor:pointer; padding:0.3rem 0.45rem; border-radius:0.35rem; font-size:1rem; line-height:1;"
+            data-code="${item.code}">🗑</button>
+        </td>
+      `;
+
+      // Delete button
+      tr.querySelector('.cat-delete-btn').addEventListener('click', () => {
+        if (!confirm(`Delete "${displayTitle}" from your catalog?`)) return;
+        const idx = customDsrCatalog.findIndex(c => c.code === item.code);
+        if (idx > -1) customDsrCatalog.splice(idx, 1);
+        saveCustomDsrCatalog();
+        if (auth.currentUser) {
+          saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog)
+            .catch(e => console.error('Firestore delete error', e));
+        }
+        renderCatalogTable(catalogSearch ? catalogSearch.value : '');
+      });
+
+      catalogTbody.appendChild(tr);
+    });
+  }
+
+  // Initial render
+  renderCatalogTable('');
+
+  // Live search
+  if (catalogSearch) {
+    catalogSearch.addEventListener('input', () => renderCatalogTable(catalogSearch.value));
+  }
+
+  // Save Changes — reads edited values back from DOM into customDsrCatalog
+  if (catalogSaveBtn) {
+    catalogSaveBtn.addEventListener('click', () => {
+      const rows = catalogTbody.querySelectorAll('tr[data-code]');
+      let changed = 0;
+      rows.forEach(tr => {
+        const code = tr.dataset.code;
+        const idx = customDsrCatalog.findIndex(c => c.code === code);
+        if (idx === -1) return;
+
+        const descEl  = tr.querySelector('.cat-desc-cell');
+        const unitEl  = tr.querySelector('.cat-unit-select');
+        const rateEl  = tr.querySelector('.cat-rate-input');
+
+        if (descEl)  customDsrCatalog[idx].description = descEl.innerText.trim();
+        if (unitEl)  customDsrCatalog[idx].unit = unitEl.value;
+        if (rateEl)  customDsrCatalog[idx].rate = parseFloat(rateEl.value) || customDsrCatalog[idx].rate;
+        // Also update title for custom items if description changed
+        if (customDsrCatalog[idx].category === 'custom' && !customDsrCatalog[idx].title) {
+          customDsrCatalog[idx].title = customDsrCatalog[idx].description;
+        }
+        changed++;
+      });
+
+      saveCustomDsrCatalog();
+      if (auth.currentUser) {
+        saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog)
+          .catch(e => console.error('Firestore save error', e));
+      }
+
+      // Flash confirmation on button
+      catalogSaveBtn.textContent = `✅ Saved ${changed} items`;
+      setTimeout(() => {
+        catalogSaveBtn.innerHTML = '<i data-lucide="save"></i> Save Changes';
+        if (window.lucide) lucide.createIcons();
+      }, 2000);
+
+      renderCatalogTable(catalogSearch ? catalogSearch.value : '');
+    });
+  }
+
+  // Clear All
+  if (catalogClearBtn) {
+    catalogClearBtn.addEventListener('click', () => {
+      if (!confirm(`This will permanently delete ALL ${customDsrCatalog.length} saved items from your catalog. Continue?`)) return;
+      customDsrCatalog.length = 0;
+      saveCustomDsrCatalog();
+      if (auth.currentUser) {
+        saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog)
+          .catch(e => console.error('Firestore clear error', e));
+      }
+      renderCatalogTable('');
     });
   }
 }

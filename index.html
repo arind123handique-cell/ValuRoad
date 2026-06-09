@@ -984,7 +984,50 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
           </div>
         </div>
       </div>
+
+      <!-- SAVED DSR CATALOG FULL TABLE -->
+      <div style="margin-top: 2rem;">
+        <div class="form-panel" style="width: 100%;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <h3 style="margin: 0;">📚 Saved DSR Catalog</h3>
+              <p style="font-size: 0.83rem; color: var(--text-muted); margin-top: 0.2rem;" id="catalog-count-label">Loading…</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="catalog-search-input" placeholder="🔍 Search by title, description or code…"
+                style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; min-width: 240px; font-size: 0.88rem;">
+              <button class="btn-primary" id="catalog-save-changes-btn" style="padding: 0.5rem 1.1rem;">
+                <i data-lucide="save"></i> Save Changes
+              </button>
+              <button class="btn-secondary" id="catalog-delete-all-btn" style="padding: 0.5rem 1.1rem; color: #b91c1c; border-color: #b91c1c;">
+                <i data-lucide="trash-2"></i> Clear All
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: 0.65rem;">
+            <table class="reports-table" style="box-shadow: none; min-width: 700px;">
+              <thead>
+                <tr>
+                  <th style="width: 10%; text-align: left;">Code / Title</th>
+                  <th style="width: 8%;">Type</th>
+                  <th style="width: 42%; text-align: left;">Description</th>
+                  <th style="width: 10%;">Unit</th>
+                  <th style="width: 13%; text-align: right;">Rate (Rs.)</th>
+                  <th style="width: 8%; text-align: center;">Used</th>
+                  <th style="width: 9%; text-align: center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-table-body">
+                <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 2rem;">Loading catalog…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
+
+
 
     <!-- MODAL: GPS PERIMETER TRACING WIZARD -->
     <div class="modal-overlay" id="gps-tracing-modal">
