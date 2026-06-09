@@ -153,7 +153,6 @@ window.addEventListener('DOMContentLoaded', () => {
       activeEntry = null;
       customDsrCatalog = [];
       
-      localStorage.removeItem('projects');
       localStorage.removeItem('customDsrCatalog');
       localStorage.removeItem(PDF_TEMPLATE_KEY);
 
@@ -366,20 +365,13 @@ function formatAuthError(code) {
 
 // LocalStorage helpers
 function loadProjects() {
-  try {
-    projects = JSON.parse(localStorage.getItem('projects')) || [];
-  } catch (e) {
-    projects = [];
-  }
+  // Bypassed localStorage to avoid multi-device conflicts, loading directly from Firestore
+  projects = [];
 }
 
 function saveProjects() {
-  try {
-    localStorage.setItem('projects', JSON.stringify(projects));
-  } catch (e) {
-    console.warn('LocalStorage quota exceeded, skipping local cache save:', e);
-  }
-  
+  // Bypassed localStorage to avoid conflicts, always saving directly to Firestore.
+  // The local file backup remains active for server-side backup snapshots.
   if (activeProject) {
     triggerLocalBackup(activeProject);
   }
