@@ -377,6 +377,10 @@ function saveProjects() {
   } catch (e) {
     console.warn('LocalStorage quota exceeded, skipping local cache save:', e);
   }
+  
+  if (activeProject) {
+    triggerLocalBackup(activeProject);
+  }
 }
 
 function loadCustomDsrCatalog() {
@@ -4074,6 +4078,23 @@ function setupProjectSharingModal() {
         handleAddCollaborator();
       }
     });
+  }
+}
+
+// Asynchronous helper to post backups to the local dev server middleware
+async function triggerLocalBackup(project) {
+  if (!project) return;
+  try {
+    await fetch('/api/backup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(project)
+    });
+  } catch (err) {
+    // Fails silently in production/deployed mode
+    console.debug("Local backup endpoint not available:", err);
   }
 }
 
