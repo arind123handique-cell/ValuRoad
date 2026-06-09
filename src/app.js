@@ -1431,6 +1431,9 @@ function setupEditor() {
         totalCost: 0,
         includeInValuation: true,
         excludeFromDepreciation: false,
+        customDepreciation: false,
+        customDepreciationPct: 2.0,
+        customDepreciationAge: 10,
         deductionPct: 0,
         deductionLabel: '',
         deductionAmount: 0,
@@ -1863,6 +1866,9 @@ function addItem(type) {
     totalCost: 0.0,
     includeInValuation: true,
     excludeFromDepreciation: false,
+    customDepreciation: false,
+    customDepreciationPct: 2.0,
+    customDepreciationAge: 10,
     measurements: type === 'quantity-rate' ? [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }] : [],
     deductionPct: 0.0,
     deductionLabel: '',
@@ -1968,6 +1974,24 @@ function renderItemRow(item) {
           <input type="text" class="item-deduct-label" value="${item.deductionLabel || ''}" placeholder="e.g. non conformity with CPWD norms" style="padding: 0.35rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--border-color); background-color: var(--bg-secondary); color: var(--text-primary); font-size: 0.8rem; width: 100%;">
         </div>
       </div>
+      
+      <!-- Custom Depreciation Settings for this specific Item -->
+      <div class="item-custom-dep-container" style="background: var(--bg-secondary); border: 1px dashed var(--border-color); border-radius: 0.5rem; padding: 0.5rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+        <label class="check-label" style="font-size: 0.75rem; justify-content: flex-start; cursor: pointer; user-select: none;">
+          <input type="checkbox" class="item-custom-dep-chk" ${item.customDepreciation ? 'checked' : ''}>
+          <span style="font-weight: 600; color: var(--text-primary);">Apply separate/custom depreciation for this item</span>
+        </label>
+        <div class="item-custom-dep-inputs" style="display: ${item.customDepreciation ? 'flex' : 'none'}; gap: 0.5rem; align-items: center;">
+          <div style="flex: 1;">
+            <label style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 0.1rem;">Age of Item (Years)</label>
+            <input type="number" class="item-custom-dep-age" value="${item.customDepreciationAge !== undefined ? item.customDepreciationAge : 10}" min="0" style="padding: 0.25rem 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.75rem; width: 100%;">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 0.1rem;">Depreciation Rate (%)</label>
+            <input type="number" step="0.1" class="item-custom-dep-rate" value="${item.customDepreciationPct !== undefined ? item.customDepreciationPct : 2.0}" min="0" max="100" style="padding: 0.25rem 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.75rem; width: 100%;">
+          </div>
+        </div>
+      </div>
     `;
   } else if (item.type === 'plinth-area') {
     const predefinedTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
@@ -2005,6 +2029,24 @@ function renderItemRow(item) {
           <div class="form-group" style="gap: 0.2rem; grid-column: span 2;">
             <label style="font-size: 0.75rem;">Deduction Justification</label>
             <input type="text" class="plinth-deduct-label" value="${item.deductionLabel || ''}" placeholder="e.g. non conformity with CPWD norms">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Custom Depreciation Settings for this specific Plinth Structure -->
+      <div class="item-custom-dep-container" style="background: var(--bg-secondary); border: 1px dashed var(--border-color); border-radius: 0.5rem; padding: 0.5rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+        <label class="check-label" style="font-size: 0.75rem; justify-content: flex-start; cursor: pointer; user-select: none;">
+          <input type="checkbox" class="item-custom-dep-chk" ${item.customDepreciation ? 'checked' : ''}>
+          <span style="font-weight: 600; color: var(--text-primary);">Apply separate/custom depreciation for this structure</span>
+        </label>
+        <div class="item-custom-dep-inputs" style="display: ${item.customDepreciation ? 'flex' : 'none'}; gap: 0.5rem; align-items: center;">
+          <div style="flex: 1;">
+            <label style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 0.1rem;">Age of Structure (Years)</label>
+            <input type="number" class="item-custom-dep-age" value="${item.customDepreciationAge !== undefined ? item.customDepreciationAge : 10}" min="0" style="padding: 0.25rem 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.75rem; width: 100%;">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 0.1rem;">Depreciation Rate (%)</label>
+            <input type="number" step="0.1" class="item-custom-dep-rate" value="${item.customDepreciationPct !== undefined ? item.customDepreciationPct : 2.0}" min="0" max="100" style="padding: 0.25rem 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-size: 0.75rem; width: 100%;">
           </div>
         </div>
       </div>
@@ -2127,6 +2169,33 @@ function renderItemRow(item) {
   tr.querySelector('.item-desc-input').addEventListener('input', (e) => {
     item.description = e.target.value;
   });
+
+  // Custom Depreciation Event Bindings
+  const customDepChk = tr.querySelector('.item-custom-dep-chk');
+  const customDepInputs = tr.querySelector('.item-custom-dep-inputs');
+  const customDepAge = tr.querySelector('.item-custom-dep-age');
+  const customDepRate = tr.querySelector('.item-custom-dep-rate');
+
+  if (customDepChk && customDepInputs) {
+    customDepChk.addEventListener('change', (e) => {
+      item.customDepreciation = e.target.checked;
+      customDepInputs.style.display = item.customDepreciation ? 'flex' : 'none';
+      calculateAndRenderTotals();
+    });
+  }
+  if (customDepAge) {
+    customDepAge.addEventListener('input', (e) => {
+      item.customDepreciationAge = parseInt(e.target.value) || 0;
+      calculateAndRenderTotals();
+    });
+  }
+  if (customDepRate) {
+    customDepRate.addEventListener('input', (e) => {
+      item.customDepreciationPct = parseFloat(e.target.value) || 0.0;
+      calculateAndRenderTotals();
+    });
+  }
+
   tr.querySelector('.item-rate-input').addEventListener('input', (e) => {
     item.rate = parseFloat(e.target.value) || 0;
     updateRowTotal(item, tr);
@@ -2654,10 +2723,14 @@ function calculateAndRenderTotals() {
   activeEntry.sanitaryCost = parseFloat(document.getElementById('sanitary-cost').value) || 0;
 
   const includedItems = activeEntry.items.filter(i => i.includeInValuation);
-  const depreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation);
+  
+  // Categorize items
+  const mainDepreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation && !i.customDepreciation);
+  const customDepreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation && i.customDepreciation);
   const excludedItems = includedItems.filter(i => i.excludeFromDepreciation);
 
-  const totalA = Math.round(depreciatedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
+  // 1. Calculate Main Depreciated totals
+  const totalA = Math.round(mainDepreciatedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
   activeEntry.totalA = totalA;
 
   const contractorDeduction = Math.round(totalA * 0.15);
@@ -2675,14 +2748,33 @@ function calculateAndRenderTotals() {
   const depAmount = Math.round(totalB * (totalDepPct / 100));
   activeEntry.depreciationAmount = depAmount;
 
-  const totalAfterDep = Math.max(0, totalB - depAmount);
-  activeEntry.totalAfterDepreciation = totalAfterDep;
+  const mainAfterDep = Math.max(0, totalB - depAmount);
+
+  // 2. Calculate Custom Depreciated totals (each depreciated separately using its own age/rate)
+  let totalCustomCostBeforeDep = 0;
+  let totalCustomDepAmount = 0;
+  
+  customDepreciatedItems.forEach(item => {
+    const rawCost = item.totalCost;
+    // Deduct 15% contractor profit if applicable (to match main building standard rules)
+    const costAfterProfit = Math.round(rawCost * 0.85); 
+    const itemDepPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+    const itemDepAmount = Math.round(costAfterProfit * (itemDepPct / 100));
+    
+    totalCustomCostBeforeDep += costAfterProfit;
+    totalCustomDepAmount += itemDepAmount;
+  });
+
+  activeEntry.totalAfterDepreciation = mainAfterDep + Math.max(0, totalCustomCostBeforeDep - totalCustomDepAmount);
+
+  // Adjust global activeEntry parameters to correctly represent consolidated totals in PDF reports
+  activeEntry.depreciationAmount = depAmount + totalCustomDepAmount;
 
   const totalExcludedCost = Math.round(excludedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
   activeEntry.totalExcludedCost = totalExcludedCost;
 
   const customServicesSum = (activeEntry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
-  let grandTotal = totalAfterDep + totalExcludedCost + customServicesSum;
+  let grandTotal = activeEntry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
   if (activeEntry.addElectrification) grandTotal += activeEntry.electrificationCost;
   if (activeEntry.addSanitary) grandTotal += activeEntry.sanitaryCost;
   activeEntry.grandTotal = Math.round(grandTotal);

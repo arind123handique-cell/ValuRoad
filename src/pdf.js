@@ -162,10 +162,16 @@ function renderQuantityRateItem(item) {
     `;
   }
 
-  return `
+    let depInfoHtml = '';
+    if (item.customDepreciation) {
+      const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+      depInfoHtml = `<span style="font-size: 8.5pt; color: #475569; font-weight: normal; margin-left: 5px;">(Depreciation: ${item.customDepreciationPct}%/yr for ${item.customDepreciationAge} yrs = ${totalPct}%)</span>`;
+    }
+
+    return `
     <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-        <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${item.title}</span></div>
+        <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${item.title}</span> ${depInfoHtml}</div>
       </div>
       ${item.description ? `<div style="margin-left: 20mm; font-style: italic; color: #334155; margin-bottom: 3px; font-size: 10pt;">${item.description}</div>` : ''}
       
@@ -220,10 +226,16 @@ function renderPlinthAreaItem(item) {
   
   const rawCost = (item.unit === 'sqf' ? item.totalAreaSqft : item.totalAreaSqm) * item.rate;
   
+  let depInfoHtml = '';
+  if (item.customDepreciation) {
+    const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+    depInfoHtml = `<span style="font-size: 8.5pt; color: #475569; font-weight: normal; margin-left: 5px;">(Depreciation: ${item.customDepreciationPct}%/yr for ${item.customDepreciationAge} yrs = ${totalPct}%)</span>`;
+  }
+
   return `
     <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-        <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${titleText}</span></div>
+        <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${titleText}</span> ${depInfoHtml}</div>
       </div>
       ${item.description ? `<div style="margin-left: 20mm; font-style: italic; color: #334155; margin-bottom: 3px; font-size: 10pt;">${item.description}</div>` : ''}
       
