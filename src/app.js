@@ -1885,7 +1885,7 @@ function addItem(type) {
     newItem.deductionPct = 40.0;
     newItem.deductionLabel = 'non conformity with CPWD norms';
     newItem.deductionAmount = 0;
-    newItem.rate = 205.00;
+    newItem.rate = 20685.00;
   }
 
   activeEntry.items.push(newItem);
@@ -2158,7 +2158,29 @@ function renderItemRow(item) {
       } else {
         titleOtherInput.style.display = 'none';
         item.title = val;
+
+        // Auto-assign rates and units based on building structure type
+        const rateInput = tr.querySelector('.item-rate-input');
+        const unitSelect = tr.querySelector('.item-unit-select');
+
+        if (val === 'RCC Structure') {
+          item.rate = 20685.00;
+          item.unit = 'sqm';
+        } else if (val === 'Assam Type Building') {
+          item.rate = 15867.00;
+          item.unit = 'sqm';
+        } else if (val === 'Temporary Building') {
+          item.rate = 205.00;
+          item.unit = 'sqf';
+        } else if (val === 'Temp Shed') {
+          item.rate = 205.00;
+          item.unit = 'sqf';
+        }
+
+        if (rateInput) rateInput.value = item.rate;
+        if (unitSelect) unitSelect.value = item.unit;
       }
+      updateRowTotal(item, tr);
       calculateAndRenderTotals();
     });
     titleOtherInput.addEventListener('input', (e) => {
