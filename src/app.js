@@ -4945,28 +4945,48 @@ function triggerLocalBackup(project) {
   // No-op here to keep save flow clean; full backup is on timer / manual button
 }
 
-function downloadAllBackup() {
+async function downloadAllBackup() {
   const payload = {
     exportedAt: new Date().toISOString(),
     appVersion: 'ValuRoad-v1',
     projects: projects,
     customDsrCatalog: customDsrCatalog
   };
-  const json = JSON.stringify(payload, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
 
-  const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const name = `ValuRoad_Backup_${ts}.json`;
+  try {
+    // 1. Try local dev server API (saves directly to PC Documents/Valuroad)
+    const res = await fetch('/api/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      console.log(`[Backup] Auto-saved silently to: ${data.path}`);
+      setLastBackup();
+      return;
+    }
+    throw new Error('API route returned not ok');
+  } catch (err) {
+    // 2. Fallback for deployed version: trigger standard browser download
+    console.log('[Backup] Local API unavailable, falling back to browser download.');
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
 
-  const anchor = document.getElementById('download-anchor') || document.createElement('a');
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
+    const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const name = `ValuRoad_Backup_${ts}.json`;
 
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-  setLastBackup();
-  console.log(`[Backup] Downloaded: ${name}`);
+    const anchor = document.getElementById('download-anchor') || document.createElement('a');
+    anchor.href = url;
+    anchor.download = name;
+    anchor.click();
+
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setLastBackup();
+    console.log(`[Backup] Downloaded: ${name}`);
+  }
 }
 
 // Setup Tab Switching inside Valuation Editor
