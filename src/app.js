@@ -2560,9 +2560,10 @@ function setupDsrAutocomplete(input, item, tr) {
   });
 
   function applyDsrItem(dsr) {
-    item.title = `DSR ${dsr.code}`;
-    item.description = dsr.description;
-    item.unit = dsr.unit;
+    // For DSR-coded items use "DSR X.Y" as title, for custom use the original title
+    item.title = dsr.category === 'custom' ? dsr.title : `DSR ${dsr.code}`;
+    item.description = dsr.description || '';
+    item.unit = dsr.unit || '';
     item.rate = dsr.rate;
     item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
     item.quantity = 1;
@@ -2589,24 +2590,37 @@ function setupDsrAutocomplete(input, item, tr) {
     list.style.display = 'none';
   }
 
-  function renderItem(dsr, isLearned) {
+  function renderItem(dsr, badgeType) {
+    // badgeType: 'learned' | 'custom' | 'standard'
     const div = document.createElement('div');
+    const isLearned = badgeType === 'learned' || badgeType === 'custom';
     div.className = 'dsr-autocomplete-item' + (isLearned ? ' dsr-learned' : '');
-    
-    const shortDesc = dsr.description.length > 80
-      ? dsr.description.substring(0, 80) + '…'
-      : dsr.description;
 
-    const learnedMeta = isLearned
-      ? `<span class="dsr-learned-badge">⭐ Learned</span>
-         ${dsr.usageCount ? `<span class="dsr-usage-count">${dsr.usageCount}×</span>` : ''}
-         ${dsr.lastUsedDate ? `<span class="dsr-last-used">${new Date(dsr.lastUsedDate).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}`
-      : `<span class="dsr-std-badge">Standard</span>`;
+    const displayTitle = dsr.category === 'custom'
+      ? dsr.title
+      : `DSR ${dsr.code}`;
+
+    const shortDesc = (dsr.description || '').length > 80
+      ? dsr.description.substring(0, 80) + '…'
+      : (dsr.description || '');
+
+    let badge;
+    if (badgeType === 'custom') {
+      badge = `<span class="dsr-learned-badge" style="background:#0d9488;">💾 My Item</span>
+               ${dsr.usageCount ? `<span class="dsr-usage-count">${dsr.usageCount}×</span>` : ''}
+               ${dsr.lastUsedDate ? `<span class="dsr-last-used">${new Date(dsr.lastUsedDate).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}`;
+    } else if (badgeType === 'learned') {
+      badge = `<span class="dsr-learned-badge">⭐ Learned</span>
+               ${dsr.usageCount ? `<span class="dsr-usage-count">${dsr.usageCount}×</span>` : ''}
+               ${dsr.lastUsedDate ? `<span class="dsr-last-used">${new Date(dsr.lastUsedDate).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}`;
+    } else {
+      badge = `<span class="dsr-std-badge">Standard</span>`;
+    }
 
     div.innerHTML = `
       <div class="dsr-item-top">
-        <span class="code">DSR ${dsr.code}</span>
-        <div class="dsr-item-meta">${learnedMeta}</div>
+        <span class="code">${displayTitle}</span>
+        <div class="dsr-item-meta">${badge}</div>
         <span class="dsr-rate-badge">Rs. ${formatIndianCurrency(dsr.rate)} / ${dsr.unit}</span>
       </div>
       <div class="dsr-item-desc">${shortDesc}</div>
@@ -2619,31 +2633,48 @@ function setupDsrAutocomplete(input, item, tr) {
   function showMatches(val) {
     const query = (val || '').toLowerCase().trim();
 
-    // Separate learned (custom) from standard curated
-    const learnedItems = customDsrCatalog.filter(dsr =>
-      !query || dsr.code.toLowerCase().includes(query) ||
-      dsr.description.toLowerCase().includes(query)
+    // ── 1. Custom free-text items (category==='custom') ──
+    const customItems = customDsrCatalog.filter(dsr =>
+      dsr.category === 'custom' && (
+        !query ||
+        (dsr.title || '').toLowerCase().includes(query) ||
+        (dsr.description || '').toLowerCase().includes(query)
+      )
     ).sort((a, b) => {
-      // Sort by usage count desc, then by date desc
       const usageDiff = (b.usageCount || 0) - (a.usageCount || 0);
       if (usageDiff !== 0) return usageDiff;
       return (b.lastUsedDate || 0) - (a.lastUsedDate || 0);
     }).slice(0, 5);
 
-    // Standard curated items not already in learned
+    // ── 2. DSR-coded learned items (category==='learned') ──
+    const learnedItems = customDsrCatalog.filter(dsr =>
+      dsr.category !== 'custom' && (
+        !query ||
+        dsr.code.toLowerCase().includes(query) ||
+        (dsr.description || '').toLowerCase().includes(query) ||
+        (`dsr ${dsr.code}`).includes(query)
+      )
+    ).sort((a, b) => {
+      const usageDiff = (b.usageCount || 0) - (a.usageCount || 0);
+      if (usageDiff !== 0) return usageDiff;
+      return (b.lastUsedDate || 0) - (a.lastUsedDate || 0);
+    }).slice(0, 5);
+
+    // ── 3. Standard curated items not already in learned ──
     const learnedCodes = new Set(learnedItems.map(d => d.code));
     const standardItems = DSR_CURATED.filter(dsr =>
-      !learnedCodes.has(dsr.code) &&
-      (!query || dsr.code.toLowerCase().includes(query) ||
-       dsr.description.toLowerCase().includes(query))
+      !learnedCodes.has(dsr.code) && (
+        !query ||
+        dsr.code.toLowerCase().includes(query) ||
+        (dsr.description || '').toLowerCase().includes(query)
+      )
     ).slice(0, 6);
 
-    if (learnedItems.length === 0 && standardItems.length === 0) {
-      // Show "Add to DSR" hint
+    if (customItems.length === 0 && learnedItems.length === 0 && standardItems.length === 0) {
       list.innerHTML = `
         <div class="dsr-no-results">
-          <span style="color:var(--text-muted); font-size:0.8rem;">No DSR match found for "<strong>${val}</strong>"</span>
-          <br><span style="font-size:0.75rem; color:var(--accent);">💡 Fill in details manually — it will be learned after saving.</span>
+          <span style="color:var(--text-muted); font-size:0.8rem;">No match found for "<strong>${val}</strong>"</span>
+          <br><span style="font-size:0.75rem; color:var(--accent);">💡 Fill in the description and rate manually — this item will be auto-saved after pressing Save.</span>
         </div>`;
       list.style.display = 'block';
       return;
@@ -2651,12 +2682,20 @@ function setupDsrAutocomplete(input, item, tr) {
 
     list.innerHTML = '';
 
+    if (customItems.length > 0) {
+      const header = document.createElement('div');
+      header.className = 'dsr-section-header';
+      header.textContent = '💾 My Items';
+      list.appendChild(header);
+      customItems.forEach(dsr => list.appendChild(renderItem(dsr, 'custom')));
+    }
+
     if (learnedItems.length > 0) {
       const header = document.createElement('div');
       header.className = 'dsr-section-header';
-      header.textContent = '⭐ Previously Used';
+      header.textContent = '⭐ Previously Used DSR';
       list.appendChild(header);
-      learnedItems.forEach(dsr => list.appendChild(renderItem(dsr, true)));
+      learnedItems.forEach(dsr => list.appendChild(renderItem(dsr, 'learned')));
     }
 
     if (standardItems.length > 0) {
@@ -2664,7 +2703,7 @@ function setupDsrAutocomplete(input, item, tr) {
       header.className = 'dsr-section-header';
       header.textContent = '📋 Standard DSR';
       list.appendChild(header);
-      standardItems.forEach(dsr => list.appendChild(renderItem(dsr, false)));
+      standardItems.forEach(dsr => list.appendChild(renderItem(dsr, 'standard')));
     }
 
     list.style.display = 'block';
@@ -2672,52 +2711,87 @@ function setupDsrAutocomplete(input, item, tr) {
 }
 
 // ── DSR Rate Learning Engine ──────────────────────────────────────────────
-// Called after every save. Extracts DSR items from the entry and upserts
-// them into customDsrCatalog with updated rate, usage count, and date.
+// Called after every save. Learns ALL quantity-rate items:
+//   - DSR-coded items (title contains "DSR X.Y") → stored by numeric code
+//   - Free-text items (any other title + rate > 0) → stored with category='custom'
 function learnDsrRatesFromEntry(entry) {
   if (!entry || !entry.items) return;
   let changed = false;
+  const now = Date.now();
 
   entry.items.forEach(item => {
     if (item.type !== 'quantity-rate' || !item.title || !item.rate) return;
-
-    // Parse DSR code from title (e.g., "DSR 2.8", "DSR Item No 2.8", "DSR Item No. 12.5")
-    const codeMatch = item.title.match(/DSR\s+(?:Item\s*No\.?\s*)?([0-9]+(?:\.[0-9]+)*)/i);
-    if (!codeMatch) return;
-
-    const code = codeMatch[1];
-    const description = item.description || '';
-    const unit = item.unit || '';
     const rate = parseFloat(item.rate) || 0;
-    if (!code || rate === 0) return;
+    if (rate === 0) return;
 
-    const existsIdx = customDsrCatalog.findIndex(c => c.code === code);
-    const now = Date.now();
+    const description = (item.description || '').trim();
+    const unit = item.unit || '';
+    const title = item.title.trim();
 
-    if (existsIdx > -1) {
-      // Update existing learned entry
-      const existing = customDsrCatalog[existsIdx];
-      existing.rate = rate; // always update to latest used rate
-      existing.usageCount = (existing.usageCount || 0) + 1;
-      existing.lastUsedDate = now;
-      // Update description if the new one is longer/more complete
-      if (description && description.length > (existing.description || '').length) {
-        existing.description = description;
+    // ── Check if it's a DSR-coded item ──
+    const codeMatch = title.match(/DSR\s+(?:Item\s*No\.?\s*)?([0-9]+(?:\.[0-9]+)*)/i);
+
+    if (codeMatch) {
+      // DSR-coded item: learn by numeric code
+      const code = codeMatch[1];
+      const existsIdx = customDsrCatalog.findIndex(c => c.code === code && c.category !== 'custom');
+      if (existsIdx > -1) {
+        const existing = customDsrCatalog[existsIdx];
+        existing.rate = rate;
+        existing.usageCount = (existing.usageCount || 0) + 1;
+        existing.lastUsedDate = now;
+        if (description && description.length > (existing.description || '').length) {
+          existing.description = description;
+        }
+        if (unit) existing.unit = unit;
+      } else {
+        customDsrCatalog.push({
+          code,
+          title: `DSR ${code}`,
+          description,
+          unit,
+          rate,
+          category: 'learned',
+          usageCount: 1,
+          lastUsedDate: now
+        });
       }
-      if (unit) existing.unit = unit;
+      changed = true;
+
     } else {
-      // Add as new learned entry
-      customDsrCatalog.push({
-        code,
-        description,
-        unit,
-        rate,
-        category: 'learned',
-        usageCount: 1,
-        lastUsedDate: now
-      });
+      // ── Free-text item: learn by title slug ──
+      // Only learn if there's a meaningful title (at least 3 chars) and rate > 0
+      if (title.length < 3) return;
+
+      // Create a stable slug key from the title
+      const slug = 'custom_' + title.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+
+      const existsIdx = customDsrCatalog.findIndex(c => c.code === slug);
+      if (existsIdx > -1) {
+        const existing = customDsrCatalog[existsIdx];
+        existing.rate = rate;
+        existing.usageCount = (existing.usageCount || 0) + 1;
+        existing.lastUsedDate = now;
+        // Update description if new one is more complete
+        if (description && description.length > (existing.description || '').length) {
+          existing.description = description;
+        }
+        if (unit) existing.unit = unit;
+        if (title) existing.title = title;
+      } else {
+        customDsrCatalog.push({
+          code: slug,
+          title: title,
+          description: description || title,
+          unit,
+          rate,
+          category: 'custom',
+          usageCount: 1,
+          lastUsedDate: now
+        });
+      }
+      changed = true;
     }
-    changed = true;
   });
 
   if (changed) {
