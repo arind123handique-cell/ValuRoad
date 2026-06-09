@@ -3779,6 +3779,64 @@ function setupDsrSettings() {
       saveBtn.disabled = true;
     });
   }
+
+  // Bind Manual DSR item entry form
+  const manualAddBtn = document.getElementById('manual-dsr-add-btn');
+  if (manualAddBtn) {
+    manualAddBtn.addEventListener('click', () => {
+      const codeInput = document.getElementById('manual-dsr-code');
+      const unitInput = document.getElementById('manual-dsr-unit');
+      const rateInput = document.getElementById('manual-dsr-rate');
+      const descInput = document.getElementById('manual-dsr-desc');
+
+      if (!codeInput || !unitInput || !rateInput || !descInput) return;
+
+      const code = codeInput.value.trim();
+      const unit = unitInput.value.trim();
+      const rateVal = parseFloat(rateInput.value);
+      const desc = descInput.value.trim();
+
+      if (!code || !desc || isNaN(rateVal) || rateVal <= 0) {
+        alert('Please fill out all fields with valid values. Rate must be greater than 0.');
+        return;
+      }
+
+      const newItem = {
+        code: code,
+        description: desc,
+        unit: unit,
+        rate: rateVal
+      };
+
+      // Check if duplicate code exists
+      const existsIdx = customDsrCatalog.findIndex(c => c.code === code);
+      if (existsIdx > -1) {
+        if (!confirm(`An item with Code "${code}" already exists. Do you want to overwrite it?`)) {
+          return;
+        }
+        customDsrCatalog[existsIdx] = newItem;
+      } else {
+        customDsrCatalog.push(newItem);
+      }
+
+      saveCustomDsrCatalog();
+      if (auth.currentUser) {
+        saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog).catch(err => console.error("Error saving manual DSR to Firestore:", err));
+      }
+
+      // Re-trigger icon rendering if needed
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+
+      alert(`Successfully added DSR item "${code}" to search autocomplete reference database!`);
+
+      // Reset form fields
+      codeInput.value = '';
+      rateInput.value = '';
+      descInput.value = '';
+    });
+  }
 }
 
 function parseOcrDsrText(text) {

@@ -925,6 +925,45 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
           </div>
         </div>
 
+        <!-- MANUAL DSR ENTRY PANEL -->
+        <div class="form-panel">
+          <h3>Manually Add DSR Item</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Quickly add a single reference item to your DSR database search catalog.
+          </p>
+          <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label for="manual-dsr-code">Item Code / No.*</label>
+              <input type="text" id="manual-dsr-code" placeholder="e.g. 12.5" style="padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+            </div>
+            <div class="form-group">
+              <label for="manual-dsr-unit">Unit*</label>
+              <select id="manual-dsr-unit" style="padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+                <option value="sqm">sqm</option>
+                <option value="sqft">sqft</option>
+                <option value="cum">cum</option>
+                <option value="nos">nos</option>
+                <option value="Rm">Rm</option>
+                <option value="kg">kg</option>
+                <option value="ls">ls</option>
+                <option value="set">set</option>
+                <option value="bag">bag</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="manual-dsr-rate">Rate (Rs.)*</label>
+            <input type="number" step="0.01" id="manual-dsr-rate" placeholder="e.g. 512.50" style="padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none;">
+          </div>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label for="manual-dsr-desc">Description*</label>
+            <textarea id="manual-dsr-desc" placeholder="e.g. Cement concrete flooring 1:2:4..." style="height: 80px; padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); outline: none; font-size: 0.88rem; resize: vertical;"></textarea>
+          </div>
+          <button class="btn-primary" id="manual-dsr-add-btn" style="width: 100%;">
+            <i data-lucide="plus-circle"></i> Add Reference Item
+          </button>
+        </div>
+
         <div class="form-panel" id="ocr-preview-panel" style="display: none;">
           <h3>Parsed Items Preview</h3>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;" id="ocr-preview-count">0 items detected</p>
