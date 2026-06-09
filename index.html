@@ -344,10 +344,29 @@
         <span><strong>Attention:</strong> This valuation entry has been finalized. You are allowed to edit it; any fields that deviate from the locked version will be highlighted in amber.</span>
       </div>
 
+      <!-- Editor Tabs Navigation -->
+      <div class="editor-tabs">
+        <button type="button" class="tab-btn active" data-tab="tab-basic">
+          <i data-lucide="file-text"></i> Basic Details
+        </button>
+        <button type="button" class="tab-btn" data-tab="tab-estimate">
+          <i data-lucide="calculator"></i> Itemised Estimate
+        </button>
+        <button type="button" class="tab-btn" data-tab="tab-sketcher">
+          <i data-lucide="pencil-ruler"></i> Sketcher
+        </button>
+        <button type="button" class="tab-btn" data-tab="tab-photos">
+          <i data-lucide="camera"></i> Site Photos
+        </button>
+      </div>
+
       <!-- Editor Form Panels -->
       <div class="editor-layout">
         
-        <!-- PANEL A: OWNER DETAILS & SITE GPS -->
+        <!-- TAB 1: BASIC DETAILS -->
+        <div id="tab-basic" class="tab-content active">
+          
+          <!-- PANEL A: OWNER DETAILS & SITE GPS -->
         <div class="form-panel">
           <h3>1. General Project Details</h3>
           <div class="form-grid">
@@ -440,9 +459,12 @@
             </div>
           </div>
         </div>
+        </div> <!-- End of tab-basic -->
 
-        <!-- PANEL D: SPREADSHEET ESTIMATE BUILDER -->
-        <div class="form-panel">
+        <!-- TAB 2: ITEMIZED ESTIMATE -->
+        <div id="tab-estimate" class="tab-content">
+          <!-- PANEL D: SPREADSHEET ESTIMATE BUILDER -->
+          <div class="form-panel">
           <div class="estimate-builder-header">
             <h3>4. Itemised Estimate Sheet</h3>
             <div style="display: flex; gap: 0.5rem;">
@@ -505,9 +527,12 @@
             </div>
           </div>
         </div>
+        </div> <!-- End of tab-estimate -->
 
-        <!-- PANEL E: INTERACTIVE LINE PLAN SKETCHER -->
-        <div class="form-panel">
+        <!-- TAB 3: SKETCHER -->
+        <div id="tab-sketcher" class="tab-content">
+          <!-- PANEL E: INTERACTIVE LINE PLAN SKETCHER -->
+          <div class="form-panel">
           <div class="estimate-builder-header">
             <h3>5. Line Plan & Site Layout</h3>
             <button type="button" class="btn-secondary" id="sketcher-gps-trace-btn" style="padding: 0.5rem 0.75rem; color: var(--accent); border-color: var(--accent);">
@@ -576,6 +601,9 @@
               <button type="button" id="sketch-zoom-out-btn" title="Zoom Out"       style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="zoom-out"></i></button>
               <button type="button" id="sketch-zoom-fit-btn" title="Fit to content" style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="expand"></i></button>
               <button type="button" id="sketch-zoom-reset-btn" title="Reset view"   style="padding:0.22rem 0.4rem;height:auto;font-size:0.72rem;">1:1</button>
+              <button type="button" id="sketch-lock-btn" title="Lock Sketch" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border-color:#22c55e;display:inline-flex;align-items:center;gap:0.25rem;">
+                <i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED
+              </button>
 
               <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
 
@@ -665,6 +693,33 @@
                 <input type="color" id="prop-input-room-color" value="#bfdbfe" style="width:38px;height:28px;border:1px solid var(--border-color);border-radius:0.3rem;padding:2px;background:var(--bg-secondary);cursor:pointer;">
               </div>
 
+              <!-- Text Size -->
+              <div id="prop-field-text-size" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Size:</label>
+                <select id="prop-input-text-size" style="padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="10">Small (10px)</option>
+                  <option value="13" selected>Normal (13px)</option>
+                  <option value="16">Medium (16px)</option>
+                  <option value="20">Large (20px)</option>
+                  <option value="28">Extra Large (28px)</option>
+                  <option value="36">Huge (36px)</option>
+                </select>
+              </div>
+
+              <!-- Font Family -->
+              <div id="prop-field-font-family" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Font:</label>
+                <select id="prop-input-font-family" style="padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="sans-serif">Sans-Serif</option>
+                  <option value="serif">Serif</option>
+                  <option value="monospace">Monospace</option>
+                  <option value="cursive">Cursive</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Courier New">Courier New</option>
+                </select>
+              </div>
+
               <!-- Label -->
               <div id="prop-field-label" style="display:flex;align-items:center;gap:0.5rem;">
                 <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Label:</label>
@@ -722,9 +777,12 @@
 
 
         </div>
+        </div> <!-- End of tab-sketcher -->
 
-        <!-- PANEL F: CAMERA PHOTOS EVIDENCE -->
-        <div class="form-panel">
+        <!-- TAB 4: SITE PHOTOS -->
+        <div id="tab-photos" class="tab-content">
+          <!-- PANEL F: CAMERA PHOTOS EVIDENCE -->
+          <div class="form-panel">
           <h3>6. Site Evidence Images</h3>
           <div class="photo-uploader-box" id="photo-dropzone">
             <i data-lucide="camera" style="width: 36px; height: 36px; margin-bottom: 0.5rem;"></i>
@@ -738,6 +796,7 @@
             <!-- Dynamic -->
           </div>
         </div>
+        </div> <!-- End of tab-photos -->
 
 
 

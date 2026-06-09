@@ -67,7 +67,21 @@ export class SiteSketcher {
     this.onPolyNodeAdded   = null;
     this.onZoomChange      = null;
 
+    this.isLocked = false;
+
     this._initEvents();
+    this.draw();
+  }
+
+  setLocked(locked) {
+    this.isLocked = !!locked;
+    if (this.canvas) {
+      if (this.isLocked) {
+        this.canvas.classList.add('locked');
+      } else {
+        this.canvas.classList.remove('locked');
+      }
+    }
     this.draw();
   }
 
@@ -176,6 +190,7 @@ export class SiteSketcher {
     // ── wheel zoom ──
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      if (this.isLocked) return;
       const sp = getSP(e);
       const wp = this.s2w(sp.x, sp.y);
       const f  = e.deltaY < 0 ? 1.12 : 1/1.12;
@@ -188,6 +203,7 @@ export class SiteSketcher {
 
     // ── mouse down ──
     const onDown = (e) => {
+      if (this.isLocked) return;
       if (e.button === 2) return; // ignore right click
       const sp  = getSP(e);
       const raw = this.s2w(sp.x, sp.y);
@@ -252,11 +268,42 @@ export class SiteSketcher {
         case 'boundary-wall':
         case 'gate':
         case 'gate-toran':
-        case 'dimension':
         case 'line': {
           const pt = this._snap(raw, null);
           this.wallChain = [{...pt}];
           this.draw(); break;
+        }
+
+        case 'dimension': {
+          const pt = this._snap(raw, null);
+          if (this.wallChain.length === 0) {
+            this.wallChain = [{...pt}];
+          } else {
+            const p1 = this.wallChain[0];
+            let p2 = pt;
+            if (this.shiftDown) p2 = this._constrain(p1, p2);
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (len > 0.05) {
+              this.pushHistory();
+              const id = Date.now();
+              const newDim = {
+                id,
+                type: 'dimension',
+                x1: p1.x, y1: p1.y,
+                x2: p2.x, y2: p2.y,
+                dimOffset: -1,
+                manualLabel: '',
+                label: `${len.toFixed(2)}m`
+              };
+              this.shapes.push(newDim);
+              this.selectedShape = newDim;
+              this.mode = 'select';
+              if (this.onSelectionChange) this.onSelectionChange(newDim);
+            }
+            this.wallChain = [];
+          }
+          this.draw();
+          break;
         }
 
         case 'building': {
@@ -329,6 +376,7 @@ export class SiteSketcher {
 
     // ── mouse move ──
     const onMove = (e) => {
+      if (this.isLocked) return;
       const sp  = getSP(e);
 
       // pan
@@ -395,6 +443,7 @@ export class SiteSketcher {
 
     // ── mouse up ──
     const onUp = (e) => {
+      if (this.isLocked) return;
       if (this.isPanning) { this.isPanning=false; return; }
       if (!this.isDown) return;
       this.isDown = false;
@@ -402,7 +451,7 @@ export class SiteSketcher {
 
       const raw = this.previewPt || this.s2w(...[0,0]);
 
-      if ((this.mode==='boundary-wall'||this.mode==='gate'||this.mode==='gate-toran'||this.mode==='line'||this.mode==='dimension') && this.wallChain.length===1) {
+      if ((this.mode==='boundary-wall'||this.mode==='gate'||this.mode==='gate-toran'||this.mode==='line') && this.wallChain.length===1) {
         const p1 = this.wallChain[0];
         let p2 = this._snap(raw, null);
         if (this.shiftDown) p2 = this._constrain(p1, p2);
@@ -418,8 +467,6 @@ export class SiteSketcher {
             this.shapes.push({ id, type:'gate-toran', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE WITH TORAN', dimLabel:`${len.toFixed(2)}m`, dimOffset:-1 });
           else if (this.mode==='line')
             this.shapes.push({ id, type:'line', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, style:'dashed', label:'ROW' });
-          else if (this.mode==='dimension')
-            this.shapes.push({ id, type:'dimension', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, dimOffset:-1, manualLabel:'', label:`${len.toFixed(2)}m` });
         }
         this.wallChain=[];
         this.draw();
@@ -440,11 +487,13 @@ export class SiteSketcher {
     this.canvas.addEventListener('touchend',   onUp);
 
     this.canvas.addEventListener('dblclick', (e) => {
+      if (this.isLocked) return;
       if (this.mode==='wall' && this.wallChain.length >= 2) { this._commitWallChain(false); }
       else if ((this.mode==='room'||this.mode==='polybuilding') && this.polyChain.length >= 3) { this._commitPolyChain(); }
     });
 
     window.addEventListener('keydown', (e) => {
+      if (this.isLocked) return;
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=true;
       if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
@@ -460,6 +509,7 @@ export class SiteSketcher {
       if (e.key==='g'||e.key==='G') { this.snapGrid=!this.snapGrid; this.draw(); }
     });
     window.addEventListener('keyup', (e) => {
+      if (this.isLocked) return;
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=false;
       if (e.key===' ')     this.spaceDown=false;
@@ -744,7 +794,9 @@ export class SiteSketcher {
 
     } else if (s.type==='text') {
       const sp=this.w2s(s.x,s.y);
-      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(9,Math.min(16,13*z))}px sans-serif`;
+      const fs=s.fontSize||13;
+      const ff=s.fontFamily||'sans-serif';
+      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(9,Math.min(fs*this.zoom*1.2,fs*this.zoom))}px ${ff}`;
       ctx.textBaseline='alphabetic'; ctx.fillText(s.text||'',sp.x,sp.y);
 
     } else if (s.type==='line') {
@@ -753,6 +805,57 @@ export class SiteSketcher {
       if(s.style==='dashed')ctx.setLineDash([8,6]);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
       if(s.label){const mx=(s1.x+s2.x)/2,my=(s1.y+s2.y)/2;ctx.font=`italic ${Math.max(9,10*z)}px sans-serif`;ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText(s.label,mx,my-6);}
+
+      // Auto vertical offset dimension for ROW line relative to highway center-line
+      if (s.label === 'ROW') {
+        const road = this.shapes.find(shape => shape.type === 'road');
+        if (road) {
+          const roadY = road.y + road.h / 2;
+          const mx = (s.x1 + s.x2) / 2;
+          const my = (s.y1 + s.y2) / 2;
+          const sRoad = this.w2s(mx, roadY);
+          const sRow = this.w2s(mx, my);
+          
+          ctx.save();
+          ctx.strokeStyle = '#ef4444';
+          ctx.fillStyle = '#ef4444';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          
+          ctx.beginPath();
+          ctx.moveTo(sRoad.x, sRoad.y);
+          ctx.lineTo(sRow.x, sRow.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          const hd = (x, y, a) => {
+            const sz = 5;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - sz * Math.cos(a - Math.PI / 6), y - sz * Math.sin(a - Math.PI / 6));
+            ctx.lineTo(x - sz * Math.cos(a + Math.PI / 6), y - sz * Math.sin(a + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+          };
+          const ang = my > roadY ? Math.PI / 2 : -Math.PI / 2;
+          hd(sRoad.x, sRoad.y, ang);
+          hd(sRow.x, sRow.y, ang + Math.PI);
+          
+          const dist = Math.abs(my - roadY);
+          const labelText = `${dist.toFixed(2)}m (ROW Offset)`;
+          ctx.font = `bold ${Math.max(9, Math.min(11, 10 * z))}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const tw = ctx.measureText(labelText).width + 6;
+          
+          const midY = (sRoad.y + sRow.y) / 2;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.fillRect(sRoad.x - tw / 2, midY - 8, tw, 16);
+          ctx.fillStyle = '#ef4444';
+          ctx.fillText(labelText, sRoad.x, midY);
+          ctx.restore();
+        }
+      }
 
     } else if (s.type==='boundary-wall') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -921,7 +1024,7 @@ export class SiteSketcher {
     }
 
     // line-type drag preview
-    if(this._isLinearMode()&&this.isDown&&this.wallChain.length===1){
+    if(this._isLinearMode()&&(this.isDown||this.mode==='dimension')&&this.wallChain.length===1){
       const s1=this.w2s(this.wallChain[0].x,this.wallChain[0].y),s2=this.w2s(p.x,p.y);
       ctx.strokeStyle=this.mode==='dimension'?'#2563eb':'#64748b';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);

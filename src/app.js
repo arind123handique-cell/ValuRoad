@@ -28,6 +28,7 @@ let customDsrCatalog = [];
 let gpsTraceNodes = [];
 let sketcher = null;
 let isNewEntryMode = false;
+let autoSyncInterval = null;
 
 const DEFAULT_NB_NOTE = `This estimate has been prepared as per Addl. District Commissioner cum Competent Authority (LA), Golaghat vide order No. 2/2023/KNP-NK-37/ Dtd. Golaghat the 8th Dec'2025. The area to be acquisitioned for proposed implementation of wildlife-friendly measures proposed on Kaziranga National Park (KNP) stretch of NH-37 from Kaliabor (Ch. 315+315) to Numaligarh (Ch. 402+300) of NH-37 (New NH-715) under Golaghat District was shown by the Revenue & NHAI Officials during the Joint Survey. The above mentioned particulars of Occupier is subjected to be verified by Competent Authority. The application of the valuation estimate is the discretion of the Competent Authority.`;
 
@@ -139,11 +140,16 @@ window.addEventListener('DOMContentLoaded', () => {
           localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(tplSettings));
         }
         setupPdfTemplate(); // redraw template settings fields
+        startAutoSync();
       } catch (e) {
         console.error("Sync Error:", e);
       }
     } else {
       // User is logged out
+      if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+      }
       authOverlay.style.display = 'flex';
       sidebarProfile.style.display = 'none';
       
@@ -1197,6 +1203,18 @@ function setupEditor() {
     }
   });
 
+  setupEditorTabs();
+
+  const lockBtn = document.getElementById('sketch-lock-btn');
+  if (lockBtn) {
+    lockBtn.addEventListener('click', () => {
+      if (sketcher) {
+        sketcher.setLocked(!sketcher.isLocked);
+        updateSketcherLockUI();
+      }
+    });
+  }
+
   document.getElementById('gps-tag-btn').addEventListener('click', captureGPS);
 
   document.getElementById('add-quantity-item-btn').addEventListener('click', () => addItem('quantity-rate'));
@@ -1278,6 +1296,8 @@ function setupEditor() {
   const inputStructType = document.getElementById('prop-input-structure-type');
   const inputDimLabel   = document.getElementById('prop-input-dim-label');
   const inputBlockStyle = document.getElementById('prop-input-block-style');
+  const inputTextSize   = document.getElementById('prop-input-text-size');
+  const inputFontFamily = document.getElementById('prop-input-font-family');
 
   const updateSelectedShape = () => {
     if (!sketcher || !sketcher.selectedShape) return;
@@ -1315,6 +1335,8 @@ function setupEditor() {
       s.rightLabel = inputRight.value;
     } else if (s.type === 'text') {
       s.text = inputLabel.value;
+      if (inputTextSize) s.fontSize = parseInt(inputTextSize.value) || 13;
+      if (inputFontFamily) s.fontFamily = inputFontFamily.value || 'sans-serif';
     } else if (s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'wall') {
       s.label = inputLabel.value;
       s.dimLabel = inputDimLabel.value;
@@ -1343,6 +1365,8 @@ function setupEditor() {
   inputBlockStyle.addEventListener('change', updateSelectedShape);
   const roomColorInput = document.getElementById('prop-input-room-color');
   if (roomColorInput) roomColorInput.addEventListener('input', updateSelectedShape);
+  if (inputTextSize) inputTextSize.addEventListener('change', updateSelectedShape);
+  if (inputFontFamily) inputFontFamily.addEventListener('change', updateSelectedShape);
 
   const mergeBtn = document.getElementById('prop-btn-merge');
   if (mergeBtn) {
@@ -1443,6 +1467,18 @@ function loadEntryToEditor() {
   if (!activeEntry.customServices) activeEntry.customServices = [];
   if (!activeEntry.status) activeEntry.status = 'draft';
 
+  // Reset tabs to Basic Details
+  const tabButtons = document.querySelectorAll('.editor-tabs .tab-btn');
+  const tabContents = document.querySelectorAll('.editor-layout .tab-content');
+  tabButtons.forEach(btn => {
+    if (btn.dataset.tab === 'tab-basic') btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+  tabContents.forEach(pane => {
+    if (pane.id === 'tab-basic') pane.classList.add('active');
+    else pane.classList.remove('active');
+  });
+
   document.getElementById('editor-project-context-title').innerText = activeProject.workName || 'Untitled Project';
 
   if (activeEntry.status === 'completed') {
@@ -1541,6 +1577,8 @@ function loadEntryToEditor() {
     const fieldDimLabel   = document.getElementById('prop-field-dim-label');
     const fieldBlockStyle = document.getElementById('prop-field-block-style');
     const fieldStructType = document.getElementById('prop-field-structure-type');
+    const fieldTextSize   = document.getElementById('prop-field-text-size');
+    const fieldFontFamily = document.getElementById('prop-field-font-family');
 
     const inputLabel      = document.getElementById('prop-input-label');
     const inputWidth      = document.getElementById('prop-input-width');
@@ -1553,7 +1591,7 @@ function loadEntryToEditor() {
     const fieldMerge      = document.getElementById('prop-field-merge');
 
     // Reset all optional fields hidden; label always shown
-    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge].forEach(f => {
+    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldTextSize, fieldFontFamily].forEach(f => {
       if (f) f.style.display = 'none';
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
@@ -1584,6 +1622,16 @@ function loadEntryToEditor() {
       inputRight.value = shape.rightLabel || '';
     } else if (shape.type === 'text') {
       inputLabel.value = shape.text || '';
+      if (fieldTextSize) {
+        fieldTextSize.style.display = 'flex';
+        const inputTextSize = document.getElementById('prop-input-text-size');
+        if (inputTextSize) inputTextSize.value = shape.fontSize || '13';
+      }
+      if (fieldFontFamily) {
+        fieldFontFamily.style.display = 'flex';
+        const inputFontFamily = document.getElementById('prop-input-font-family');
+        if (inputFontFamily) inputFontFamily.value = shape.fontFamily || 'sans-serif';
+      }
     } else if (shape.type === 'boundary-wall' || shape.type === 'gate' || shape.type === 'gate-toran' || shape.type === 'wall') {
       fieldDimLabel.style.display = 'flex';
       inputLabel.value = shape.label || '';
@@ -1651,6 +1699,13 @@ function loadEntryToEditor() {
   } else {
     toggleInputsLock(false);
   }
+
+  // Load sketcher lock state
+  if (sketcher) {
+    sketcher.setLocked(activeEntry.sketcherLocked || false);
+    updateSketcherLockUI();
+  }
+
   calculateAndRenderTotals();
 }
 
@@ -2699,6 +2754,7 @@ async function saveActiveEntry(status = 'draft') {
   if (sketcher) {
     activeEntry.sketcherData = sketcher.exportData();
     activeEntry.sketcherImage = sketcher.exportImage();
+    activeEntry.sketcherLocked = sketcher.isLocked;
     if (sketcher.mapBgImageLoaded) {
       activeEntry.mapLat = sketcher.mapLat;
       activeEntry.mapLon = sketcher.mapLon;
@@ -2971,7 +3027,10 @@ function setupSketcherToolbar() {
           sketcher.mode = t;
           sketcher.currentPath = [];
           sketcher.hoverPos = null;
+          sketcher.wallChain = [];
+          sketcher.polyChain = [];
           document.getElementById('tool-close-poly').style.display = 'none';
+          sketcher.draw();
         }
       });
     }
@@ -4098,5 +4157,102 @@ async function triggerLocalBackup(project) {
     // Fails silently in production/deployed mode
     console.debug("Local backup endpoint not available:", err);
   }
+}
+
+// Setup Tab Switching inside Valuation Editor
+function setupEditorTabs() {
+  const tabButtons = document.querySelectorAll('.editor-tabs .tab-btn');
+  const tabContents = document.querySelectorAll('.editor-layout .tab-content');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.dataset.tab;
+
+      // Update button active state
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Update content active state
+      tabContents.forEach(pane => {
+        if (pane.id === targetTab) {
+          pane.classList.add('active');
+        } else {
+          pane.classList.remove('active');
+        }
+      });
+
+      // Redraw sketcher if sketcher tab is clicked
+      if (targetTab === 'tab-sketcher' && sketcher) {
+        setTimeout(() => {
+          sketcher.draw();
+        }, 50);
+      }
+    });
+  });
+}
+
+// Update the lock sketch button and toolbar disable states
+function updateSketcherLockUI() {
+  if (!sketcher) return;
+  const isLocked = sketcher.isLocked;
+  const lockBtn = document.getElementById('sketch-lock-btn');
+  if (lockBtn) {
+    if (isLocked) {
+      lockBtn.innerHTML = '<i data-lucide="lock" style="width:13px;height:13px;"></i> LOCKED';
+      lockBtn.style.color = '#ef4444';
+      lockBtn.style.borderColor = '#ef4444';
+      lockBtn.title = "Unlock Sketch";
+    } else {
+      lockBtn.innerHTML = '<i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED';
+      lockBtn.style.color = '#22c55e';
+      lockBtn.style.borderColor = '#22c55e';
+      lockBtn.title = "Lock Sketch";
+    }
+    lucide.createIcons();
+  }
+
+  // Disable drawing tools in the sketcher toolbars when locked
+  const toolbarBtns = document.querySelectorAll('.sketcher-toolbar button:not(#sketch-lock-btn), .sketcher-container button:not(#sketch-lock-btn):not(#sketch-zoom-in-btn):not(#sketch-zoom-out-btn):not(#sketch-zoom-fit-btn):not(#sketch-zoom-reset-btn):not(#sketch-pan-left-btn):not(#sketch-pan-right-btn):not(#sketch-pan-up-btn):not(#sketch-pan-down-btn), .sketcher-container select');
+  toolbarBtns.forEach(btn => {
+    btn.disabled = isLocked;
+    btn.style.opacity = isLocked ? '0.5' : '1';
+    btn.style.pointerEvents = isLocked ? 'none' : 'auto';
+  });
+}
+
+// 10-Second Auto-Sync background helper
+function startAutoSync() {
+  if (autoSyncInterval) clearInterval(autoSyncInterval);
+  
+  autoSyncInterval = setInterval(async () => {
+    if (!auth.currentUser) return;
+    
+    // Ignore sync if actively inside editor view to prevent key disruption or layout reset
+    if (views.editor.classList.contains('active')) return;
+    
+    // Pause if document/browser tab is minimized or inactive
+    if (document.hidden) return;
+    
+    console.log("Auto-sync: checking for cloud updates...");
+    try {
+      if (views.dashboard.classList.contains('active')) {
+        const updatedProjects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
+        projects = updatedProjects;
+        renderProjects();
+      } else if (views.projectDetails.classList.contains('active') && activeProject) {
+        const updated = await fetchProjectById(activeProject.id);
+        if (updated) {
+          const idx = projects.findIndex(p => p.id === activeProject.id);
+          if (idx !== -1) {
+            projects[idx] = updated;
+          }
+          activeProject = updated;
+          renderProjectDetails();
+        }
+      }
+    } catch (err) {
+      console.warn("Auto-sync interval failed:", err);
+    }
+  }, 10000);
 }
 
