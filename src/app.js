@@ -5096,14 +5096,29 @@ function startAutoBackup() {
       el.textContent = `Last backup: ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
     }
   }
+
+  // Restore toggle state
+  const toggle = document.getElementById('autobackup-toggle');
+  if (toggle) {
+    const pref = localStorage.getItem('valuroad_autobackup_enabled');
+    if (pref !== null) {
+      toggle.checked = pref === 'true';
+    }
+  }
+
   autoBackupInterval = setInterval(() => {
     if (!auth.currentUser) return;
     if (document.hidden) return;
+    
+    // Check if user disabled auto-backup
+    const isEnabled = toggle ? toggle.checked : true;
+    if (!isEnabled) return;
+    
     downloadAllBackup();
   }, 5 * 60 * 1000); // every 5 minutes
 }
 
-// Wire the manual Backup Now button
+// Wire the manual Backup Now button and toggle
 function setupStatusBar() {
   const backupBtn = document.getElementById('manual-backup-btn');
   if (backupBtn) {
@@ -5116,6 +5131,14 @@ function setupStatusBar() {
       }, 2000);
     });
   }
+
+  const toggle = document.getElementById('autobackup-toggle');
+  if (toggle) {
+    toggle.addEventListener('change', (e) => {
+      localStorage.setItem('valuroad_autobackup_enabled', e.target.checked);
+    });
+  }
+
   if (window.lucide) lucide.createIcons();
 }
 
