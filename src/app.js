@@ -2292,6 +2292,11 @@ function renderItemRow(item) {
       } else {
         activeEntry.items.push(clonedItem);
       }
+
+      // Re-index all item serial numbers sequentially
+      activeEntry.items.forEach((it, index) => {
+        it.itemNo = (index + 1).toString();
+      });
       
       const tbodyNode = document.getElementById('estimate-items-body');
       tbodyNode.innerHTML = '';
@@ -2302,7 +2307,17 @@ function renderItemRow(item) {
 
   tr.querySelector('.delete-item-row-btn').addEventListener('click', () => {
     activeEntry.items = activeEntry.items.filter(i => i.id !== item.id);
-    tr.remove();
+    
+    // Automatically renew Sl No sequentially (1, 2, 3...)
+    activeEntry.items.forEach((it, index) => {
+      it.itemNo = (index + 1).toString();
+    });
+
+    // Re-render list to show updated sequential serial numbers
+    const tbodyNode = document.getElementById('estimate-items-body');
+    tbodyNode.innerHTML = '';
+    activeEntry.items.forEach(i => renderItemRow(i));
+
     calculateAndRenderTotals();
   });
 
