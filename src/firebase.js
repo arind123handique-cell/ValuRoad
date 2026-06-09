@@ -15,7 +15,9 @@ import {
   collection, 
   getDocs,
   query,
-  where
+  where,
+  increment,
+  serverTimestamp
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -165,6 +167,59 @@ export async function fetchUserCustomDsr(uid) {
 export async function saveUserCustomDsr(uid, items) {
   const dsrDoc = doc(db, 'users', uid, 'settings', 'dsr_catalog');
   await setDoc(dsrDoc, { items });
+}
+
+// ── Global Community DSR Catalog ────────────────────────────────────────────
+// Stored in root collection: global_dsr_items/{itemCode}
+// Readable and writable by all authenticated users.
+
+export async function fetchGlobalDsrCatalog() {
+  try {
+    const col = collection(db, 'global_dsr_items');
+    const snap = await getDocs(col);
+    const items = [];
+    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+    return items;
+  } catch (err) {
+    console.warn('Could not fetch global DSR catalog:', err);
+    return [];
+  }
+}
+
+export async function contributeItemToGlobalDsr(item) {
+  if (!item || !item.code) return;
+  // Use the item code as the document ID (slugified for safety)
+  const docId = String(item.code).replace(/[^a-zA-Z0-9_\-\.]/g, '_').slice(0, 80);
+  const ref = doc(db, 'global_dsr_items', docId);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    // Item already shared — just update rate and increment usage count
+    const existing = snap.data();
+    await setDoc(ref, {
+      ...existing,
+      rate: item.rate,              // update to latest contributed rate
+      contributorCount: increment(1),
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+  } else {
+    // New item — create full document
+    await setDoc(ref, {
+      code: item.code,
+      title: item.title || item.code,
+      description: item.description || '',
+      unit: item.unit || '',
+      rate: item.rate || 0,
+      category: item.category || 'community',
+      contributorCount: 1,
+      lastUpdated: serverTimestamp()
+    });
+  }
+}
+
+export async function removeFromGlobalDsr(code) {
+  const docId = String(code).replace(/[^a-zA-Z0-9_\-\.]/g, '_').slice(0, 80);
+  await deleteDoc(doc(db, 'global_dsr_items', docId));
 }
 
 export async function fetchUserPdfTemplate(uid) {

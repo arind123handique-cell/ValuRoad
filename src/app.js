@@ -12,6 +12,8 @@ import {
   deleteUserProject,
   fetchUserCustomDsr,
   saveUserCustomDsr,
+  fetchGlobalDsrCatalog,
+  contributeItemToGlobalDsr,
   fetchUserPdfTemplate,
   saveUserPdfTemplate,
   fetchProjectById,
@@ -25,6 +27,7 @@ let activeProject = null;
 let activeEntry = null;
 let originalEntryCopy = null;
 let customDsrCatalog = [];
+ let globalDsrCatalog = [];  // Community-shared items from all users
 let gpsTraceNodes = [];
 let sketcher = null;
 let isNewEntryMode = false;
@@ -133,9 +136,13 @@ window.addEventListener('DOMContentLoaded', () => {
         renderProjects();
         updateGlobalMetrics();
 
-        // Fetch custom DSR catalog
+        // Fetch custom DSR catalog (private, per-user)
         customDsrCatalog = await fetchUserCustomDsr(user.uid);
         saveCustomDsrCatalog(); // cache locally
+
+        // Fetch global community DSR catalog (shared across all users)
+        globalDsrCatalog = await fetchGlobalDsrCatalog();
+        console.log(`Loaded ${globalDsrCatalog.length} community DSR items.`);
 
         // Fetch PDF template settings
         const tplSettings = await fetchUserPdfTemplate(user.uid);
@@ -2618,13 +2625,13 @@ function setupDsrAutocomplete(input, item, tr) {
   }
 
   function renderItem(dsr, badgeType) {
-    // badgeType: 'learned' | 'custom' | 'standard'
+    // badgeType: 'learned' | 'custom' | 'standard' | 'community'
     const div = document.createElement('div');
     const isLearned = badgeType === 'learned' || badgeType === 'custom';
-    div.className = 'dsr-autocomplete-item' + (isLearned ? ' dsr-learned' : '');
+    div.className = 'dsr-autocomplete-item' + (isLearned ? ' dsr-learned' : '') + (badgeType === 'community' ? ' dsr-community' : '');
 
-    const displayTitle = dsr.category === 'custom'
-      ? dsr.title
+    const displayTitle = (dsr.category === 'custom' || badgeType === 'community')
+      ? (dsr.title || dsr.code)
       : `DSR ${dsr.code}`;
 
     const shortDesc = (dsr.description || '').length > 80
@@ -2640,6 +2647,9 @@ function setupDsrAutocomplete(input, item, tr) {
       badge = `<span class="dsr-learned-badge">⭐ Learned</span>
                ${dsr.usageCount ? `<span class="dsr-usage-count">${dsr.usageCount}×</span>` : ''}
                ${dsr.lastUsedDate ? `<span class="dsr-last-used">${new Date(dsr.lastUsedDate).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'2-digit'})}</span>` : ''}`;
+    } else if (badgeType === 'community') {
+      badge = `<span class="dsr-learned-badge" style="background:#2563eb;">🌐 Community</span>
+               ${dsr.contributorCount ? `<span class="dsr-usage-count">${dsr.contributorCount} contributor${dsr.contributorCount > 1 ? 's' : ''}</span>` : ''}`;
     } else {
       badge = `<span class="dsr-std-badge">Standard</span>`;
     }
@@ -2697,7 +2707,22 @@ function setupDsrAutocomplete(input, item, tr) {
       )
     ).slice(0, 6);
 
-    if (customItems.length === 0 && learnedItems.length === 0 && standardItems.length === 0) {
+    // ── 4. Community items (from all users, deduped against above) ──
+    const shownCodes = new Set([
+      ...customItems.map(d => d.code),
+      ...learnedItems.map(d => d.code),
+      ...standardItems.map(d => d.code)
+    ]);
+    const communityItems = globalDsrCatalog.filter(dsr =>
+      !shownCodes.has(dsr.code) && (
+        !query ||
+        (dsr.title || dsr.code || '').toLowerCase().includes(query) ||
+        (dsr.description || '').toLowerCase().includes(query)
+      )
+    ).sort((a, b) => (b.contributorCount || 0) - (a.contributorCount || 0))
+     .slice(0, 5);
+
+    if (customItems.length === 0 && learnedItems.length === 0 && standardItems.length === 0 && communityItems.length === 0) {
       list.innerHTML = `
         <div class="dsr-no-results">
           <span style="color:var(--text-muted); font-size:0.8rem;">No match found for "<strong>${val}</strong>"</span>
@@ -2733,9 +2758,18 @@ function setupDsrAutocomplete(input, item, tr) {
       standardItems.forEach(dsr => list.appendChild(renderItem(dsr, 'standard')));
     }
 
+    if (communityItems.length > 0) {
+      const header = document.createElement('div');
+      header.className = 'dsr-section-header';
+      header.textContent = '🌐 Community';
+      list.appendChild(header);
+      communityItems.forEach(dsr => list.appendChild(renderItem(dsr, 'community')));
+    }
+
     list.style.display = 'block';
   }
 }
+
 
 // ── DSR Rate Learning Engine ──────────────────────────────────────────────
 // Called after every save. Learns ALL quantity-rate items:
@@ -4091,14 +4125,15 @@ function setupDsrSettings() {
     });
 
     const total = customDsrCatalog.length;
+    const communityCount = globalDsrCatalog.length;
     if (catalogCountLbl) {
       catalogCountLbl.textContent = q
         ? `Showing ${filtered.length} of ${total} saved item${total !== 1 ? 's' : ''}`
-        : `${total} saved item${total !== 1 ? 's' : ''} in your catalog`;
+        : `${total} private item${total !== 1 ? 's' : ''} · 🌐 ${communityCount} community item${communityCount !== 1 ? 's' : ''} shared by all users`;
     }
 
     if (filtered.length === 0) {
-      catalogTbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">
+      catalogTbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;">
         ${q ? `No items matching "<strong>${filterText}</strong>"` : 'Your catalog is empty. Add items above or save an estimate.'}
       </td></tr>`;
       return;
@@ -4124,6 +4159,8 @@ function setupDsrSettings() {
       const displayTitle = isCustom
         ? (item.title || item.code)
         : `DSR ${item.code}`;
+
+      const isShared = globalDsrCatalog.some(g => g.code === item.code || g.id === item.code.replace(/[^a-zA-Z0-9_\-\.]/g, '_').slice(0, 80));
 
       const tr = document.createElement('tr');
       tr.dataset.code = item.code;
@@ -4153,11 +4190,45 @@ function setupDsrSettings() {
         </td>
         <td style="text-align:center; padding:0.45rem; color:var(--text-muted); font-size:0.82rem;">${usageText}</td>
         <td style="text-align:center; padding:0.45rem;">
+          <button class="cat-share-btn" title="${isShared ? 'Already shared with community' : 'Share this item with all users'}"
+            style="background:${isShared ? 'rgba(37,99,235,0.12)' : 'transparent'}; border:1px solid ${isShared ? '#2563eb' : 'var(--border-color)'}; color:${isShared ? '#2563eb' : 'var(--text-muted)'}; cursor:pointer; padding:0.25rem 0.5rem; border-radius:0.35rem; font-size:0.72rem; font-weight:600; line-height:1.5; white-space:nowrap;"
+            data-code="${item.code}">${isShared ? '🌐 Shared' : '🌐 Share'}</button>
+        </td>
+        <td style="text-align:center; padding:0.45rem;">
           <button class="cat-delete-btn" title="Delete this item"
             style="background:transparent; border:none; color:#ef4444; cursor:pointer; padding:0.3rem 0.45rem; border-radius:0.35rem; font-size:1rem; line-height:1;"
             data-code="${item.code}">🗑</button>
         </td>
       `;
+
+      // Share button — contribute to global community catalog
+      tr.querySelector('.cat-share-btn').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const alreadyShared = btn.textContent.includes('Shared');
+        if (alreadyShared) {
+          alert(`"${displayTitle}" is already shared with the community.`);
+          return;
+        }
+        btn.textContent = '⏳ Sharing…';
+        btn.disabled = true;
+        try {
+          await contributeItemToGlobalDsr(item);
+          // Update local globalDsrCatalog cache
+          const gIdx = globalDsrCatalog.findIndex(g => g.code === item.code);
+          if (gIdx === -1) globalDsrCatalog.push({ ...item, category: 'community', contributorCount: 1 });
+          btn.textContent = '🌐 Shared';
+          btn.style.color = '#2563eb';
+          btn.style.border = '1px solid #2563eb';
+          btn.style.background = 'rgba(37,99,235,0.12)';
+          btn.disabled = false;
+          btn.title = 'Already shared with community';
+        } catch (err) {
+          btn.textContent = '❌ Failed';
+          btn.disabled = false;
+          console.error('Share to community failed:', err);
+          setTimeout(() => { btn.textContent = '🌐 Share'; }, 2000);
+        }
+      });
 
       // Delete button
       tr.querySelector('.cat-delete-btn').addEventListener('click', () => {
@@ -4238,7 +4309,50 @@ function setupDsrSettings() {
       renderCatalogTable('');
     });
   }
-}
+
+  // Share All — contribute every private item to the global community catalog
+  const shareAllBtn = document.getElementById('catalog-share-all-btn');
+  if (shareAllBtn) {
+    shareAllBtn.addEventListener('click', async () => {
+      if (customDsrCatalog.length === 0) {
+        alert('Your catalog is empty. Nothing to share.');
+        return;
+      }
+      if (!confirm(`Share all ${customDsrCatalog.length} items from your catalog with all users? (They will appear in everyone\'s 🌐 Community suggestions.)`)) return;
+
+      shareAllBtn.disabled = true;
+      shareAllBtn.textContent = '⏳ Sharing 0…';
+
+      let done = 0;
+      const errors = [];
+      for (const item of customDsrCatalog) {
+        try {
+          await contributeItemToGlobalDsr(item);
+          // update local cache
+          const gIdx = globalDsrCatalog.findIndex(g => g.code === item.code);
+          if (gIdx === -1) globalDsrCatalog.push({ ...item, category: 'community', contributorCount: 1 });
+          done++;
+          shareAllBtn.textContent = `⏳ Sharing ${done}/${customDsrCatalog.length}…`;
+        } catch (err) {
+          errors.push(item.code);
+          console.error('Share error for', item.code, err);
+        }
+      }
+
+      shareAllBtn.disabled = false;
+      shareAllBtn.innerHTML = '<i data-lucide="globe"></i> Share All';
+      if (window.lucide) lucide.createIcons();
+
+      if (errors.length === 0) {
+        alert(`✅ Successfully shared ${done} items with the community!`);
+      } else {
+        alert(`Shared ${done} items. ${errors.length} failed (check console).`);
+      }
+
+      renderCatalogTable(catalogSearch ? catalogSearch.value : '');
+    });
+  }
+} // end setupDsrSettings
 
 function parseOcrDsrText(text) {
   const items = [];
