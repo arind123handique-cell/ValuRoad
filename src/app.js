@@ -4662,6 +4662,12 @@ function setupPdfTemplate() {
     preview.style.setProperty('--pdf-font-family', ff);
     preview.style.setProperty('--pdf-font-size', fs + 'pt');
     preview.style.setProperty('--pdf-margin', m + 'mm');
+
+    // Update mock values
+    const mockCp = document.getElementById('mock-cp');
+    const mockDep = document.getElementById('mock-dep');
+    if (mockCp && fields.contractorPct) mockCp.textContent = fields.contractorPct.value;
+    if (mockDep && fields.depRate) mockDep.textContent = fields.depRate.value;
   }
 
   // Bind live preview on input

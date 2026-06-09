@@ -1245,31 +1245,101 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
     <div class="a4-canvas-container">
       <div class="a4-paper" id="pdf-tpl-preview">
         <!-- Document Content -->
-        <div class="pdf-header-container">
-          <div id="tpl-org-name" class="editable-field pdf-org" contenteditable="true" spellcheck="false" data-placeholder="Organisation / Department Name">Central Public Works Department</div>
-          <div id="tpl-subtitle" class="editable-field pdf-sub" contenteditable="true" spellcheck="false" data-placeholder="Report Sub-Title">VALUATION ESTIMATE FOR LAND ACQUISITION</div>
-          <div class="pdf-basis-label">Basis of Estimate:</div>
-          <div id="tpl-basis-text" class="editable-field pdf-basis" contenteditable="true" spellcheck="false" data-placeholder="Basis of Estimate Line">D.S.R for CPWD Building for the year 2021</div>
-        </div>
-
-        <div class="pdf-mock-body">
-          <table class="pdf-mock-table">
-            <tr><th colspan="2">1. Name of Project</th><td colspan="4">Expansion of NH-37</td></tr>
-            <tr><th colspan="2">2. Name of Owner</th><td colspan="4">Sri John Doe</td></tr>
-            <tr style="background:#f1f5f9;"><th style="width:5%;">Sl</th><th style="width:50%;">Description</th><th style="width:10%;">Qty</th><th style="width:10%;">Unit</th><th style="width:10%;">Rate</th><th style="width:15%;">Amount</th></tr>
-            <tr><td>1</td><td>Mock Item (Click above to edit headers)</td><td>10.00</td><td>Sqm</td><td>150.00</td><td>1,500.00</td></tr>
-          </table>
-
-          <div class="pdf-mock-calc">
-            <div style="display:flex; justify-content:space-between;"><span>Estimated Value</span><span>s 1,500.00</span></div>
-            <div style="display:flex; justify-content:space-between; color:var(--text-secondary);"><span>Less Dep Rate (from ribbon)</span><span>(s 15.00)</span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; border-top:1px solid #ccc; padding-top:4px;"><span>Net Value</span><span>s 1,485.00</span></div>
+        <div class="pdf-header-container" style="text-align: left; margin-bottom: 2rem;">
+          <div style="display:flex; margin-bottom:4px;">
+            <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
+            <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
+            <div style="flex-grow: 1; font-weight: bold; text-align: justify;" id="tpl-subtitle" class="editable-field pdf-sub" contenteditable="true" spellcheck="false" data-placeholder="Report Sub-Title">Valuation estimate of building/Structure in connection with implementation of wildlife-friendly measures proposed on Kaziranga National Park (KNP) stretch of NH-37 from Kaliabor (Ch. 315+315) to Numaligarh (Ch. 402+300) of NH-37 (New NH-715) under Golaghat District</div>
+          </div>
+          <div style="display:flex; margin-bottom:4px;">
+            <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Occupier</div>
+            <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
+            <div style="flex-grow: 1;" id="tpl-org-name" class="editable-field pdf-org" contenteditable="true" spellcheck="false" data-placeholder="Organisation / Department Name">Natya Mandir</div>
+          </div>
+          <div style="display:flex; margin-bottom:4px;">
+            <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Village</div>
+            <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
+            <div style="flex-grow: 1;">Bosagaon</div>
+          </div>
+          <div style="display:flex; margin-bottom:15px;">
+            <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Year of Construction</div>
+            <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
+            <div style="flex-grow: 1;"><span style="font-weight:bold;">2018</span><span style="margin-left: 10mm;">As Stated by Gaon Pradhan</span></div>
+          </div>
+          <div style="font-weight: normal; margin-bottom: 20px;">
+            This estimate is prepared on the basis of <span id="tpl-basis-text" class="editable-field pdf-basis" contenteditable="true" spellcheck="false" data-placeholder="Basis of Estimate Line">D.S.R for CPWD Building for the year 2021</span>
           </div>
         </div>
 
-        <div class="pdf-footer-container">
-          <strong>N.B. Note (Default):</strong>
-          <div id="tpl-nb-default" class="editable-field pdf-nb" contenteditable="true" spellcheck="false" data-placeholder="Enter default N.B. note here...">This note appears at the bottom of every report by default. Individual reports can override it.</div>
+        <div class="pdf-mock-body" style="font-size: 0.95em;">
+          <div style="font-weight: bold; margin-bottom: 2px;">
+            Item No. 1 <span style="margin-left: 15mm;">Assam Type Building</span>
+          </div>
+          <div style="margin-left: 20mm;">
+            <div style="margin-bottom: 2px;">Plinth area of the building:-</div>
+            <div style="display: flex; margin-bottom: 1px;">
+              <div style="width: 25mm;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Room</div>
+              <div style="width: 5mm; text-align: center;">:</div>
+              <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
+                <span style="width: 45mm; text-align: left;">12.50 m x 6.20 m =</span>
+                <span style="width: 25mm; text-align: right;">77.50 sqm</span>
+              </div>
+            </div>
+            <div style="font-weight: 500; margin-bottom: 1px;">
+              <div style="display: flex; justify-content: flex-end; padding-right: 45mm;">
+                <span style="width: 45mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
+                <span style="width: 25mm; text-align: right;">77.50 sqm</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 2px; margin-top: 4px;">
+              <div style="width: 10mm; text-align: right;">@</div>
+              <div style="margin-left: 5mm; flex-grow: 1;">Rs. 15,867.00/sqm <span style="margin-left: 10px;">(As per approved rate)</span></div>
+              <div style="width: 5mm; text-align: center; font-weight: bold;">=</div>
+              <div style="width: 40mm; text-align: right; font-weight: bold;">Rs. 12,29,692.50</div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 6px;">
+              <div style="flex-grow: 1;">Ded. 70% for non conformity with CPWD norms</div>
+              <div style="width: 5mm; text-align: center; font-weight: bold;">=</div>
+              <div style="width: 40mm; text-align: right; font-weight: bold;">Rs. -8,60,785.00</div>
+            </div>
+          </div>
+
+          <div class="pdf-mock-calc" style="margin-top: 5mm;">
+            <div style="border-top: 1px solid #000; padding-top: 2px; display: flex; justify-content: flex-end; font-weight: bold; margin-bottom: 2px;">
+              <div style="width: 80mm; text-align: right;">TOTAL (A) =</div>
+              <div style="width: 40mm; text-align: right;">Rs. 3,68,908.00</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+              <div style="width: 80mm; text-align: right;">Deduct. <span id="mock-cp">15</span>% for Contractors Profit =</div>
+              <div style="width: 40mm; text-align: right;">Rs. -55,336.00</div>
+            </div>
+            <div style="border-top: 1px solid #000; padding-top: 2px; display: flex; justify-content: flex-end; font-weight: bold; margin-bottom: 2px;">
+              <div style="width: 80mm; text-align: right;">TOTAL (B) =</div>
+              <div style="width: 40mm; text-align: right;">Rs. 3,13,572.00</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <div style="flex-grow: 1;">Depreciation @<span id="mock-dep">2</span>% per year from (2025 - 2018) = 7 years, i.e 2 x 7 = 14% =</div>
+              <div style="width: 5mm; text-align: center; font-weight: bold;">=</div>
+              <div style="width: 40mm; text-align: right;">Rs. -43,900.00</div>
+            </div>
+            <div style="border-top: 1px solid #000; padding-top: 2px; display: flex; justify-content: flex-end; font-weight: bold; margin-bottom: 6mm;">
+              <div style="width: 80mm; text-align: right;">TOTAL =</div>
+              <div style="width: 40mm; text-align: right;">Rs. 2,69,672.00</div>
+            </div>
+            
+            <div style="border-top: 1.5px solid #000; padding-top: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; font-weight: bold; font-size: 1.05em;">
+              <div style="flex-grow: 1; text-align: center; padding-left: 40mm;">GRAND TOTAL =</div>
+              <div style="width: 40mm; text-align: right;">Rs. 2,69,672.00</div>
+            </div>
+            <div style="border-top: 1.5px solid #000; padding-top: 6px; font-weight: bold; text-align: center; margin-bottom: 15px;">
+              (Rupees two lakh sixty-nine thousand six hundred and seventy-two only) only.
+            </div>
+          </div>
+        </div>
+
+        <div class="pdf-footer-container" style="text-align: justify; margin-top: 10px;">
+          <strong>N.B:-</strong>
+          <span id="tpl-nb-default" class="editable-field pdf-nb" contenteditable="true" spellcheck="false" data-placeholder="Enter default N.B. note here...">This estimate has been prepared as per Addl. District Commissioner cum Competent Authority (LA), Golaghat vide order No. 2/2023/KNP-NK-37/ Dtd. Golaghat the 8th Dec'2025. The area to be acquisitioned for proposed implementation of wildlife-friendly measures proposed on Kaziranga National Park (KNP) stretch of NH-37 from Kaliabor (Ch. 315+315) to Numaligarh (Ch. 402+300) of NH-37 (New NH-715) under Golaghat District was shown by the Revenue & NHAI Officials during the Joint Survey. The above mentioned particulars of Occupier is subjected to be verified by Competent Authority. The application of the valuation estimate is the discretion of the Competent Authority.</span>
         </div>
       </div>
     </div>
