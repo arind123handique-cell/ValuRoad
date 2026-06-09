@@ -87,6 +87,9 @@
       <button id="nav-pdf-template-btn">
         <i data-lucide="file-text"></i> PDF Template
       </button>
+      <button id="nav-profile-btn">
+        <i data-lucide="user"></i> My Profile
+      </button>
     </nav>
 
     <!-- User Profile Section -->
@@ -763,6 +766,13 @@
                   <i data-lucide="merge"></i> Merge Touching
                 </button>
               </div>
+              
+              <!-- Push to Estimate Button -->
+              <div id="prop-field-push-estimate" style="display:none;align-items:center;gap:0.5rem;margin-left:auto;">
+                <button type="button" id="prop-btn-push-estimate" class="btn-primary" style="padding:0.3rem 0.6rem;font-size:0.8rem;height:auto;background-color:#10b981;border-color:#10b981;">
+                  <i data-lucide="plus-circle"></i> Add to Estimate
+                </button>
+              </div>
             </div>
 
             <!-- ── Canvas ── -->
@@ -803,7 +813,54 @@
       </div>
     </div>
 
-    <!-- VIEW 5: DSR SETTINGS PANEL -->
+    <!-- VIEW: USER PROFILE -->
+    <div id="view-profile" class="view-container">
+      <div class="editor-header">
+        <div>
+          <h2>User Profile & Settings</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">Set your details and digital signature for PDF reports.</p>
+        </div>
+      </div>
+      
+      <div class="form-panel" style="max-width: 600px; margin: 0 auto; margin-top: 2rem;">
+        <h3 class="section-title">Personal Details</h3>
+        
+        <div class="form-grid" style="grid-template-columns: 1fr; margin-bottom: 1.5rem;">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="profile-name" placeholder="e.g. Er. John Doe">
+          </div>
+          <div class="form-group">
+            <label>Designation</label>
+            <input type="text" id="profile-designation" placeholder="e.g. Executive Engineer, PWD">
+          </div>
+        </div>
+
+        <h3 class="section-title">Digital Signature</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Upload a scanned copy of your signature to attach to generated valuation PDFs.</p>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <input type="file" id="profile-signature-upload" accept="image/png, image/jpeg" style="margin-bottom: 0.5rem;">
+          <div id="profile-signature-preview" style="height: 100px; width: 100%; max-width: 300px; border: 1px dashed var(--border-color); border-radius: 0.5rem; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">No signature uploaded</span>
+          </div>
+          <button type="button" id="profile-clear-signature-btn" class="btn-secondary" style="margin-top: 0.5rem; display: none;">Clear Signature</button>
+        </div>
+
+        <h3 class="section-title">PDF Export Preferences</h3>
+        <div class="form-group" style="margin-top: 1rem;">
+          <label class="check-label" style="justify-content: flex-start; padding: 0.5rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" id="profile-include-pdf" checked>
+            <span style="font-weight: 500;">Stamp my Profile Details and Signature at the bottom of exported PDFs</span>
+          </label>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+          <button type="button" id="profile-save-btn" class="btn-primary" style="padding: 0.6rem 1.5rem;">Save Profile Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: DSR / LOCAL CATALOG SETTINGS -->
     <div id="view-settings" class="view-container">
       <div class="dashboard-header">
         <div>

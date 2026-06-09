@@ -485,6 +485,27 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   }
 
 
+  let profileHtml = '';
+  try {
+    const savedProf = localStorage.getItem('valuroad_user_profile');
+    if (savedProf) {
+      const prof = JSON.parse(savedProf);
+      if (prof.includePdf !== false && (prof.name || prof.designation || prof.signatureBase64)) {
+        profileHtml = `
+          <div style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
+            <div style="text-align: center; width: 65mm; font-family: Arial, Helvetica, sans-serif;">
+              ${prof.signatureBase64 ? `<img src="${prof.signatureBase64}" style="max-height: 25mm; max-width: 60mm; margin-bottom: 2px;">` : '<div style="height: 15mm;"></div>'}
+              <div style="font-weight: bold; font-size: 10.5pt; color: #000000;">${prof.name || ''}</div>
+              <div style="font-size: 10pt; color: #1e293b;">${prof.designation || ''}</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  } catch(e) {
+    console.error('Error loading profile for PDF', e);
+  }
+
   // ── PAGE 1: VALUATION ESTIMATE SHEET ────────────────────────────────────────
   const orgBlock = tpl.orgName ? `
     <div style="text-align:center;font-weight:bold;font-size:${parseFloat(tpl.fontSize)+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${tpl.orgName}</div>` : '';
@@ -540,6 +561,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       ${grandTotalHtml}
 
       ${nbHtml}
+
+      ${profileHtml}
     </div>
   `;
 
