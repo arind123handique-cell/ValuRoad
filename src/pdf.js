@@ -169,7 +169,7 @@ function renderQuantityRateItem(item) {
     }
 
     return `
-    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
+    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
         <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${item.title}</span> ${depInfoHtml}</div>
       </div>
@@ -233,7 +233,7 @@ function renderPlinthAreaItem(item) {
   }
 
   return `
-    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
+    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
         <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${titleText}</span> ${depInfoHtml}</div>
       </div>
@@ -313,7 +313,7 @@ function renderLumpSumItem(item) {
   const hasDeduction = item.deductionPct > 0;
 
   return `
-    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
+    <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
         <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${titleText}</span></div>
       </div>
@@ -371,7 +371,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   });
 
   let subtotalsHtml = `
-    <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.5; color: #000000;">
+    <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
       <!-- Line above TOTAL (A) -->
       <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
         <div style="width: 105mm; border-top: 1px solid #000;"></div>
@@ -423,7 +423,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   const hasCustomServices = report.customServices && report.customServices.length > 0;
   if (report.addSanitary || report.addElectrification || hasCustomServices) {
     serviceItemsHtml += `
-      <div class="pdf-service-block" style="margin-top: 4mm; color: #000000; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.45;">
+      <div class="pdf-service-block" style="margin-top: 4mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45;">
         <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
           <div style="flex-grow: 1;">Service Item:</div>
         </div>
@@ -470,7 +470,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     <!-- Line above GRAND TOTAL -->
     <div style="border-top: 1.5px solid #000; margin-top: 5mm; margin-bottom: 2px; width: 100%;"></div>
     
-    <div class="pdf-row" style="font-weight: bold; font-size: 11pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; color: #000000; line-height: 1.5;">
+    <div class="pdf-row" style="font-weight: bold; font-size: 11pt; font-family: Arial, Helvetica, sans-serif; color: #000000; line-height: 1.5;">
       <div style="flex-grow: 1; text-align: right; padding-right: 10mm; letter-spacing: 0.5px;">GRAND TOTAL =</div>
       <div style="width: 45mm; text-align: right; font-size: 11.5pt;">Rs. ${formatIndianCurrency(report.grandTotal)}</div>
     </div>
@@ -478,7 +478,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     <!-- Line below GRAND TOTAL -->
     <div style="border-top: 1.5px solid #000; margin-top: 2px; margin-bottom: 4mm; width: 100%;"></div>
 
-    <div style="font-weight: bold; font-size: 10.5pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; color: #000000; padding-left: 20mm; margin-bottom: 6mm;">
+    <div style="font-weight: bold; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; color: #000000; padding-left: 20mm; margin-bottom: 6mm;">
       (${numberToIndianWords(report.grandTotal)}) only.
     </div>
   `;
@@ -490,7 +490,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   let nbHtml = '';
   if (cleanNbNote) {
     nbHtml = `
-      <div class="pdf-nb-block" style="margin-top: 6mm; font-size: 10pt; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; line-height: 1.45; text-align: justify; color: #000000;">
+      <div class="pdf-nb-block" style="margin-top: 6mm; font-size: 10pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; text-align: justify; color: #000000;">
         <strong>N.B:-</strong> ${cleanNbNote}
       </div>
     `;
@@ -505,7 +505,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       if (prof.includePdf !== false && (prof.name || prof.designation || prof.signatureBase64)) {
         profileHtml = `
           <div style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
-            <div style="text-align: center; width: 65mm; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'};">
+            <div style="text-align: center; width: 65mm; font-family: Arial, Helvetica, sans-serif;">
               ${prof.signatureBase64 ? `<img src="${prof.signatureBase64}" style="max-height: 25mm; max-width: 60mm; margin-bottom: 2px;">` : '<div style="height: 15mm;"></div>'}
               <div style="font-weight: bold; font-size: 10.5pt; color: #000000;">${prof.name || ''}</div>
               <div style="font-size: 10pt; color: #1e293b;">${prof.designation || ''}</div>
@@ -525,10 +525,10 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     <div style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
 
   let html = `
-    <div class="pdf-page" style="font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; font-size:${tpl.fontSize}pt; color: #000000;">
+    <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000;">
       ${orgBlock}
       ${subBlock}
-      <div class="pdf-estimate-header" style="color: #000000; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
+      <div class="pdf-estimate-header" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
         <div class="pdf-row" style="margin-bottom: 4px;">
           <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
           <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
@@ -554,7 +554,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         </div>
       </div>
 
-      <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; color: #000000;">
+      <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
         This estimate is prepared on the basis of ${tpl.basisText}
       </div>
 
@@ -580,7 +580,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
   // ── PAGE 2: LINE PLAN ────────────────────────────────────────────────────────
   const headerHtml = `
-    <div class="pdf-estimate-header" style="color: #000000; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
+    <div class="pdf-estimate-header" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
       <div class="pdf-row" style="margin-bottom: 4px;">
         <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
         <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
@@ -608,7 +608,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-    <div class="pdf-page" style="page-break-before: always; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; color: #000000; display: flex; flex-direction: column; min-height: 250mm;">
+    <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 250mm;">
       ${headerHtml}
       <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 10mm; margin-bottom: 10mm;">
         ${sketcherImage
@@ -625,7 +625,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // ── PAGE 3: SITE PHOTO EVIDENCE ──────────────────────────────────────────────
   if (report.photos && report.photos.length > 0) {
     html += `
-      <div class="pdf-page" style="page-break-before: always; font-family: ${tpl.fontFamily || 'Arial, Helvetica, sans-serif'}; color: #000000;">
+      <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000;">
         <h3 class="section-title" style="font-size: 14pt; font-weight: bold; margin-bottom: 15px; border-bottom: 1.5px solid #000000; padding-bottom: 4px;">SITE PHOTO EVIDENCE</h3>
         <div class="pdf-photo-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; margin-top: 5mm;">
     `;
