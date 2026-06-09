@@ -118,9 +118,14 @@
           <h2>Valuation Projects</h2>
           <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Select an infrastructure project to manage affected owner entries</p>
         </div>
-        <button class="btn-primary" id="dash-create-project-btn">
-          <i data-lucide="folder-plus"></i> Create Project
-        </button>
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <button class="btn-secondary" id="dash-refresh-btn" title="Sync Projects from Cloud">
+            <i data-lucide="refresh-cw"></i> Sync
+          </button>
+          <button class="btn-primary" id="dash-create-project-btn">
+            <i data-lucide="folder-plus"></i> Create Project
+          </button>
+        </div>
       </div>
 
       <!-- Quick Metrics -->
@@ -197,12 +202,15 @@
           <h2 id="project-details-work-title">Project Name</h2>
           <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;"><i data-lucide="map-pin" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i> <span id="project-details-location">Location</span></p>
         </div>
-        <div style="display: flex; gap: 0.75rem; align-self: flex-end;">
+        <div style="display: flex; gap: 0.75rem; align-self: flex-end; flex-wrap: wrap;">
+          <button class="btn-secondary" id="project-refresh-btn" title="Refresh/Sync Project Details from Cloud">
+            <i data-lucide="refresh-cw"></i> Refresh
+          </button>
           <button class="btn-secondary" id="project-edit-work-btn" title="Edit Project Details">
-            <i data-lucide="settings"></i> Edit Project Details
+            <i data-lucide="settings"></i> Edit Details
           </button>
           <button class="btn-primary" id="project-add-owner-btn">
-            <i data-lucide="user-plus"></i> Add Affected Owner Entry
+            <i data-lucide="user-plus"></i> Add Owner
           </button>
         </div>
       </div>

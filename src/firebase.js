@@ -176,3 +176,16 @@ export async function saveUserPdfTemplate(uid, settings) {
   const tplDoc = doc(db, 'users', uid, 'settings', 'pdf_template');
   await setDoc(tplDoc, settings);
 }
+
+export async function fetchProjectById(projectId) {
+  try {
+    const rootDocRef = doc(db, 'projects', String(projectId));
+    const rootSnap = await getDoc(rootDocRef);
+    if (rootSnap.exists()) {
+      return { id: rootSnap.id, ...rootSnap.data() };
+    }
+  } catch (err) {
+    console.error("Error fetching project by ID from Firestore:", err);
+  }
+  return null;
+}

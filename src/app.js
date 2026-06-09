@@ -13,7 +13,8 @@ import {
   fetchUserCustomDsr,
   saveUserCustomDsr,
   fetchUserPdfTemplate,
-  saveUserPdfTemplate
+  saveUserPdfTemplate,
+  fetchProjectById
 } from './firebase.js';
 
 // Application State
@@ -400,6 +401,31 @@ function setupDashboard() {
   if (createBtn) {
     createBtn.addEventListener('click', () => initNewProject());
   }
+
+  const refreshBtn = document.getElementById('dash-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      const originalHtml = refreshBtn.innerHTML;
+      refreshBtn.innerHTML = '<i data-lucide="refresh-cw" class="spin" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></i> Syncing...';
+      lucide.createIcons();
+      
+      if (auth.currentUser) {
+        try {
+          projects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
+          saveProjects();
+          renderProjects();
+        } catch (err) {
+          console.error("Failed to sync projects:", err);
+          alert("Failed to sync from database. Please check connection.");
+        }
+      }
+
+      refreshBtn.innerHTML = originalHtml;
+      refreshBtn.disabled = false;
+      lucide.createIcons();
+    });
+  }
   
   const searchInput = document.getElementById('project-search');
   if (searchInput) {
@@ -530,7 +556,25 @@ function deleteProject(id) {
   }
 }
 
-function openProjectDetails(projectId) {
+async function openProjectDetails(projectId) {
+  // Fetch latest project details first on open to prevent stale data
+  if (auth.currentUser) {
+    try {
+      const updated = await fetchProjectById(projectId);
+      if (updated) {
+        const idx = projects.findIndex(p => p.id === projectId);
+        if (idx !== -1) {
+          projects[idx] = updated;
+        } else {
+          projects.push(updated);
+        }
+        saveProjects();
+      }
+    } catch (err) {
+      console.warn("Failed to fetch project update on load:", err);
+    }
+  }
+
   const p = projects.find(proj => proj.id === projectId);
   if (!p) return;
   activeProject = p;
@@ -541,6 +585,39 @@ function setupProjectDetails() {
   document.getElementById('project-back-btn').addEventListener('click', () => {
     switchView('dashboard');
   });
+
+  const refreshBtn = document.getElementById('project-refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      if (!activeProject) return;
+      refreshBtn.disabled = true;
+      const originalHtml = refreshBtn.innerHTML;
+      refreshBtn.innerHTML = '<i data-lucide="refresh-cw" class="spin" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></i> Syncing...';
+      lucide.createIcons();
+
+      if (auth.currentUser) {
+        try {
+          const updated = await fetchProjectById(activeProject.id);
+          if (updated) {
+            const idx = projects.findIndex(p => p.id === activeProject.id);
+            if (idx !== -1) {
+              projects[idx] = updated;
+            }
+            activeProject = updated;
+            saveProjects();
+            renderProjectDetails();
+          }
+        } catch (err) {
+          console.error("Failed to sync project details:", err);
+          alert("Failed to sync from database.");
+        }
+      }
+
+      refreshBtn.innerHTML = originalHtml;
+      refreshBtn.disabled = false;
+      lucide.createIcons();
+    });
+  }
 
   document.getElementById('project-edit-work-btn').addEventListener('click', () => {
     if (activeProject) {
@@ -999,12 +1076,29 @@ function updateProjectMetrics() {
   document.getElementById('proj-metric-cost').innerText = 'Rs. ' + formatIndianCurrency(totalCost);
 }
 
-function deleteOwnerEntry(id) {
+async function deleteOwnerEntry(id) {
   if (confirm('Are you sure you want to delete this owner entry? This cannot be undone.')) {
-    activeProject.entries = activeProject.entries.filter(e => e.id !== id);
+    if (auth.currentUser) {
+      try {
+        const updated = await fetchProjectById(activeProject.id);
+        if (updated) {
+          activeProject = updated;
+        }
+      } catch (err) {
+        console.warn("Failed to fetch latest state before delete:", err);
+      }
+    }
+
+    activeProject.entries = (activeProject.entries || []).filter(e => e.id !== id);
+    
+    const pIdx = projects.findIndex(p => p.id === activeProject.id);
+    if (pIdx > -1) {
+      projects[pIdx] = activeProject;
+    }
+
     saveProjects();
     if (auth.currentUser) {
-      saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+      await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
     }
     renderProjectDetails();
   }
@@ -1049,7 +1143,7 @@ function editProject(id) {
   switchView('projectEditor');
 }
 
-function saveProject() {
+async function saveProject() {
   const workName = document.getElementById('proj-work-name').value.trim();
   const location = document.getElementById('proj-location').value.trim();
   const nbNote = document.getElementById('proj-nb-note').value.trim();
@@ -1057,6 +1151,17 @@ function saveProject() {
   if (!workName) {
     alert('Please enter a Project Work Name / Scheme Description.');
     return;
+  }
+
+  if (auth.currentUser) {
+    try {
+      const updated = await fetchProjectById(activeProject.id);
+      if (updated) {
+        activeProject = updated;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch latest state before project save:", err);
+    }
   }
 
   activeProject.workName = workName;
@@ -1073,7 +1178,7 @@ function saveProject() {
 
   saveProjects();
   if (auth.currentUser) {
-    saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+    await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
   }
   openProjectDetails(activeProject.id);
 }
@@ -2585,7 +2690,7 @@ function validateEditorForm() {
   return true;
 }
 
-function saveActiveEntry(status = 'draft') {
+async function saveActiveEntry(status = 'draft') {
   if (!activeEntry || !activeProject) return;
   calculateAndRenderTotals();
 
@@ -2606,6 +2711,18 @@ function saveActiveEntry(status = 'draft') {
     }
   }
 
+  // Fetch the latest state from cloud first to merge rather than overwrite
+  if (auth.currentUser) {
+    try {
+      const updated = await fetchProjectById(activeProject.id);
+      if (updated) {
+        activeProject = updated;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch latest state for merging before save:", err);
+    }
+  }
+
   if (!activeProject.entries) activeProject.entries = [];
   const idx = activeProject.entries.findIndex(e => e.id === activeEntry.id);
   if (idx > -1) {
@@ -2614,9 +2731,15 @@ function saveActiveEntry(status = 'draft') {
     activeProject.entries.push(activeEntry);
   }
 
+  // Update in local projects list
+  const pIdx = projects.findIndex(p => p.id === activeProject.id);
+  if (pIdx > -1) {
+    projects[pIdx] = activeProject;
+  }
+
   saveProjects();
   if (auth.currentUser) {
-    saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+    await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
   }
 
   // Auto-learn DSR rates from this entry's quantity-rate items
