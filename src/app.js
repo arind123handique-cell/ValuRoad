@@ -3783,49 +3783,121 @@ function setupDsrSettings() {
 
 function parseOcrDsrText(text) {
   const items = [];
-  const lines = text.split(/\r?\n/);
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const UNITS = ['sqm','sqf','sqft','cum','nos','rm','rmt','rmt.','kg','quintal','litre','ltr','l\/s','ls','each','set','pair','pcs','bag'];
+  const unitPat = UNITS.join('|');
+
+  // ── Strategy 1: Structured table rows (code  description  unit  rate)
+  // Handles: "12.5  Cement concrete flooring  sqm  512.50"
+  const TABLE_ROW = new RegExp(
+    `^(\\d{1,3}(?:\\.\\d{1,3}){0,2})\\s{2,}(.{10,})\\s{2,}(${unitPat})\\s{1,}([\\d,]+\\.?\\d*)\\s*$`,
+    'i'
+  );
+
+  // ── Strategy 2: Item No pattern with embedded rate
+  // Handles: "Item No 12.5  Flooring work sqm @ Rs. 512.50"
+  const ITEM_HEADER = /^(?:S\.?\s*No\.?|Item\s*No\.?|Sl\.?\s*No\.?)[:\-\s]*([\d]+(?:\.\d+)?(?:\.\d+)?)/i;
+
+  // ── Strategy 3: Numbered list with rate at end (no "Item No" prefix)
+  // Handles: "16.1  Precast RCC post nos 3648.00"
+  const NUMBERED = new RegExp(
+    `^(\\d{1,3}(?:\.\\d{1,3}){1,2})[\\s\.\\-:]+(.+?)(?:[\\s\\-]+(${unitPat}))?[\\s@,]+([\\d,]+\.\\d{2,})\\s*$`,
+    'i'
+  );
+
   let currentItem = null;
 
-  lines.forEach(line => {
-    line = line.trim();
-    if (!line) return;
+  const pushCurrent = () => {
+    if (currentItem && currentItem.code && currentItem.description.length > 3) {
+      // Final clean of description
+      currentItem.description = currentItem.description
+        .replace(/\bItem\s*No\.?\s*[\d\.]+/gi, '')
+        .replace(/Rs\.?\s*[\d,\.]+/gi, '')
+        .replace(new RegExp(`\\b(${unitPat})\\b`, 'gi'), '')
+        .replace(/[@\s]{2,}/g, ' ')
+        .trim();
+      if (currentItem.description.length > 3) items.push(currentItem);
+    }
+    currentItem = null;
+  };
 
-    const headerMatch = line.match(/^(?:DSR\s+)?Item(?:\s+No)?\.?\s*[:\-]?\s*([0-9\.]+)/i);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-    if (headerMatch) {
-      if (currentItem) items.push(currentItem);
-      const code = headerMatch[1];
-      let rest = line.substring(headerMatch[0].length).trim();
-      currentItem = {
-        code: code,
-        description: rest,
-        unit: 'sqm',
-        rate: 0
-      };
-    } else if (currentItem) {
+    // Strategy 1: Full table row on one line
+    const t = line.match(TABLE_ROW);
+    if (t) {
+      pushCurrent();
+      const rate = parseFloat(t[4].replace(/,/g, '')) || 0;
+      if (rate > 0) {
+        items.push({ code: t[1].trim(), description: t[2].trim(), unit: t[3].toLowerCase(), rate });
+      }
+      continue;
+    }
+
+    // Strategy 2: "Item No. X.Y"
+    const h = line.match(ITEM_HEADER);
+    if (h) {
+      pushCurrent();
+      const code = h[1];
+      const rest = line.substring(h[0].length).trim();
+      currentItem = { code, description: rest, unit: 'sqm', rate: 0 };
+      continue;
+    }
+
+    // Strategy 3: numbered-only (e.g. "16.1  desc  unit  rate")
+    const n = line.match(NUMBERED);
+    if (n) {
+      pushCurrent();
+      const rate = parseFloat(n[4].replace(/,/g, '')) || 0;
+      const unit = n[3] ? n[3].toLowerCase() : 'sqm';
+      if (rate > 0) {
+        items.push({ code: n[1].trim(), description: n[2].trim(), unit, rate });
+      }
+      continue;
+    }
+
+    // Continuation line for currentItem
+    if (currentItem) {
+      // Does this line look like it ends with a rate?
+      const rateLineMatch = line.match(/([\d,]+\.\d{2,})\s*$/);
+      const unitLineMatch = line.match(new RegExp(`\\b(${unitPat})\\b`, 'i'));
+      if (rateLineMatch) {
+        const possibleRate = parseFloat(rateLineMatch[1].replace(/,/g, ''));
+        if (possibleRate > 0 && currentItem.rate === 0) {
+          currentItem.rate = possibleRate;
+          const beforeRate = line.substring(0, rateLineMatch.index).trim();
+          if (unitLineMatch) currentItem.unit = unitLineMatch[1].toLowerCase();
+          if (beforeRate.length > 2) currentItem.description += ' ' + beforeRate;
+          continue;
+        }
+      }
+      if (unitLineMatch && currentItem.unit === 'sqm') {
+        currentItem.unit = unitLineMatch[1].toLowerCase();
+      }
       currentItem.description += ' ' + line;
     }
-  });
+  }
 
-  if (currentItem) items.push(currentItem);
+  pushCurrent();
 
+  // Final pass: extract rate from description if still 0
   items.forEach(item => {
-    const rateMatch = item.description.match(/(?:Rate|@|Rs\.?)\s*(?:Rate|@|Rs\.?|:|\s)*\s*([0-9\.,]+)(?:\s*\/([a-z]+|nos))?/i);
-    if (rateMatch) {
-      item.rate = parseFloat(rateMatch[1].replace(/,/g, '')) || 0;
-      if (rateMatch[2]) item.unit = rateMatch[2].toLowerCase();
-      item.description = item.description.substring(0, rateMatch.index).trim();
+    if (item.rate === 0) {
+      const rm = item.description.match(/(?:@|Rs\.?|Rate\s*[:=]?)\s*([\d,]+\.\d{2,})/i);
+      if (rm) {
+        item.rate = parseFloat(rm[1].replace(/,/g, '')) || 0;
+        item.description = item.description.substring(0, rm.index).trim();
+      }
     }
-
-    const unitMatch = item.description.match(/\b(sqm|sqft|sqf|cum|nos|kg|metre|meter|mtr|l\/s|ls)\b/i);
-    if (unitMatch) {
-      item.unit = unitMatch[1].toLowerCase();
-    }
-
-    item.description = item.description.replace(/\s+/g, ' ').trim();
+    // Final unit check from description
+    const um = item.description.match(new RegExp(`\\b(${unitPat})\\b`, 'i'));
+    if (um) item.unit = um[1].toLowerCase();
+    item.description = item.description.replace(/\s{2,}/g, ' ').trim();
   });
 
-  return items.filter(i => i.code && i.description);
+  // Only return items with a valid code and non-zero rate
+  return items.filter(i => i.code && i.description && i.rate > 0);
 }
 
 function renderOcrPreview() {
@@ -3836,22 +3908,45 @@ function renderOcrPreview() {
 
   tbody.innerHTML = '';
   if (parsedOcrItems.length === 0) {
-    alert('No valid DSR items detected. Please check your text format.');
+    alert('No valid DSR items detected. Try checking that your text includes item numbers (e.g. "12.5" or "Item No. 16.1") and rates (e.g. "512.50").');
     panel.style.display = 'none';
     saveBtn.disabled = true;
     return;
   }
 
-  countText.innerText = `${parsedOcrItems.length} items detected. Review details below:`;
-  parsedOcrItems.forEach(item => {
+  countText.innerText = `${parsedOcrItems.length} items detected — review and correct below before importing:`;
+  parsedOcrItems.forEach((item, idx) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="bold">${item.code}</td>
-      <td style="font-size: 0.8rem;">${item.description.substring(0, 120)}...</td>
-      <td>${item.unit}</td>
-      <td class="bold">Rs. ${formatIndianCurrency(item.rate)}</td>
+      <td style="font-size:0.78rem; font-weight:700; color:var(--accent);">${item.code}</td>
+      <td style="font-size:0.78rem; max-width:220px;">
+        <input type="text" value="${item.description.replace(/"/g,'&quot;')}" 
+          style="width:100%; font-size:0.77rem; background:transparent; border:none; border-bottom:1px solid var(--border-color); color:var(--text-primary); outline:none; padding:2px 0;"
+          data-idx="${idx}" data-field="description">
+      </td>
+      <td>
+        <select data-idx="${idx}" data-field="unit" style="font-size:0.78rem; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:0.35rem; color:var(--text-primary); padding:2px 4px;">
+          ${['sqm','sqft','sqf','cum','nos','Rm','kg','ls','set','bag'].map(u =>
+            `<option value="${u}" ${item.unit===u?'selected':''}>${u}</option>`
+          ).join('')}
+        </select>
+      </td>
+      <td style="font-weight:700;">
+        <input type="number" value="${item.rate}" 
+          style="width:80px; font-size:0.78rem; background:transparent; border:none; border-bottom:1px solid var(--border-color); color:var(--accent); font-weight:700; outline:none; padding:2px 0; text-align:right;"
+          data-idx="${idx}" data-field="rate">
+      </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  // Bind live edits back to parsedOcrItems
+  tbody.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const i = parseInt(e.target.dataset.idx);
+      const field = e.target.dataset.field;
+      parsedOcrItems[i][field] = field === 'rate' ? (parseFloat(e.target.value) || 0) : e.target.value;
+    });
   });
 
   panel.style.display = 'block';
