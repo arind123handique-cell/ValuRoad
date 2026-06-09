@@ -1861,7 +1861,7 @@ function addItem(type) {
     description: '',
     type: type,
     quantity: 1.0,
-    unit: type === 'plinth-area' ? 'sqf' : 'nos',
+    unit: type === 'plinth-area' ? 'sqm' : 'nos',
     rate: 0.0,
     totalCost: 0.0,
     includeInValuation: true,
@@ -1886,6 +1886,7 @@ function addItem(type) {
     newItem.deductionLabel = 'non conformity with CPWD norms';
     newItem.deductionAmount = 0;
     newItem.rate = 20685.00;
+    newItem.unit = 'sqm';
   }
 
   activeEntry.items.push(newItem);
