@@ -93,20 +93,24 @@ export async function fetchUserProjects(uid, email = "") {
 export async function saveUserProject(uid, project) {
   if (!project.id) return;
 
+  // Clone project and remove full entries list to save document space
+  const projectToSave = { ...project };
+  delete projectToSave.entries;
+
   // Initialize sharing and ownership fields if not present
-  if (!project.ownerId) {
-    project.ownerId = uid;
+  if (!projectToSave.ownerId) {
+    projectToSave.ownerId = uid;
   }
-  if (!project.ownerEmail && auth.currentUser) {
-    project.ownerEmail = auth.currentUser.email;
+  if (!projectToSave.ownerEmail && auth.currentUser) {
+    projectToSave.ownerEmail = auth.currentUser.email;
   }
-  if (!project.sharedWith) {
-    project.sharedWith = [];
+  if (!projectToSave.sharedWith) {
+    projectToSave.sharedWith = [];
   }
 
   // Save to the root 'projects' collection
   const projectDoc = doc(db, 'projects', String(project.id));
-  await setDoc(projectDoc, project);
+  await setDoc(projectDoc, projectToSave);
 
   // Clean up legacy document if it exists to complete migration
   try {
@@ -182,10 +186,52 @@ export async function fetchProjectById(projectId) {
     const rootDocRef = doc(db, 'projects', String(projectId));
     const rootSnap = await getDoc(rootDocRef);
     if (rootSnap.exists()) {
-      return { id: rootSnap.id, ...rootSnap.data() };
+      const projectData = rootSnap.data();
+      const entries = [];
+
+      // 1. Fetch entries from the subcollection
+      const entriesCol = collection(db, 'projects', String(projectId), 'entries');
+      const entriesSnap = await getDocs(entriesCol);
+      entriesSnap.forEach(d => {
+        entries.push({ id: d.id, ...d.data() });
+      });
+
+      // 2. Backward compatibility: Migrate legacy inline entries to subcollection
+      if (projectData.entries && projectData.entries.length > 0) {
+        console.log(`Migrating ${projectData.entries.length} legacy entries to subcollection...`);
+        for (const entry of projectData.entries) {
+          const entryDocRef = doc(db, 'projects', String(projectId), 'entries', String(entry.id));
+          await setDoc(entryDocRef, entry);
+          // Only add to result if not already present in subcollection
+          if (!entries.some(e => e.id === entry.id)) {
+            entries.push(entry);
+          }
+        }
+        
+        // Clean up parent document and save it to complete migration
+        projectData.entriesCount = entries.length;
+        projectData.totalValuation = entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+        
+        const projectDoc = doc(db, 'projects', String(projectId));
+        const projectToSave = { ...projectData };
+        delete projectToSave.entries;
+        await setDoc(projectDoc, projectToSave);
+      }
+
+      return { id: rootSnap.id, ...projectData, entries };
     }
   } catch (err) {
     console.error("Error fetching project by ID from Firestore:", err);
   }
   return null;
+}
+
+export async function saveProjectEntry(projectId, entry) {
+  const entryDoc = doc(db, 'projects', String(projectId), 'entries', String(entry.id));
+  await setDoc(entryDoc, entry);
+}
+
+export async function deleteProjectEntry(projectId, entryId) {
+  const entryDoc = doc(db, 'projects', String(projectId), 'entries', String(entryId));
+  await deleteDoc(entryDoc);
 }

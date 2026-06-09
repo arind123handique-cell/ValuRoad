@@ -14,7 +14,9 @@ import {
   saveUserCustomDsr,
   fetchUserPdfTemplate,
   saveUserPdfTemplate,
-  fetchProjectById
+  fetchProjectById,
+  saveProjectEntry,
+  deleteProjectEntry
 } from './firebase.js';
 
 // Application State
@@ -459,8 +461,8 @@ function renderProjects() {
 
     filtered.forEach(p => {
       const tr = document.createElement('tr');
-      const entriesCount = p.entries ? p.entries.length : 0;
-      const totalValuation = p.entries ? p.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0) : 0;
+      const entriesCount = p.entries ? p.entries.length : (p.entriesCount || 0);
+      const totalValuation = p.entries ? p.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0) : (p.totalValuation || 0);
 
       // Determine ownership and sharing status
       const isOwner = !p.ownerId || (auth.currentUser && p.ownerId === auth.currentUser.uid);
@@ -1094,6 +1096,8 @@ async function deleteOwnerEntry(id) {
     }
 
     activeProject.entries = (activeProject.entries || []).filter(e => e.id !== id);
+    activeProject.entriesCount = activeProject.entries.length;
+    activeProject.totalValuation = activeProject.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
     
     const pIdx = projects.findIndex(p => p.id === activeProject.id);
     if (pIdx > -1) {
@@ -1102,6 +1106,7 @@ async function deleteOwnerEntry(id) {
 
     saveProjects();
     if (auth.currentUser) {
+      await deleteProjectEntry(activeProject.id, id).catch(err => console.error("Error deleting entry from subcollection:", err));
       await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
     }
     renderProjectDetails();
@@ -2735,6 +2740,10 @@ async function saveActiveEntry(status = 'draft') {
     activeProject.entries.push(activeEntry);
   }
 
+  // Recalculate summary metrics
+  activeProject.entriesCount = activeProject.entries.length;
+  activeProject.totalValuation = activeProject.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+
   // Update in local projects list
   const pIdx = projects.findIndex(p => p.id === activeProject.id);
   if (pIdx > -1) {
@@ -2743,6 +2752,7 @@ async function saveActiveEntry(status = 'draft') {
 
   saveProjects();
   if (auth.currentUser) {
+    await saveProjectEntry(activeProject.id, activeEntry).catch(err => console.error("Error saving entry to subcollection:", err));
     await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
   }
 
