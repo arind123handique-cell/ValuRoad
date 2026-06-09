@@ -1720,3 +1720,85 @@ main {
   cursor: not-allowed !important;
 }
 
+/* ── App Status Bar ─────────────────────────────────────────── */
+#app-status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  gap: 1rem;
+  user-select: none;
+}
+
+.status-bar-left,
+.status-bar-center,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.status-bar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.status-sep {
+  opacity: 0.4;
+  font-size: 0.85rem;
+}
+
+/* Sync indicator dot */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot--idle    { background: #64748b; }
+.status-dot--syncing { background: #f59e0b; animation: pulse-dot 0.8s ease-in-out infinite; }
+.status-dot--ok      { background: #22c55e; }
+.status-dot--error   { background: #ef4444; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* Backup Now button inside status bar */
+#manual-backup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  line-height: 1.6;
+}
+#manual-backup-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Push main app content up so status bar doesn't overlap */
+body {
+  padding-bottom: 28px;
+}

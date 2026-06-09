@@ -1283,7 +1283,31 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
   <!-- PDF HIDDEN GENERATOR FRAME -->
   <div id="pdf-template"></div>
 
+  <!-- GLOBAL STATUS BAR -->
+  <div id="app-status-bar">
+    <div class="status-bar-left">
+      <span id="sync-status-dot" class="status-dot status-dot--idle" title="Cloud sync status"></span>
+      <span id="sync-status-text">Not signed in</span>
+    </div>
+    <div class="status-bar-center">
+      <span id="autosync-label">⚡ Auto-sync: 10s</span>
+      <span class="status-sep">·</span>
+      <span id="last-sync-label">Last sync: —</span>
+    </div>
+    <div class="status-bar-right">
+      <span id="last-backup-label">Last backup: —</span>
+      <span class="status-sep">·</span>
+      <button id="manual-backup-btn" title="Download a JSON backup of all projects to your PC">
+        <i data-lucide="download" style="width:13px;height:13px;"></i> Backup Now
+      </button>
+    </div>
+  </div>
+
+  <!-- Hidden anchor for triggering file downloads -->
+  <a id="download-anchor" style="display:none;"></a>
+
   <!-- Entry Script -->
   <script type="module" src="/src/app.js"></script>
 </body>
+
 </html>

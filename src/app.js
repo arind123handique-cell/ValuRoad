@@ -144,8 +144,12 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         setupPdfTemplate(); // redraw template settings fields
         startAutoSync();
+        setupStatusBar();
+        startAutoBackup();
+        setSyncStatus('ok', `Signed in · ${user.email}`);
       } catch (e) {
-        console.error("Sync Error:", e);
+        setSyncStatus('error', 'Sync error');
+        console.error('Sync Error:', e);
       }
     } else {
       // User is logged out
@@ -153,6 +157,11 @@ window.addEventListener('DOMContentLoaded', () => {
         clearInterval(autoSyncInterval);
         autoSyncInterval = null;
       }
+      if (autoBackupInterval) {
+        clearInterval(autoBackupInterval);
+        autoBackupInterval = null;
+      }
+      setSyncStatus('idle', 'Not signed in');
       authOverlay.style.display = 'flex';
       sidebarProfile.style.display = 'none';
       
@@ -4791,21 +4800,59 @@ function setupProjectSharingModal() {
   }
 }
 
-// Asynchronous helper to post backups to the local dev server middleware
-async function triggerLocalBackup(project) {
-  if (!project) return;
-  try {
-    await fetch('/api/backup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(project)
-    });
-  } catch (err) {
-    // Fails silently in production/deployed mode
-    console.debug("Local backup endpoint not available:", err);
-  }
+// ── Status Bar Helpers ────────────────────────────────────────────────────
+function setSyncStatus(state, text) {
+  const dot  = document.getElementById('sync-status-dot');
+  const label = document.getElementById('sync-status-text');
+  if (!dot || !label) return;
+  dot.className = `status-dot status-dot--${state}`; // idle | syncing | ok | error
+  label.textContent = text;
+}
+
+function setLastSync() {
+  const el = document.getElementById('last-sync-label');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = `Last sync: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+}
+
+function setLastBackup() {
+  const el = document.getElementById('last-backup-label');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = `Last backup: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+  localStorage.setItem('valuroad_last_backup', now.toISOString());
+}
+
+// ── PC Backup: real browser file download ────────────────────────────────
+function triggerLocalBackup(project) {
+  // Also called from saveProjects — silently export the active project
+  // Full backup happens via downloadAllBackup()
+  // No-op here to keep save flow clean; full backup is on timer / manual button
+}
+
+function downloadAllBackup() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    appVersion: 'ValuRoad-v1',
+    projects: projects,
+    customDsrCatalog: customDsrCatalog
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+
+  const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const name = `ValuRoad_Backup_${ts}.json`;
+
+  const anchor = document.getElementById('download-anchor') || document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  anchor.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  setLastBackup();
+  console.log(`[Backup] Downloaded: ${name}`);
 }
 
 // Setup Tab Switching inside Valuation Editor
@@ -4869,20 +4916,16 @@ function updateSketcherLockUI() {
   });
 }
 
-// 10-Second Auto-Sync background helper
+// ── 10-Second Auto-Sync ───────────────────────────────────────────────────
 function startAutoSync() {
   if (autoSyncInterval) clearInterval(autoSyncInterval);
-  
+
   autoSyncInterval = setInterval(async () => {
     if (!auth.currentUser) return;
-    
-    // Ignore sync if actively inside editor view to prevent key disruption or layout reset
     if (views.editor.classList.contains('active')) return;
-    
-    // Pause if document/browser tab is minimized or inactive
     if (document.hidden) return;
-    
-    console.log("Auto-sync: checking for cloud updates...");
+
+    setSyncStatus('syncing', 'Syncing…');
     try {
       if (views.dashboard.classList.contains('active')) {
         const updatedProjects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
@@ -4892,17 +4935,54 @@ function startAutoSync() {
         const updated = await fetchProjectById(activeProject.id);
         if (updated) {
           const idx = projects.findIndex(p => p.id === activeProject.id);
-          if (idx !== -1) {
-            projects[idx] = updated;
-          }
+          if (idx !== -1) projects[idx] = updated;
           activeProject = updated;
           renderProjectDetails();
         }
       }
+      setSyncStatus('ok', `Synced · ${auth.currentUser.email}`);
+      setLastSync();
     } catch (err) {
-      console.warn("Auto-sync interval failed:", err);
+      setSyncStatus('error', 'Sync failed');
+      console.warn('Auto-sync interval failed:', err);
     }
   }, 10000);
+}
+
+// ── 5-Minute Auto-Backup to PC ────────────────────────────────────────────
+let autoBackupInterval = null;
+function startAutoBackup() {
+  if (autoBackupInterval) clearInterval(autoBackupInterval);
+  // Restore last-backup label from localStorage
+  const saved = localStorage.getItem('valuroad_last_backup');
+  if (saved) {
+    const el = document.getElementById('last-backup-label');
+    if (el) {
+      const d = new Date(saved);
+      el.textContent = `Last backup: ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+  }
+  autoBackupInterval = setInterval(() => {
+    if (!auth.currentUser) return;
+    if (document.hidden) return;
+    downloadAllBackup();
+  }, 5 * 60 * 1000); // every 5 minutes
+}
+
+// Wire the manual Backup Now button
+function setupStatusBar() {
+  const backupBtn = document.getElementById('manual-backup-btn');
+  if (backupBtn) {
+    backupBtn.addEventListener('click', () => {
+      downloadAllBackup();
+      backupBtn.textContent = '✅ Saved!';
+      setTimeout(() => {
+        backupBtn.innerHTML = '<i data-lucide="download" style="width:13px;height:13px;"></i> Backup Now';
+        if (window.lucide) lucide.createIcons();
+      }, 2000);
+    });
+  }
+  if (window.lucide) lucide.createIcons();
 }
 
 function setupProfileSettings() {
