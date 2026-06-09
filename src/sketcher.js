@@ -110,8 +110,8 @@ export class SiteSketcher {
       pt.y = Math.round(pt.y / g) * g;
     }
 
-    // endpoint snap (overrides grid if closer)
-    if (this.snapEndpt) {
+    // endpoint snap (overrides grid if closer) — only when snap is enabled
+    if (this.snapGrid && this.snapEndpt) {
       const thrW = this.SNAP_PX / this.ppm;
       let best = null, bestDist = thrW;
       this._allEndpoints(excludeId).forEach(ep => {
@@ -806,56 +806,7 @@ export class SiteSketcher {
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
       if(s.label){const mx=(s1.x+s2.x)/2,my=(s1.y+s2.y)/2;ctx.font=`italic ${Math.max(9,10*z)}px sans-serif`;ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText(s.label,mx,my-6);}
 
-      // Auto vertical offset dimension for ROW line relative to highway center-line
-      if (s.label === 'ROW') {
-        const road = this.shapes.find(shape => shape.type === 'road');
-        if (road) {
-          const roadY = road.y + road.h / 2;
-          const mx = (s.x1 + s.x2) / 2;
-          const my = (s.y1 + s.y2) / 2;
-          const sRoad = this.w2s(mx, roadY);
-          const sRow = this.w2s(mx, my);
-          
-          ctx.save();
-          ctx.strokeStyle = '#ef4444';
-          ctx.fillStyle = '#ef4444';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          
-          ctx.beginPath();
-          ctx.moveTo(sRoad.x, sRoad.y);
-          ctx.lineTo(sRow.x, sRow.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          
-          const hd = (x, y, a) => {
-            const sz = 5;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x - sz * Math.cos(a - Math.PI / 6), y - sz * Math.sin(a - Math.PI / 6));
-            ctx.lineTo(x - sz * Math.cos(a + Math.PI / 6), y - sz * Math.sin(a + Math.PI / 6));
-            ctx.closePath();
-            ctx.fill();
-          };
-          const ang = my > roadY ? Math.PI / 2 : -Math.PI / 2;
-          hd(sRoad.x, sRoad.y, ang);
-          hd(sRow.x, sRow.y, ang + Math.PI);
-          
-          const dist = Math.abs(my - roadY);
-          const labelText = `${dist.toFixed(2)}m (ROW Offset)`;
-          ctx.font = `bold ${Math.max(9, Math.min(11, 10 * z))}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          const tw = ctx.measureText(labelText).width + 6;
-          
-          const midY = (sRoad.y + sRow.y) / 2;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.fillRect(sRoad.x - tw / 2, midY - 8, tw, 16);
-          ctx.fillStyle = '#ef4444';
-          ctx.fillText(labelText, sRoad.x, midY);
-          ctx.restore();
-        }
-      }
+      // ROW autodimension removed — only the ROW line is drawn
 
     } else if (s.type==='boundary-wall') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
