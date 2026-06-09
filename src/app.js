@@ -56,16 +56,8 @@ const navBtns = {
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-  setupSidebarNavigation();
-  setupEditorTabs();
-  setupProjectsList();
-  setupGlobalActions();
   setupAuthUI();
-  setupSettingsUI();
-  setupProfileSettings();
-  setupPDFTemplateStyles(); // ensure pdf styles are attached
-  initParticles(); // start background effect
-
+  setupNavigation();
   setupDashboard();
   setupProjectDetails();
   setupProjectEditor();
@@ -75,6 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupGpsTracingModal();
   setupProjectSharingModal();
   setupTheme();
+  initParticles(); // start background effect
+
 
   // Mobile Navigation toggle
   const openMenuBtn = document.getElementById('mobile-menu-open-btn');
