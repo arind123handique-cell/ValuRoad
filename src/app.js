@@ -4609,6 +4609,7 @@ export function getPdfTemplateSettings() {
     orgName: '',
     subtitle: '',
     margin: 8,
+    fontFamily: 'Arial, Helvetica, sans-serif',
     fontSize: 10.5,
     imgQuality: 0.98,
     linePlanHeight: '170mm',
@@ -4626,6 +4627,7 @@ function setupPdfTemplate() {
     orgName:        document.getElementById('tpl-org-name'),
     subtitle:       document.getElementById('tpl-subtitle'),
     margin:         document.getElementById('tpl-margin'),
+    fontFamily:     document.getElementById('tpl-font-family'),
     fontSize:       document.getElementById('tpl-font-size'),
     imgQuality:     document.getElementById('tpl-img-quality'),
     linePlanHeight: document.getElementById('tpl-lineplan-height'),
@@ -4642,79 +4644,50 @@ function setupPdfTemplate() {
   const settings = getPdfTemplateSettings();
   Object.keys(fields).forEach(key => {
     if (fields[key] && settings[key] !== undefined) {
-      fields[key].value = settings[key];
+      if (fields[key].isContentEditable) {
+        fields[key].innerText = settings[key];
+      } else {
+        fields[key].value = settings[key];
+      }
     }
   });
 
-  // Live preview renderer
-  function renderPreview() {
+  // Live CSS Variable Updater for WYSIWYG
+  function updatePreviewStyles() {
     if (!preview) return;
-    const org      = fields.orgName?.value.trim()    || '';
-    const sub      = fields.subtitle?.value.trim()   || '';
-    const basis    = fields.basisText?.value.trim()  || '';
-    const fs       = parseFloat(fields.fontSize?.value) || 10.5;
-    const depRate  = parseFloat(fields.depRate?.value) || 1;
-    const cPct     = parseFloat(fields.contractorPct?.value) || 15;
-
-    preview.style.fontSize = fs + 'pt';
-    preview.innerHTML = `
-      ${org ? `<div style="text-align:center;font-weight:bold;font-size:${fs+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${org}</div>` : ''}
-      ${sub ? `<div style="text-align:center;font-weight:bold;font-size:${fs}pt;margin-bottom:10px;letter-spacing:0.5px;">${sub}</div>` : ''}
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px;">
-        <div style="width:45mm;font-weight:bold;flex-shrink:0;">Name of Work</div>
-        <div style="width:5mm;text-align:center;">:</div>
-        <div style="flex-grow:1;font-weight:bold;font-style:italic;">Sample Valuation of Building</div>
-      </div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px;">
-        <div style="width:45mm;font-weight:bold;flex-shrink:0;">Name of Occupier</div>
-        <div style="width:5mm;text-align:center;">:</div>
-        <div style="flex-grow:1;">Ram Kumar Das</div>
-      </div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px;">
-        <div style="width:45mm;font-weight:bold;flex-shrink:0;">Village</div>
-        <div style="width:5mm;text-align:center;">:</div>
-        <div style="flex-grow:1;">Kaliabor, Nagaon</div>
-      </div>
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:10px;">
-        <div style="width:45mm;font-weight:bold;flex-shrink:0;">Year of Construction</div>
-        <div style="width:5mm;text-align:center;">:</div>
-        <div style="flex-grow:1;font-weight:bold;">2010</div>
-      </div>
-      <div style="font-size:${fs}pt;font-weight:500;margin-bottom:10px;">
-        This estimate is prepared on the basis of ${basis || '…'}
-      </div>
-      <div style="border-top:1px solid #999;padding-top:6px;font-size:${fs-1}pt;color:#555;">
-        <div style="display:flex;justify-content:space-between;"><span>Item 1 — RCC Structure (Sample)</span><span>Rs. 4,50,000</span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Item 2 — Brick Masonry (Sample)</span><span>Rs. 1,20,000</span></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:6px;font-weight:bold;border-top:1px solid #999;padding-top:4px;"><span>TOTAL (A) = Rs. 5,70,000</span></div>
-        <div style="display:flex;justify-content:flex-end;color:#444;"><span>Deduct ${cPct}% Contractor Profit = Rs. -${(5700000*cPct/100/100).toFixed(0)}</span></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:4px;font-weight:bold;"><span>GRAND TOTAL = Rs. 4,84,500</span></div>
-      </div>
-    `;
+    const ff = fields.fontFamily?.value || 'Arial, Helvetica, sans-serif';
+    const fs = parseFloat(fields.fontSize?.value) || 10.5;
+    const m  = parseFloat(fields.margin?.value) || 8;
+    
+    preview.style.setProperty('--pdf-font-family', ff);
+    preview.style.setProperty('--pdf-font-size', fs + 'pt');
+    preview.style.setProperty('--pdf-margin', m + 'mm');
   }
 
   // Bind live preview on input
   Object.values(fields).forEach(el => {
-    if (el) el.addEventListener('input', renderPreview);
+    if (el) el.addEventListener('input', updatePreviewStyles);
+    if (el) el.addEventListener('change', updatePreviewStyles);
   });
-  renderPreview();
+  updatePreviewStyles(); // Initial render
 
   // Save button
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
       const out = {};
-      out.basisText      = fields.basisText?.value.trim()       || 'D.S.R for CPWD Building for the year 2021';
-      out.orgName        = fields.orgName?.value.trim()         || '';
-      out.subtitle       = fields.subtitle?.value.trim()        || '';
-      out.margin         = parseFloat(fields.margin?.value)     || 8;
-      out.fontSize       = parseFloat(fields.fontSize?.value)   || 10.5;
-      out.imgQuality     = parseFloat(fields.imgQuality?.value) || 0.98;
-      out.linePlanHeight = fields.linePlanHeight?.value         || '170mm';
-      out.nbDefault      = fields.nbDefault?.value.trim()       || '';
-      out.depRate        = parseFloat(fields.depRate?.value)    || 1;
-      out.contractorPct  = parseFloat(fields.contractorPct?.value) || 15;
-      out.photosPerRow   = parseInt(fields.photosPerRow?.value) || 2;
-      out.photoHeight    = fields.photoHeight?.value            || '60mm';
+      out.basisText      = fields.basisText?.innerText.trim()       || 'D.S.R for CPWD Building for the year 2021';
+      out.orgName        = fields.orgName?.innerText.trim()         || '';
+      out.subtitle       = fields.subtitle?.innerText.trim()        || '';
+      out.margin         = parseFloat(fields.margin?.value)         || 8;
+      out.fontFamily     = fields.fontFamily?.value                 || 'Arial, Helvetica, sans-serif';
+      out.fontSize       = parseFloat(fields.fontSize?.value)       || 10.5;
+      out.imgQuality     = parseFloat(fields.imgQuality?.value)     || 0.98;
+      out.linePlanHeight = fields.linePlanHeight?.value             || '170mm';
+      out.nbDefault      = fields.nbDefault?.innerText.trim()       || '';
+      out.depRate        = parseFloat(fields.depRate?.value)        || 1;
+      out.contractorPct  = parseFloat(fields.contractorPct?.value)  || 15;
+      out.photosPerRow   = parseInt(fields.photosPerRow?.value)     || 2;
+      out.photoHeight    = fields.photoHeight?.value                || '60mm';
 
       localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(out));
       if (auth.currentUser) {
@@ -4722,10 +4695,11 @@ function setupPdfTemplate() {
       }
 
       // Visual feedback
+      const originalHtml = saveBtn.innerHTML;
       saveBtn.textContent = '✓ Saved!';
       saveBtn.style.background = 'var(--success, #16a34a)';
       setTimeout(() => {
-        saveBtn.innerHTML = '<i data-lucide="save"></i> Save Template';
+        saveBtn.innerHTML = originalHtml;
         saveBtn.style.background = '';
         lucide.createIcons();
       }, 2000);

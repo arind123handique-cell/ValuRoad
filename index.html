@@ -1159,150 +1159,119 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
 
   <!-- VIEW 6: PDF TEMPLATE EDITOR -->
   <div id="view-pdf-template" class="view-container">
-    <div class="dashboard-header">
-      <div>
-        <h2>PDF Template Settings</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Customise the layout, text, and style of your exported valuation report</p>
+    
+    <!-- Word-Style Ribbon Toolbar -->
+    <div class="editor-ribbon">
+      <div class="ribbon-group">
+        <span class="ribbon-label">Typography</span>
+        <div class="ribbon-controls">
+          <select id="tpl-font-family" class="ribbon-select" style="width: 140px;" title="Font Family">
+            <option value="Arial, Helvetica, sans-serif" selected>Arial</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Helvetica, sans-serif">Helvetica</option>
+            <option value="'Courier New', Courier, monospace">Courier</option>
+            <option value="Georgia, serif">Georgia</option>
+          </select>
+          <select id="tpl-font-size" class="ribbon-select" style="width: 80px;" title="Font Size">
+            <option value="9">9 pt</option>
+            <option value="10">10 pt</option>
+            <option value="10.5" selected>10.5 pt</option>
+            <option value="11">11 pt</option>
+            <option value="12">12 pt</option>
+          </select>
+        </div>
       </div>
-      <button class="btn-primary" id="pdf-template-save-btn">
-        <i data-lucide="save"></i> Save Template
-      </button>
+      
+      <div class="ribbon-group">
+        <span class="ribbon-label">Page Layout</span>
+        <div class="ribbon-controls">
+          <label class="ribbon-input-group" title="Page Margin (mm)">
+            <i data-lucide="expand"></i>
+            <input id="tpl-margin" type="number" min="4" max="30" value="8" class="ribbon-input" style="width: 50px;">
+          </label>
+          <select id="tpl-lineplan-height" class="ribbon-select" style="width: 110px;" title="Line Plan Height">
+            <option value="150mm">150mm Plan</option>
+            <option value="170mm" selected>170mm Plan</option>
+            <option value="190mm">190mm Plan</option>
+          </select>
+          <select id="tpl-photos-per-row" class="ribbon-select" style="width: 100px;" title="Photos per row">
+            <option value="1">1 / Row</option>
+            <option value="2" selected>2 / Row</option>
+          </select>
+          <select id="tpl-photo-height" class="ribbon-select" style="width: 100px;" title="Photo height">
+            <option value="50mm">50mm Photo</option>
+            <option value="60mm" selected>60mm Photo</option>
+            <option value="75mm">75mm Photo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ribbon-group">
+        <span class="ribbon-label">Calculations</span>
+        <div class="ribbon-controls">
+          <label class="ribbon-input-group" title="Depreciation Rate (% per year)">
+            <i data-lucide="trending-down"></i>
+            <input id="tpl-dep-rate" type="number" min="0" max="10" step="0.5" value="1" class="ribbon-input" style="width: 55px;">
+            <span style="font-size: 0.75rem;">% Dep</span>
+          </label>
+          <label class="ribbon-input-group" title="Contractor Profit Deduction (%)">
+            <i data-lucide="briefcase"></i>
+            <input id="tpl-contractor-pct" type="number" min="0" max="30" step="1" value="15" class="ribbon-input" style="width: 55px;">
+            <span style="font-size: 0.75rem;">% CP</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="ribbon-group">
+        <span class="ribbon-label">Export</span>
+        <div class="ribbon-controls">
+          <select id="tpl-img-quality" class="ribbon-select" style="width: 100px;" title="Image Quality">
+            <option value="0.80">80% Qual</option>
+            <option value="0.92">92% Qual</option>
+            <option value="0.98" selected>98% Qual</option>
+            <option value="1.00">100% Qual</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-left: auto; display: flex; align-items: center; padding-right: 1rem;">
+        <button class="btn-primary" id="pdf-template-save-btn" style="padding: 0.5rem 1rem;">
+          <i data-lucide="save" style="width: 16px; height: 16px;"></i> Save Template
+        </button>
+      </div>
     </div>
 
-    <div class="editor-layout" style="gap: 1.5rem;">
+    <!-- Live Document Viewer Canvas -->
+    <div class="a4-canvas-container">
+      <div class="a4-paper" id="pdf-tpl-preview">
+        <!-- Document Content -->
+        <div class="pdf-header-container">
+          <div id="tpl-org-name" class="editable-field pdf-org" contenteditable="true" spellcheck="false" data-placeholder="Organisation / Department Name">Central Public Works Department</div>
+          <div id="tpl-subtitle" class="editable-field pdf-sub" contenteditable="true" spellcheck="false" data-placeholder="Report Sub-Title">VALUATION ESTIMATE FOR LAND ACQUISITION</div>
+          <div class="pdf-basis-label">Basis of Estimate:</div>
+          <div id="tpl-basis-text" class="editable-field pdf-basis" contenteditable="true" spellcheck="false" data-placeholder="Basis of Estimate Line">D.S.R for CPWD Building for the year 2021</div>
+        </div>
 
-      <!-- Left: Settings Form -->
-      <div class="form-panel" style="flex: 1; min-width: 0;">
+        <div class="pdf-mock-body">
+          <table class="pdf-mock-table">
+            <tr><th colspan="2">1. Name of Project</th><td colspan="4">Expansion of NH-37</td></tr>
+            <tr><th colspan="2">2. Name of Owner</th><td colspan="4">Sri John Doe</td></tr>
+            <tr style="background:#f1f5f9;"><th style="width:5%;">Sl</th><th style="width:50%;">Description</th><th style="width:10%;">Qty</th><th style="width:10%;">Unit</th><th style="width:10%;">Rate</th><th style="width:15%;">Amount</th></tr>
+            <tr><td>1</td><td>Mock Item (Click above to edit headers)</td><td>10.00</td><td>Sqm</td><td>150.00</td><td>1,500.00</td></tr>
+          </table>
 
-        <!-- Section: Report Header -->
-        <div class="form-section">
-          <div class="form-section-title">Report Header</div>
-
-          <div class="form-group">
-            <label class="form-label">Basis of Estimate Line</label>
-            <input id="tpl-basis-text" class="form-input" type="text"
-              placeholder="e.g. D.S.R for CPWD Building for the year 2021"
-              value="D.S.R for CPWD Building for the year 2021" />
-            <span class="form-hint">Shown below the project header on page 1</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Organisation / Department Name</label>
-            <input id="tpl-org-name" class="form-input" type="text"
-              placeholder="e.g. Central Public Works Department" />
-            <span class="form-hint">Shown as a header above the report (leave blank to hide)</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Report Sub-Title</label>
-            <input id="tpl-subtitle" class="form-input" type="text"
-              placeholder="e.g. VALUATION ESTIMATE FOR LAND ACQUISITION" />
-            <span class="form-hint">Appears as a bold sub-title line beneath the org name</span>
+          <div class="pdf-mock-calc">
+            <div style="display:flex; justify-content:space-between;"><span>Estimated Value</span><span>s 1,500.00</span></div>
+            <div style="display:flex; justify-content:space-between; color:var(--text-secondary);"><span>Less Dep Rate (from ribbon)</span><span>(s 15.00)</span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; border-top:1px solid #ccc; padding-top:4px;"><span>Net Value</span><span>s 1,485.00</span></div>
           </div>
         </div>
 
-        <!-- Section: Page Layout -->
-        <div class="form-section">
-          <div class="form-section-title">Page Layout</div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <div class="form-group">
-              <label class="form-label">Page Margin (mm)</label>
-              <input id="tpl-margin" class="form-input" type="number" min="4" max="30" value="8" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Base Font Size (pt)</label>
-              <select id="tpl-font-size" class="form-input">
-                <option value="9">9 pt</option>
-                <option value="10">10 pt</option>
-                <option value="10.5" selected>10.5 pt (Default)</option>
-                <option value="11">11 pt</option>
-                <option value="12">12 pt</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <div class="form-group">
-              <label class="form-label">PDF Image Quality</label>
-              <select id="tpl-img-quality" class="form-input">
-                <option value="0.80">80% – Smaller file</option>
-                <option value="0.92">92% – Balanced</option>
-                <option value="0.98" selected>98% – High quality</option>
-                <option value="1.00">100% – Lossless</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Line Plan Height</label>
-              <select id="tpl-lineplan-height" class="form-input">
-                <option value="150mm">150 mm – Compact</option>
-                <option value="170mm" selected>170 mm – Default</option>
-                <option value="190mm">190 mm – Large</option>
-                <option value="210mm">210 mm – Full page</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section: Footer / NB Note -->
-        <div class="form-section">
-          <div class="form-section-title">Default N.B. Note</div>
-          <div class="form-group">
-            <label class="form-label">Default N.B. note text</label>
-            <textarea id="tpl-nb-default" class="form-input" rows="4"
-              placeholder="This note appears at the bottom of every report by default. Individual reports can override it."
-              style="resize:vertical;"></textarea>
-            <span class="form-hint">Individual report N.B. notes override this default.</span>
-          </div>
-        </div>
-
-        <!-- Section: Depreciation Defaults -->
-        <div class="form-section">
-          <div class="form-section-title">Depreciation Defaults</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <div class="form-group">
-              <label class="form-label">Default Depreciation Rate (% per year)</label>
-              <input id="tpl-dep-rate" class="form-input" type="number" min="0" max="10" step="0.5" value="1" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Contractor Profit Deduction (%)</label>
-              <input id="tpl-contractor-pct" class="form-input" type="number" min="0" max="30" step="1" value="15" />
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Right: Preview Card -->
-      <div class="form-panel" style="flex: 1; min-width: 0;">
-        <div class="form-section">
-          <div class="form-section-title">PDF Page 1 Preview</div>
-          <div id="pdf-tpl-preview" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:20px;font-family:Arial,Helvetica,sans-serif;font-size:10.5pt;color:#000;line-height:1.6;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-            <!-- Rendered live by JS -->
-          </div>
-        </div>
-
-        <div class="form-section" style="margin-top:1rem;">
-          <div class="form-section-title">Photo Page Layout</div>
-          <div class="form-group">
-            <label class="form-label">Photos per row</label>
-            <select id="tpl-photos-per-row" class="form-input">
-              <option value="1">1 – Full width</option>
-              <option value="2" selected>2 – Side by side (Default)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Photo height in PDF</label>
-            <select id="tpl-photo-height" class="form-input">
-              <option value="50mm">50 mm – Small</option>
-              <option value="60mm" selected>60 mm – Default</option>
-              <option value="75mm">75 mm – Large</option>
-              <option value="90mm">90 mm – Extra large</option>
-            </select>
-          </div>
+        <div class="pdf-footer-container">
+          <strong>N.B. Note (Default):</strong>
+          <div id="tpl-nb-default" class="editable-field pdf-nb" contenteditable="true" spellcheck="false" data-placeholder="Enter default N.B. note here...">This note appears at the bottom of every report by default. Individual reports can override it.</div>
         </div>
       </div>
-
     </div>
   </div>
 

@@ -1992,3 +1992,183 @@ body {
   .auth-card { border: none; box-shadow: none; padding: 1.5rem 0; background: transparent; }
   .auth-card-header h2 { font-size: 1.5rem; }
 }
+
+/* ── WYSIWYG PDF Template Editor ─────────────────────────────────────── */
+#view-pdf-template {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  background-color: #f3f4f6; /* Gray background for document viewer */
+  overflow: hidden;
+}
+#view-pdf-template.active {
+  display: flex;
+}
+
+/* Ribbon Toolbar */
+.editor-ribbon {
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  flex-wrap: wrap;
+}
+
+.ribbon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--border-color);
+}
+.ribbon-group:last-child {
+  border-right: none;
+}
+
+.ribbon-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ribbon-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ribbon-select, .ribbon-input {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ribbon-select:focus, .ribbon-input:focus {
+  border-color: var(--accent);
+}
+
+.ribbon-input-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-secondary);
+}
+.ribbon-input-group i {
+  width: 14px;
+  height: 14px;
+}
+
+/* Document Canvas */
+.a4-canvas-container {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.a4-paper {
+  background: #ffffff;
+  width: 210mm; /* A4 Width */
+  min-height: 297mm; /* A4 Height */
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+  padding: var(--pdf-margin, 8mm);
+  box-sizing: border-box;
+  font-family: var(--pdf-font-family, Arial, Helvetica, sans-serif);
+  font-size: var(--pdf-font-size, 10.5pt);
+  color: #000;
+  line-height: 1.5;
+  transition: padding 0.2s, font-size 0.2s, font-family 0.2s;
+}
+
+/* Editable Regions on Paper */
+.editable-field {
+  outline: none;
+  border: 1px dashed transparent;
+  transition: border-color 0.2s, background-color 0.2s;
+  cursor: text;
+  min-height: 1.2em;
+}
+.editable-field:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+.editable-field:focus {
+  border-color: var(--accent);
+  background-color: #f0f9ff;
+}
+.editable-field:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+  display: block; /* For Firefox */
+}
+
+/* Specific Paper Blocks */
+.pdf-header-container {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.pdf-org {
+  font-weight: bold;
+  font-size: 1.25em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.pdf-sub {
+  font-weight: bold;
+  text-decoration: underline;
+  margin-bottom: 1rem;
+}
+.pdf-basis-label {
+  font-style: italic;
+  font-size: 0.9em;
+  margin-bottom: 0.1rem;
+}
+.pdf-basis {
+  font-weight: bold;
+  font-size: 0.95em;
+}
+
+.pdf-mock-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.95em;
+}
+.pdf-mock-table th, .pdf-mock-table td {
+  border: 1px solid #000;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+.pdf-mock-table th {
+  font-weight: bold;
+}
+
+.pdf-mock-calc {
+  border: 1px solid #000;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  font-size: 0.95em;
+}
+
+.pdf-footer-container {
+  border-top: 1px solid #000;
+  padding-top: 0.5rem;
+  font-size: 0.85em;
+}
+.pdf-nb {
+  margin-top: 0.25rem;
+}
