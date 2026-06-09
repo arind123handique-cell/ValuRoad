@@ -55,9 +55,17 @@ const navBtns = {
 };
 
 // Initialize App
-window.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
+  setupSidebarNavigation();
+  setupEditorTabs();
+  setupProjectsList();
+  setupGlobalActions();
   setupAuthUI();
-  setupNavigation();
+  setupSettingsUI();
+  setupProfileSettings();
+  setupPDFTemplateStyles(); // ensure pdf styles are attached
+  initParticles(); // start background effect
+
   setupDashboard();
   setupProjectDetails();
   setupProjectEditor();
@@ -329,13 +337,10 @@ function setupAuthUI() {
   if (authTabLogin) {
     authTabLogin.addEventListener('click', () => {
       currentAuthTab = 'login';
-      authTabLogin.style.background = 'var(--bg-primary)';
-      authTabLogin.style.fontWeight = '600';
-      authTabLogin.style.color = 'var(--text-primary)';
-      authTabSignup.style.background = 'transparent';
-      authTabSignup.style.fontWeight = '500';
-      authTabSignup.style.color = 'var(--text-secondary)';
-      authSubmitBtn.textContent = 'Log In';
+      authTabLogin.classList.add('active');
+      authTabSignup.classList.remove('active');
+      authSubmitBtn.innerHTML = 'Log In <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+      if (window.lucide) lucide.createIcons();
       authErrorMsg.style.display = 'none';
     });
   }
@@ -343,13 +348,10 @@ function setupAuthUI() {
   if (authTabSignup) {
     authTabSignup.addEventListener('click', () => {
       currentAuthTab = 'signup';
-      authTabSignup.style.background = 'var(--bg-primary)';
-      authTabSignup.style.fontWeight = '600';
-      authTabSignup.style.color = 'var(--text-primary)';
-      authTabLogin.style.background = 'transparent';
-      authTabLogin.style.fontWeight = '500';
-      authTabLogin.style.color = 'var(--text-secondary)';
-      authSubmitBtn.textContent = 'Create Account';
+      authTabSignup.classList.add('active');
+      authTabLogin.classList.remove('active');
+      authSubmitBtn.innerHTML = 'Create Account <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+      if (window.lucide) lucide.createIcons();
       authErrorMsg.style.display = 'none';
     });
   }
@@ -4948,7 +4950,7 @@ function triggerLocalBackup(project) {
 async function downloadAllBackup() {
   const payload = {
     exportedAt: new Date().toISOString(),
-    appVersion: 'ValuRoad-v1',
+    appVersion: 'Personal-Valuation-App-v2',
     projects: projects,
     customDsrCatalog: customDsrCatalog
   };
@@ -4976,7 +4978,7 @@ async function downloadAllBackup() {
     const url  = URL.createObjectURL(blob);
 
     const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const name = `ValuRoad_Backup_${ts}.json`;
+    const name = `PVA_Backup_${ts}.json`;
 
     const anchor = document.getElementById('download-anchor') || document.createElement('a');
     anchor.href = url;
@@ -5216,4 +5218,30 @@ function setupProfileSettings() {
       saveBtn.style.borderColor = '';
     }, 2000);
   });
+}
+
+// ── Particle Background Effect ──────────────────────────────────────────
+function initParticles() {
+  if (window.tsParticles) {
+    tsParticles.load("tsparticles", {
+      fpsLimit: 60,
+      interactivity: {
+        events: {
+          onHover: { enable: true, mode: "grab" },
+          resize: true
+        },
+        modes: { grab: { distance: 140, links: { opacity: 0.5 } } }
+      },
+      particles: {
+        color: { value: "#3b82f6" },
+        links: { color: "#3b82f6", distance: 150, enable: true, opacity: 0.2, width: 1 },
+        move: { direction: "none", enable: true, outModes: { default: "bounce" }, random: false, speed: 1, straight: false },
+        number: { density: { enable: true, area: 800 }, value: 60 },
+        opacity: { value: 0.4 },
+        shape: { type: "circle" },
+        size: { value: { min: 1, max: 3 } }
+      },
+      detectRetina: true
+    });
+  }
 }
