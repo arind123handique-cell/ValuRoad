@@ -43,7 +43,8 @@ const views = {
   editor: document.getElementById('view-editor'),
   settings: document.getElementById('view-settings'),
   pdfTemplate: document.getElementById('view-pdf-template'),
-  profile: document.getElementById('view-profile')
+  profile: document.getElementById('view-profile'),
+  printPreview: document.getElementById('view-print-preview')
 };
 
 const navBtns = {
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupGpsTracingModal();
   setupProjectSharingModal();
   setupTheme();
+  initPrintPreviewEvents();
   initParticles(); // start background effect
 
 
@@ -296,6 +298,15 @@ function switchView(viewName) {
       }
     }
   });
+
+  const mainEl = document.querySelector('main');
+  if (mainEl) {
+    if (viewName === 'pdfTemplate' || viewName === 'printPreview') {
+      mainEl.style.display = 'none';
+    } else {
+      mainEl.style.display = '';
+    }
+  }
 
   if (viewName === 'dashboard') {
     renderProjects();
@@ -760,65 +771,434 @@ function exportProjectToExcel() {
 
 function exportSingleEstimateToExcel(entryId) {
   if (!activeProject) return;
-  const entry = activeProject.entries.find(e => e.id === entryId);
-  if (!entry) return;
+  const rawEntry = activeProject.entries.find(e => e.id === entryId);
+  if (!rawEntry) return;
+  const entry = {
+    ...rawEntry,
+    workName: activeProject.workName,
+    nbNote: activeProject.nbNote
+  };
 
-  const headers = [
-    "Item No",
-    "Item Type",
-    "Title",
-    "Description",
-    "Quantity",
-    "Unit",
-    "Rate (Rs.)",
-    "Total Cost (Rs.)",
-    "Deduction (%)",
-    "Deduction Justification",
-    "Net Cost (Rs.)",
-    "Add to Valuation",
-    "Exclude from Depreciation"
-  ];
+  const tpl = getPdfTemplateSettings();
+  const includedItems = (entry.items || []).filter(item => item.includeInValuation);
+  const depreciatedItems = includedItems.filter(item => !item.excludeFromDepreciation);
+  const excludedItems = includedItems.filter(item => item.excludeFromDepreciation);
 
-  const items = entry.items || [];
-  const rows = items.map(item => {
-    const deductPct = item.deductionPct || 0;
-    const netCost = Math.round(item.totalCost * (1 - deductPct / 100));
-    return [
-      item.itemNo || "",
-      item.type || "",
-      item.title || "",
-      item.description || "",
-      item.quantity || "",
-      item.unit || "",
-      item.rate || 0,
-      item.totalCost || 0,
-      deductPct,
-      item.deductionLabel || "",
-      netCost,
-      item.includeInValuation ? "Yes" : "No",
-      item.excludeFromDepreciation ? "Yes" : "No"
-    ];
-  });
+  let htmlContent = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<!--[if gte mso 9]>
+<xml>
+ <x:ExcelWorkbook>
+  <x:ExcelWorksheets>
+   <x:ExcelWorksheet>
+    <x:Name>Valuation Estimate</x:Name>
+    <x:WorksheetOptions>
+     <x:DisplayGridlines/>
+    </x:WorksheetOptions>
+   </x:ExcelWorksheet>
+  </x:ExcelWorksheets>
+ </x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: Arial, sans-serif; font-size: 10pt; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 0.5pt solid #cbd5e1; padding: 6px; vertical-align: middle; font-family: Arial, sans-serif; }
+  .title-header { text-align: center; font-size: 14pt; font-weight: bold; background-color: #f8fafc; }
+  .subtitle-header { text-align: center; font-size: 11pt; font-weight: bold; }
+  .meta-label { font-weight: bold; background-color: #f1f5f9; width: 180px; }
+  .section-header { font-weight: bold; background-color: #cbd5e1; font-size: 11pt; text-align: left; }
+  .item-title-row td { font-weight: bold; background-color: #f8fafc; border-top: 1px solid #94a3b8; }
+  .m-header td { font-weight: bold; color: #475569; background-color: #f1f5f9; font-size: 9pt; }
+  .m-total-row td { font-weight: bold; background-color: #f8fafc; border-top: 0.5pt solid #cbd5e1; }
+  .bold-right { font-weight: bold; text-align: right; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .grand-total-row td { font-weight: bold; font-size: 12pt; background-color: #cbd5e1; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+  .service-item-row td { background-color: #fafafa; }
+</style>
+</head>
+<body>
+<table>
+  <!-- Organization & Subtitle -->
+  ${tpl.orgName ? `<tr><td colspan="6" class="title-header">${tpl.orgName}</td></tr>` : ''}
+  ${tpl.subtitle ? `<tr><td colspan="6" class="subtitle-header">${tpl.subtitle}</td></tr>` : ''}
+  
+  <!-- Empty row -->
+  <tr><td colspan="6" style="border:none; height:10px;"></td></tr>
 
-  const csvContent = [
-    headers.join(","),
-    ...rows.map(row => row.map(val => {
-      let cell = String(val === null || val === undefined ? '' : val);
-      if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-        cell = '"' + cell.replace(/"/g, '""') + '"';
+  <!-- Metadata Header -->
+  <tr>
+    <td class="meta-label">Name of Work:</td>
+    <td colspan="5" style="font-weight: bold;">${entry.workName || 'N/A'}</td>
+  </tr>
+  <tr>
+    <td class="meta-label">Name of Occupier:</td>
+    <td colspan="5">${entry.clientName || 'N/A'}</td>
+  </tr>
+  <tr>
+    <td class="meta-label">Village/Location:</td>
+    <td colspan="5">${entry.location || 'N/A'}</td>
+  </tr>
+  <tr>
+    <td class="meta-label">Year of Construction:</td>
+    <td colspan="5">${entry.constructionYear || 'N/A'} ${entry.constructionYearComment ? `(${entry.constructionYearComment})` : ''}</td>
+  </tr>
+  <tr>
+    <td class="meta-label">Basis:</td>
+    <td colspan="5">This estimate is prepared on the basis of ${tpl.basisText}</td>
+  </tr>
+  
+  <!-- Empty row -->
+  <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
+
+  <!-- Section: Items Subject to Depreciation -->
+  <tr><td colspan="6" class="section-header">A. ITEMS SUBJECT TO DEPRECIATION</td></tr>
+  `;
+
+  function appendItems(itemList) {
+    itemList.forEach(item => {
+      let itemNoText = item.itemNo;
+      if (!/item/i.test(itemNoText)) {
+        itemNoText = 'Item No. ' + itemNoText;
       }
-      return cell;
-    }).join(","))
-  ].join("\r\n");
+      let depInfo = '';
+      if (item.customDepreciation) {
+        const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+        depInfo = ` (Depreciation: ${item.customDepreciationPct}%/yr for ${item.customDepreciationAge} yrs = ${totalPct}%)`;
+      }
 
-  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+      htmlContent += `
+        <tr class="item-title-row">
+          <td colspan="5">${itemNoText}: ${item.title}${depInfo}</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(item.totalCost)}</td>
+        </tr>
+      `;
+
+      if (item.description) {
+        htmlContent += `
+          <tr>
+            <td colspan="6" style="font-style: italic; color: #475569; font-size: 9.5pt; padding-left: 15px;">${item.description}</td>
+          </tr>
+        `;
+      }
+
+      if (item.type === 'quantity-rate') {
+        const measurements = item.measurements || [];
+        if (measurements.length > 0) {
+          htmlContent += `
+            <tr class="m-header">
+              <td style="padding-left:15px;">Description</td>
+              <td class="text-center">Nos</td>
+              <td colspan="2">L x B x H</td>
+              <td class="text-right">Qty</td>
+              <td>Unit</td>
+            </tr>
+          `;
+          measurements.forEach(m => {
+            const nos = parseFloat(m.nos) || 0;
+            const l = parseFloat(m.l);
+            const b = parseFloat(m.b);
+            const h = parseFloat(m.h);
+            const hasL = !isNaN(l) && m.l !== '';
+            const hasB = !isNaN(b) && m.b !== '';
+            const hasH = !isNaN(h) && m.h !== '';
+            const hasDims = hasL || hasB || hasH;
+            let dimStr = '';
+            if (hasDims) {
+              const parts = [];
+              if (hasL) parts.push(l.toFixed(3) + 'm');
+              if (hasB) parts.push(b.toFixed(3) + 'm');
+              if (hasH) parts.push(h.toFixed(3) + 'm');
+              dimStr = parts.join(' x ');
+            }
+            const subQty = parseFloat(m.subQty) || 0;
+            htmlContent += `
+              <tr>
+                <td style="padding-left:15px;">${m.description || ''}</td>
+                <td class="text-center">${nos}</td>
+                <td colspan="2">${dimStr}</td>
+                <td class="text-right">${subQty.toFixed(3)}</td>
+                <td>${item.unit}</td>
+              </tr>
+            `;
+          });
+          htmlContent += `
+            <tr class="m-total-row">
+              <td colspan="4" class="text-right">Total Quantity</td>
+              <td class="text-right">${item.quantity.toFixed(3)}</td>
+              <td>${item.unit}</td>
+            </tr>
+          `;
+        } else {
+          htmlContent += `
+            <tr>
+              <td style="padding-left:15px;" colspan="4">Quantity</td>
+              <td class="text-right">${item.quantity.toFixed(2)}</td>
+              <td>${item.unit}</td>
+            </tr>
+          `;
+        }
+      } else if (item.type === 'plinth-area') {
+        const rooms = item.rooms || [];
+        if (rooms.length > 0) {
+          htmlContent += `
+            <tr class="m-header">
+              <td style="padding-left:15px;">Room Details</td>
+              <td colspan="3">Dimensions (L x W)</td>
+              <td class="text-right">Area</td>
+              <td>Unit</td>
+            </tr>
+          `;
+          rooms.forEach(r => {
+            htmlContent += `
+              <tr>
+                <td style="padding-left:15px;">${r.name || 'Room'}</td>
+                <td colspan="3">${parseFloat(r.l).toFixed(2)} m x ${parseFloat(r.w).toFixed(2)} m</td>
+                <td class="text-right">${parseFloat(r.areaSqm).toFixed(2)}</td>
+                <td>sqm</td>
+              </tr>
+            `;
+          });
+          htmlContent += `
+            <tr class="m-total-row">
+              <td colspan="4" class="text-right">Total Plinth Area</td>
+              <td class="text-right">${parseFloat(item.totalAreaSqm).toFixed(2)}</td>
+              <td>sqm</td>
+            </tr>
+          `;
+          if (item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) {
+            htmlContent += `
+              <tr class="m-total-row">
+                <td colspan="4" class="text-right">Total Plinth Area in sq.foot</td>
+                <td class="text-right">${parseFloat(item.totalAreaSqft).toFixed(2)}</td>
+                <td>sqf</td>
+              </tr>
+            `;
+          }
+        }
+      }
+
+      // Rate Line
+      const rawCost = (item.type === 'plinth-area')
+        ? (item.unit === 'sqf' ? item.totalAreaSqft : item.totalAreaSqm) * item.rate
+        : (item.type === 'quantity-rate' ? item.quantity * item.rate : item.rate);
+
+      htmlContent += `
+        <tr>
+          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} (As per approved rate)</td>
+          <td>=</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(rawCost)}</td>
+        </tr>
+      `;
+
+      if (item.deductionPct > 0) {
+        htmlContent += `
+          <tr>
+            <td style="padding-left:15px;" colspan="4">Ded. ${item.deductionPct}% for ${item.deductionLabel || 'non conformity'}</td>
+            <td>=</td>
+            <td class="text-right">Rs. -${formatIndianCurrency(item.deductionAmount)}</td>
+          </tr>
+          <tr style="font-weight: bold;">
+            <td style="padding-left:15px;" colspan="4">Net Amount</td>
+            <td>=</td>
+            <td class="text-right">Rs. ${formatIndianCurrency(item.totalCost)}</td>
+          </tr>
+        `;
+      }
+    });
+  }
+
+  appendItems(depreciatedItems);
+
+  // Subtotals
+  htmlContent += `
+    <!-- Subtotals Section -->
+    <tr><td colspan="6" style="border:none; height:10px;"></td></tr>
+    <tr style="font-weight: bold; background-color: #f1f5f9;">
+      <td colspan="4" class="text-right">TOTAL (A)</td>
+      <td>=</td>
+      <td class="text-right">Rs. ${formatIndianCurrency(entry.totalA)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="text-right">Deduct. 15% for Contractors Profit</td>
+      <td>=</td>
+      <td class="text-right">Rs. -${formatIndianCurrency(entry.contractorDeduction)}</td>
+    </tr>
+    <tr style="font-weight: bold; background-color: #e2e8f0;">
+      <td colspan="4" class="text-right">TOTAL (B)</td>
+      <td>=</td>
+      <td class="text-right">Rs. ${formatIndianCurrency(entry.totalB)}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="text-right">Depreciation @ ${entry.depreciationPct}%/yr for ${entry.structureAge} yrs (${entry.totalDepreciationPct}%)</td>
+      <td>=</td>
+      <td class="text-right">Rs. -${formatIndianCurrency(entry.depreciationAmount)}</td>
+    </tr>
+    <tr style="font-weight: bold; background-color: #cbd5e1;">
+      <td colspan="4" class="text-right">TOTAL After Depreciation</td>
+      <td>=</td>
+      <td class="text-right">Rs. ${formatIndianCurrency(entry.totalAfterDepreciation)}</td>
+    </tr>
+    <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
+  `;
+
+  // Section: Items Excluded from Depreciation
+  htmlContent += `
+    <tr><td colspan="6" class="section-header">B. ITEMS EXCLUDED FROM DEPRECIATION</td></tr>
+  `;
+
+  if (excludedItems.length === 0) {
+    htmlContent += `<tr><td colspan="6" style="font-style:italic; color:#64748b;">No items excluded from depreciation</td></tr>`;
+  } else {
+    appendItems(excludedItems);
+  }
+
+  // Services
+  const hasCustomServices = entry.customServices && entry.customServices.length > 0;
+  if (entry.addSanitary || entry.addElectrification || hasCustomServices) {
+    htmlContent += `
+      <tr><td colspan="6" style="border:none; height:10px;"></td></tr>
+      <tr><td colspan="6" class="section-header">SERVICES & OTHER ADDITIONS</td></tr>
+    `;
+    if (entry.addSanitary) {
+      htmlContent += `
+        <tr class="service-item-row">
+          <td style="padding-left:15px;" colspan="4">Add for Sanitary & Water Supply Fittings</td>
+          <td>L/S =</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(entry.sanitaryCost)}</td>
+        </tr>
+      `;
+    }
+    if (entry.addElectrification) {
+      htmlContent += `
+        <tr class="service-item-row">
+          <td style="padding-left:15px;" colspan="4">Add for Electrification</td>
+          <td>L/S =</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(entry.electrificationCost)}</td>
+        </tr>
+      `;
+    }
+    if (hasCustomServices) {
+      entry.customServices.forEach(cs => {
+        htmlContent += `
+          <tr class="service-item-row">
+            <td style="padding-left:15px;" colspan="4">${cs.description || 'Add custom item'}</td>
+            <td>L/S =</td>
+            <td class="text-right">Rs. ${formatIndianCurrency(cs.cost)}</td>
+          </tr>
+        `;
+      });
+    }
+  }
+
+  // Grand Total & Words & N.B.
+  htmlContent += `
+    <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
+    <tr class="grand-total-row">
+      <td colspan="4" class="text-right">GRAND TOTAL</td>
+      <td>=</td>
+      <td class="text-right">Rs. ${formatIndianCurrency(entry.grandTotal)}</td>
+    </tr>
+    <tr style="font-weight: bold; background-color: #fafafa;">
+      <td colspan="6" class="text-center" style="padding: 10px;">(${numberToIndianWords(entry.grandTotal)}) only.</td>
+    </tr>
+  `;
+
+  let cleanNbNote = entry.nbNote || '';
+  cleanNbNote = cleanNbNote.replace(/^(N\.B\.-|N\.B\.:-|NB:-|N\.B\. :|NB :|N\.B\.:|N\.B\s*:-|NB\s*:-)\s*/i, '');
+  if (cleanNbNote) {
+    htmlContent += `
+      <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
+      <tr>
+        <td colspan="6" style="border: 0.5pt solid #cbd5e1; background-color: #fffbeb; font-size: 9.5pt; text-align: justify; padding: 8px;">
+          <strong>N.B:-</strong> ${cleanNbNote}
+        </td>
+      </tr>
+    `;
+  }
+
+  let excelProfileHtml = '';
+  try {
+    const savedProf = localStorage.getItem('valuroad_user_profile');
+    let useThreeSeals = true;
+    let includePdf = true;
+    let prof = {};
+    let sealsSize = '8.5pt';
+    if (savedProf) {
+      prof = JSON.parse(savedProf);
+      useThreeSeals = prof.useThreeSeals !== false;
+      includePdf = prof.includePdf !== false;
+      if (prof.sealsFontSize) {
+        sealsSize = prof.sealsFontSize;
+      }
+    }
+
+    if (includePdf) {
+      if (useThreeSeals) {
+        const jeDesig = (prof.jeDesignation !== undefined ? prof.jeDesignation : 'Junior Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const jeAddr = (prof.jeAddress !== undefined ? prof.jeAddress : 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat').replace(/\n/g, '<br>');
+        
+        const aeeDesig = (prof.aeeDesignation !== undefined ? prof.aeeDesignation : 'Asstt. Executive Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const aeeAddr = (prof.aeeAddress !== undefined ? prof.aeeAddress : 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat').replace(/\n/g, '<br>');
+        
+        const eeDesig = (prof.eeDesignation !== undefined ? prof.eeDesignation : 'Executive Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const eeAddr = (prof.eeAddress !== undefined ? prof.eeAddress : 'Golaghat District Territorial\nBldg Division, Golaghat').replace(/\n/g, '<br>');
+
+        excelProfileHtml = `
+          <tr><td colspan="6" style="border:none; height:25px;"></td></tr>
+          <tr>
+            <td colspan="2" style="border:none; text-align:center; font-weight:bold; vertical-align:top; font-size:${sealsSize};">
+              <div style="height:35px;"></div>
+              <strong>${jeDesig}</strong><br><span style="font-weight:normal; font-size:${sealsSize}; color:#475569;">${jeAddr}</span>
+            </td>
+            <td colspan="2" style="border:none; text-align:center; font-weight:bold; vertical-align:top; font-size:${sealsSize};">
+              <div style="height:35px;"></div>
+              <strong>${aeeDesig}</strong><br><span style="font-weight:normal; font-size:${sealsSize}; color:#475569;">${aeeAddr}</span>
+            </td>
+            <td colspan="2" style="border:none; text-align:center; font-weight:bold; vertical-align:top; font-size:${sealsSize};">
+              <div style="height:35px;"></div>
+              <strong>${eeDesig}</strong><br><span style="font-weight:normal; font-size:${sealsSize}; color:#475569;">${eeAddr}</span>
+            </td>
+          </tr>
+        `;
+      } else if (prof.name || prof.designation) {
+        excelProfileHtml = `
+          <tr><td colspan="6" style="border:none; height:25px;"></td></tr>
+          <tr>
+            <td colspan="4" style="border:none;"></td>
+            <td colspan="2" style="border:none; text-align:center; font-weight:bold; vertical-align:top; font-size:${sealsSize};">
+              <div style="height:35px;"></div>
+              <strong>${prof.name || ''}</strong><br><span style="font-weight:normal; font-size:${sealsSize}; color:#475569;">${prof.designation || ''}</span>
+            </td>
+          </tr>
+        `;
+      }
+    }
+  } catch(e) {
+    console.error('Error adding profile to Excel', e);
+  }
+
+  if (excelProfileHtml) {
+    htmlContent += excelProfileHtml;
+  }
+
+  htmlContent += `
+</table>
+</body>
+</html>
+  `;
+
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), htmlContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
   
   // Truncate filename to 50 characters max
   const cleanName = (entry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
   const namePart = cleanName.substring(0, 33).replace(/_$/, '');
-  const filename = `${namePart}_estimate_items.csv`;
+  const filename = `${namePart}_valuation_estimate.xls`;
 
   link.setAttribute("href", url);
   link.setAttribute("download", filename);
@@ -832,7 +1212,12 @@ function printSingleEstimate(entryId) {
   if (!activeProject) return;
   const entry = activeProject.entries.find(e => e.id === entryId);
   if (!entry) return;
-  exportToPDF(entry, entry.sketcherImage, true);
+  const pdfData = {
+    ...entry,
+    workName: activeProject.workName,
+    nbNote: activeProject.nbNote
+  };
+  exportToPDF(pdfData, entry.sketcherImage, true);
 }
 
 function exportProjectToWord() {
@@ -1069,6 +1454,7 @@ function renderProjectDetails() {
         <td>
           <div class="action-btns" onclick="event.stopPropagation();">
             <button class="edit-btn" title="Edit Owner Valuation" data-id="${e.id}"><i data-lucide="edit-2"></i></button>
+            <button class="preview-btn" title="Interactive Print Preview" data-id="${e.id}" style="color: #6366f1;"><i data-lucide="eye"></i></button>
             <button class="excel-btn" title="Export to Excel" data-id="${e.id}"><i data-lucide="file-spreadsheet"></i></button>
             <button class="pdf-btn" title="Export PDF" data-id="${e.id}"><i data-lucide="file-down"></i></button>
             <button class="print-btn" title="Print Estimate" data-id="${e.id}"><i data-lucide="printer"></i></button>
@@ -1085,6 +1471,9 @@ function renderProjectDetails() {
 
     tbody.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', () => editOwnerEntry(btn.dataset.id));
+    });
+    tbody.querySelectorAll('.preview-btn').forEach(btn => {
+      btn.addEventListener('click', () => openPrintPreview(btn.dataset.id));
     });
     tbody.querySelectorAll('.excel-btn').forEach(btn => {
       btn.addEventListener('click', () => exportSingleEstimateToExcel(btn.dataset.id));
@@ -1783,6 +2172,21 @@ function loadEntryToEditor() {
       closeBtn.style.display = 'none';
     }
   };
+
+  if (activeEntry.sketcherFontSize) {
+    sketcher.globalFontSizeBase = activeEntry.sketcherFontSize;
+  } else {
+    sketcher.globalFontSizeBase = 10;
+  }
+  if (activeEntry.sketcherFontFamily) {
+    sketcher.globalFontFamily = activeEntry.sketcherFontFamily;
+  } else {
+    sketcher.globalFontFamily = 'sans-serif';
+  }
+  const sketchFontFamilyEl = document.getElementById('sketch-font-family');
+  if (sketchFontFamilyEl) sketchFontFamilyEl.value = sketcher.globalFontFamily;
+  const sketchFontSizeValEl = document.getElementById('sketch-font-size-val');
+  if (sketchFontSizeValEl) sketchFontSizeValEl.innerText = sketcher.globalFontSizeBase + 'px';
 
   sketcher.loadData(activeEntry.sketcherData || []);
   if (activeEntry.mapLat && activeEntry.mapLon) {
@@ -3120,6 +3524,8 @@ async function saveActiveEntry(status = 'draft') {
     activeEntry.sketcherData = sketcher.exportData();
     activeEntry.sketcherImage = sketcher.exportImage();
     activeEntry.sketcherLocked = sketcher.isLocked;
+    activeEntry.sketcherFontSize = sketcher.globalFontSizeBase;
+    activeEntry.sketcherFontFamily = sketcher.globalFontFamily;
     if (sketcher.mapBgImageLoaded) {
       activeEntry.mapLat = sketcher.mapLat;
       activeEntry.mapLon = sketcher.mapLon;
@@ -3500,6 +3906,38 @@ function setupSketcherToolbar() {
   const gridSel = document.getElementById('sketch-grid-size');
   if (gridSel && sketcher) {
     gridSel.addEventListener('change', () => { if (sketcher) { sketcher.gridSize = parseFloat(gridSel.value); sketcher.draw(); } });
+  }
+
+  // ── Sketcher Typography ──
+  const sketchFontFamily = document.getElementById('sketch-font-family');
+  if (sketchFontFamily) {
+    sketchFontFamily.addEventListener('change', () => {
+      if (sketcher) {
+        sketcher.setFontFamily(sketchFontFamily.value);
+        if (activeEntry) {
+          activeEntry.sketcherFontFamily = sketcher.globalFontFamily;
+        }
+      }
+    });
+  }
+
+  const sketchFontSizeDec = document.getElementById('sketch-font-size-dec');
+  const sketchFontSizeInc = document.getElementById('sketch-font-size-inc');
+  const sketchFontSizeVal = document.getElementById('sketch-font-size-val');
+  if (sketchFontSizeDec && sketchFontSizeInc) {
+    const changeFontSize = (delta) => {
+      if (sketcher) {
+        let newSize = sketcher.globalFontSizeBase + delta;
+        newSize = Math.max(6, Math.min(30, newSize));
+        sketcher.setFontSize(newSize);
+        if (sketchFontSizeVal) sketchFontSizeVal.innerText = newSize + 'px';
+        if (activeEntry) {
+          activeEntry.sketcherFontSize = sketcher.globalFontSizeBase;
+        }
+      }
+    };
+    sketchFontSizeDec.addEventListener('click', () => changeFontSize(-1));
+    sketchFontSizeInc.addEventListener('click', () => changeFontSize(1));
   }
 
 
@@ -5127,18 +5565,68 @@ function setupProfileSettings() {
   const includeCheck = document.getElementById('profile-include-pdf');
   const saveBtn = document.getElementById('profile-save-btn');
   
+  // 3-column seals elements
+  const useThreeSealsCheck = document.getElementById('profile-use-three-seals');
+  const threeSealsContainer = document.getElementById('three-seals-inputs-container');
+  const jeDesigInput = document.getElementById('profile-je-designation');
+  const jeAddrInput = document.getElementById('profile-je-address');
+  const aeeDesigInput = document.getElementById('profile-aee-designation');
+  const aeeAddrInput = document.getElementById('profile-aee-address');
+  const eeDesigInput = document.getElementById('profile-ee-designation');
+  const eeAddrInput = document.getElementById('profile-ee-address');
+  const sealsFontSizeSelect = document.getElementById('profile-seals-font-size');
+
   if (!nameInput) return;
 
   const saved = localStorage.getItem('valuroad_user_profile');
-  let profile = { name: '', designation: '', signatureBase64: '', includePdf: true };
+  let profile = {
+    name: '',
+    designation: '',
+    signatureBase64: '',
+    includePdf: true,
+    useThreeSeals: true,
+    sealsFontSize: '8.5pt',
+    jeDesignation: 'Junior Engineer, PW(B&NH)D ,',
+    jeAddress: 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat',
+    aeeDesignation: 'Asstt. Executive Engineer, PW(B&NH)D ,',
+    aeeAddress: 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat',
+    eeDesignation: 'Executive Engineer, PW(B&NH)D ,',
+    eeAddress: 'Golaghat District Territorial\nBldg Division, Golaghat'
+  };
+
   if (saved) {
-    try { profile = JSON.parse(saved); } catch(e) {}
+    try {
+      const parsed = JSON.parse(saved);
+      profile = { ...profile, ...parsed };
+    } catch(e) {}
   }
 
   nameInput.value = profile.name || '';
   desigInput.value = profile.designation || '';
   includeCheck.checked = profile.includePdf !== false;
   
+  // Set 3-column seals inputs
+  if (useThreeSealsCheck) {
+    useThreeSealsCheck.checked = profile.useThreeSeals !== false;
+    
+    // Toggle container display based on check
+    const toggleContainer = () => {
+      if (threeSealsContainer) {
+        threeSealsContainer.style.display = useThreeSealsCheck.checked ? 'flex' : 'none';
+      }
+    };
+    useThreeSealsCheck.addEventListener('change', toggleContainer);
+    toggleContainer();
+  }
+
+  if (jeDesigInput) jeDesigInput.value = profile.jeDesignation;
+  if (jeAddrInput) jeAddrInput.value = profile.jeAddress;
+  if (aeeDesigInput) aeeDesigInput.value = profile.aeeDesignation;
+  if (aeeAddrInput) aeeAddrInput.value = profile.aeeAddress;
+  if (eeDesigInput) eeDesigInput.value = profile.eeDesignation;
+  if (eeAddrInput) eeAddrInput.value = profile.eeAddress;
+  if (sealsFontSizeSelect) sealsFontSizeSelect.value = profile.sealsFontSize || '8.5pt';
+
   if (profile.signatureBase64) {
     sigPreview.innerHTML = `<img src="${profile.signatureBase64}" style="max-height:100%; max-width:100%; object-fit:contain;">`;
     clearBtn.style.display = 'inline-block';
@@ -5180,6 +5668,17 @@ function setupProfileSettings() {
     profile.name = nameInput.value;
     profile.designation = desigInput.value;
     profile.includePdf = includeCheck.checked;
+    
+    // Save 3-column seals inputs
+    if (useThreeSealsCheck) profile.useThreeSeals = useThreeSealsCheck.checked;
+    if (jeDesigInput) profile.jeDesignation = jeDesigInput.value;
+    if (jeAddrInput) profile.jeAddress = jeAddrInput.value;
+    if (aeeDesigInput) profile.aeeDesignation = aeeDesigInput.value;
+    if (aeeAddrInput) profile.aeeAddress = aeeAddrInput.value;
+    if (eeDesigInput) profile.eeDesignation = eeDesigInput.value;
+    if (eeAddrInput) profile.eeAddress = eeAddrInput.value;
+    if (sealsFontSizeSelect) profile.sealsFontSize = sealsFontSizeSelect.value;
+
     localStorage.setItem('valuroad_user_profile', JSON.stringify(profile));
     
     const ogText = saveBtn.innerText;
@@ -5192,6 +5691,576 @@ function setupProfileSettings() {
       saveBtn.style.borderColor = '';
     }, 2000);
   });
+
+  setupBackupRestore();
+}
+
+function setupBackupRestore() {
+  const restoreInput = document.getElementById('backup-restore-input');
+  const dropzone = document.getElementById('restore-dropzone');
+  const statusMsg = document.getElementById('restore-status-message');
+
+  if (!restoreInput || !dropzone) return;
+
+  const showStatus = (text, type) => {
+    statusMsg.innerText = text;
+    statusMsg.style.display = 'block';
+    if (type === 'success') {
+      statusMsg.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+      statusMsg.style.color = '#10b981';
+      statusMsg.style.border = '1px solid #10b981';
+    } else {
+      statusMsg.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+      statusMsg.style.color = '#ef4444';
+      statusMsg.style.border = '1px solid #ef4444';
+    }
+  };
+
+  const handleBackupFile = (file) => {
+    if (!file) return;
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      showStatus('❌ Invalid file type. Please upload a .json backup file.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        if (!data.projects || !Array.isArray(data.projects)) {
+          showStatus('❌ Invalid backup structure: missing projects list.', 'error');
+          return;
+        }
+
+        const count = data.projects.length;
+        const confirmRestore = confirm(`Found ${count} projects in the backup file.\n\nRestoring this backup will replace your current project list. For safety, a backup of your current data will be downloaded first.\n\nDo you want to proceed?`);
+        
+        if (!confirmRestore) {
+          showStatus('ℹ️ Restore cancelled.', 'info');
+          return;
+        }
+
+        // Trigger safety backup of current data first
+        await downloadAllBackup();
+
+        // Overwrite global variables
+        projects = data.projects;
+        if (data.customDsrCatalog) {
+          customDsrCatalog = data.customDsrCatalog;
+        }
+
+        // Save to local storage
+        localStorage.setItem('valuroad_projects', JSON.stringify(projects));
+        if (data.customDsrCatalog) {
+          localStorage.setItem('valuroad_custom_dsr', JSON.stringify(customDsrCatalog));
+        }
+
+        // Save to Cloud Firestore (if logged in)
+        if (auth.currentUser) {
+          showStatus('⏳ Syncing restored data to Firestore cloud...', 'success');
+          for (const proj of projects) {
+            await saveUserProject(auth.currentUser.uid, proj).catch(err => {
+              console.error("Error syncing restored project to cloud:", err);
+            });
+          }
+          if (data.customDsrCatalog) {
+            await saveUserCustomDsr(auth.currentUser.uid, customDsrCatalog).catch(err => {
+              console.error("Error syncing restored DSR to cloud:", err);
+            });
+          }
+        }
+
+        showStatus('✅ Backup restored successfully! Reloading...', 'success');
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+
+      } catch (err) {
+        console.error(err);
+        showStatus('❌ Error parsing backup file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Drag and drop handlers
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--accent)';
+    dropzone.style.background = 'var(--bg-primary)';
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.borderColor = 'var(--border-color)';
+    dropzone.style.background = 'var(--bg-secondary)';
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--border-color)';
+    dropzone.style.background = 'var(--bg-secondary)';
+    const file = e.dataTransfer.files[0];
+    handleBackupFile(file);
+  });
+
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.id !== 'backup-restore-input') {
+      restoreInput.click();
+    }
+  });
+
+  restoreInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    handleBackupFile(file);
+  });
+}
+
+// ── Print Preview & Page Customizer ──────────────────────────────────────
+let currentPreviewEntry = null;
+let previewStyles = {
+  whole: { family: 'Arial, Helvetica, sans-serif', size: '10.5' },
+  title: { family: 'Arial, Helvetica, sans-serif', size: '12' },
+  meta: { family: 'Arial, Helvetica, sans-serif', size: '10.5' },
+  tables: { family: 'Arial, Helvetica, sans-serif', size: '10' },
+  seals: { family: 'Arial, Helvetica, sans-serif', size: '8.5' }
+};
+
+function openPrintPreview(entryId) {
+  if (!activeProject) return;
+  const rawEntry = activeProject.entries.find(e => e.id === entryId);
+  if (!rawEntry) return;
+
+  currentPreviewEntry = {
+    ...rawEntry,
+    workName: activeProject.workName,
+    nbNote: activeProject.nbNote
+  };
+
+  switchView('printPreview');
+
+  const tpl = getPdfTemplateSettings();
+
+  // Reset section typography styles to defaults
+  previewStyles = {
+    whole: { family: currentPreviewEntry.prevFontFamily || tpl.fontFamily || 'Arial, Helvetica, sans-serif', size: currentPreviewEntry.prevFontSize || tpl.fontSize || '10.5' },
+    title: { family: currentPreviewEntry.prevFontFamily || tpl.fontFamily || 'Arial, Helvetica, sans-serif', size: '12' },
+    meta: { family: currentPreviewEntry.prevFontFamily || tpl.fontFamily || 'Arial, Helvetica, sans-serif', size: '10.5' },
+    tables: { family: currentPreviewEntry.prevFontFamily || tpl.fontFamily || 'Arial, Helvetica, sans-serif', size: '10' },
+    seals: { family: currentPreviewEntry.prevFontFamily || tpl.fontFamily || 'Arial, Helvetica, sans-serif', size: '8.5' }
+  };
+
+  // Try to load configured seals font size from user profile
+  try {
+    const savedProf = localStorage.getItem('valuroad_user_profile');
+    if (savedProf) {
+      const prof = JSON.parse(savedProf);
+      if (prof.sealsFontSize) {
+        previewStyles.seals.size = prof.sealsFontSize.replace('pt', '');
+      }
+    }
+  } catch(e) {}
+
+  // Setup UI elements
+  document.getElementById('prev-page-size').value = currentPreviewEntry.prevPageSize || 'a4';
+  document.getElementById('prev-page-orient').value = currentPreviewEntry.prevPageOrient || 'portrait';
+  document.getElementById('prev-page-margin').value = currentPreviewEntry.prevPageMargin !== undefined ? currentPreviewEntry.prevPageMargin : parseInt(tpl.margin) || 10;
+  
+  const targetSelect = document.getElementById('prev-style-target');
+  if (targetSelect) targetSelect.value = 'whole';
+  
+  document.getElementById('prev-font-family').value = previewStyles.whole.family;
+  document.getElementById('prev-font-size').value = previewStyles.whole.size;
+
+  renderPreviewPages();
+}
+
+function updatePreviewStyles() {
+  const size = document.getElementById('prev-page-size').value;
+  const orient = document.getElementById('prev-page-orient').value;
+  const margin = document.getElementById('prev-page-margin').value;
+  const zoom = document.getElementById('prev-zoom-slider').value;
+
+  const zoomLabel = document.getElementById('prev-zoom-label');
+  if (zoomLabel) zoomLabel.innerText = `${Math.round(zoom * 100)}%`;
+
+  const papers = document.querySelectorAll('#print-preview-pages-canvas .preview-paper');
+  papers.forEach(paper => {
+    paper.className = 'preview-paper';
+    paper.classList.add(`size-${size}`);
+    if (orient === 'landscape') {
+      paper.classList.add('landscape');
+    }
+    paper.style.setProperty('--preview-margin', `${margin}mm`);
+    paper.style.setProperty('--preview-zoom', zoom);
+
+    // Apply styles for different parts via CSS variables
+    paper.style.setProperty('--preview-whole-font-family', previewStyles.whole.family);
+    paper.style.setProperty('--preview-whole-font-size', `${previewStyles.whole.size}pt`);
+
+    paper.style.setProperty('--preview-title-font-family', previewStyles.title.family);
+    paper.style.setProperty('--preview-title-font-size', `${previewStyles.title.size}pt`);
+
+    paper.style.setProperty('--preview-meta-font-family', previewStyles.meta.family);
+    paper.style.setProperty('--preview-meta-font-size', `${previewStyles.meta.size}pt`);
+
+    paper.style.setProperty('--preview-tables-font-family', previewStyles.tables.family);
+    paper.style.setProperty('--preview-tables-font-size', `${previewStyles.tables.size}pt`);
+
+    paper.style.setProperty('--preview-seals-font-family', previewStyles.seals.family);
+    paper.style.setProperty('--preview-seals-font-size', `${previewStyles.seals.size}pt`);
+  });
+}
+
+function renderPreviewRuler() {
+  // Removed ruler per user request
+}
+
+function renderPreviewPages() {
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  if (!canvas || !currentPreviewEntry) return;
+  canvas.innerHTML = '<div style="color:#ffffff; font-weight:600; text-align:center; padding-top:2rem;">Generating interactive preview pages...</div>';
+
+  // Generate compiled HTML from the pdf.js template engine
+  const rawHtml = exportToPDF(currentPreviewEntry, currentPreviewEntry.sketcherImage, 'preview');
+
+  canvas.innerHTML = '';
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtml, 'text/html');
+  const pages = doc.querySelectorAll('.pdf-page');
+
+  if (pages.length === 0) {
+    canvas.innerHTML = '<div style="color:#ffffff;">Failed to render preview.</div>';
+    return;
+  }
+
+  pages.forEach((page, idx) => {
+    const paper = document.createElement('div');
+    paper.className = 'preview-paper';
+    paper.setAttribute('contenteditable', 'true');
+    paper.setAttribute('spellcheck', 'false');
+    
+    // Inject the raw page inner contents
+    paper.innerHTML = page.innerHTML;
+    
+    canvas.appendChild(paper);
+  });
+
+  // Attach click-to-delete listeners to any page breaks already present
+  canvas.querySelectorAll('.preview-page-break').forEach(pb => {
+    pb.setAttribute('contenteditable', 'false');
+    pb.addEventListener('click', () => pb.remove());
+  });
+
+  // Re-bind Lucide icons inside preview pages
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+
+  updatePreviewStyles();
+}
+
+function exportPreviewedDocument(isPrint = false) {
+  if (!currentPreviewEntry) return;
+
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  const papers = canvas.querySelectorAll('.preview-paper');
+
+  const size = document.getElementById('prev-page-size').value;
+  const orient = document.getElementById('prev-page-orient').value;
+  const margin = parseFloat(document.getElementById('prev-page-margin').value) || 10;
+
+  let combinedHtml = '';
+  papers.forEach((paper, idx) => {
+    // Clone node to clean up any temporary elements
+    const clone = paper.cloneNode(true);
+    
+    // Propagate custom CSS typography variables to exported pages
+    const styles = [
+      `--preview-whole-font-family: ${previewStyles.whole.family}`,
+      `--preview-whole-font-size: ${previewStyles.whole.size}pt`,
+      `--preview-title-font-family: ${previewStyles.title.family}`,
+      `--preview-title-font-size: ${previewStyles.title.size}pt`,
+      `--preview-meta-font-family: ${previewStyles.meta.family}`,
+      `--preview-meta-font-size: ${previewStyles.meta.size}pt`,
+      `--preview-tables-font-family: ${previewStyles.tables.family}`,
+      `--preview-tables-font-size: ${previewStyles.tables.size}pt`,
+      `--preview-seals-font-family: ${previewStyles.seals.family}`,
+      `--preview-seals-font-size: ${previewStyles.seals.size}pt`
+    ].join('; ');
+
+    const pageStyle = `padding: ${margin}mm; ${styles};`;
+    
+    if (idx === 0) {
+      combinedHtml += `<div class="pdf-page" style="${pageStyle}">${clone.innerHTML}</div>`;
+    } else {
+      combinedHtml += `<div class="pdf-page" style="page-break-before: always; ${pageStyle}">${clone.innerHTML}</div>`;
+    }
+  });
+
+  const opt = {
+    margin: [margin, margin, margin, margin],
+    filename: (() => {
+      const cleanName = (currentPreviewEntry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+      return `Estimate_${cleanName}_${currentPreviewEntry.id}.pdf`;
+    })(),
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: size, orientation: orient }
+  };
+
+  if (isPrint) {
+    html2pdf().from(combinedHtml).set(opt).toPdf().outputPdf('blob').then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    }).catch(err => {
+      console.error("Error printing preview:", err);
+    });
+  } else {
+    html2pdf().from(combinedHtml).set(opt).save();
+  }
+}
+
+function insertPageBreakAtCursor() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+  const range = selection.getRangeAt(0);
+
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  if (!canvas.contains(range.commonAncestorContainer)) {
+    alert('Please click inside the document text where you want to insert the page break.');
+    return;
+  }
+
+  const pageBreak = document.createElement('div');
+  pageBreak.className = 'preview-page-break';
+  pageBreak.setAttribute('contenteditable', 'false');
+  pageBreak.addEventListener('click', () => {
+    pageBreak.remove();
+  });
+
+  range.insertNode(pageBreak);
+  range.collapse(false);
+}
+
+function exportPreviewedDocumentToWord() {
+  if (!currentPreviewEntry) return;
+
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  const papers = canvas.querySelectorAll('.preview-paper');
+
+  let combinedHtml = '';
+  papers.forEach((paper, idx) => {
+    const clone = paper.cloneNode(true);
+    
+    // Resolve custom CSS variables into direct inline styles for Word compatibility
+    clone.querySelectorAll('.pdf-title').forEach(el => {
+      el.style.fontFamily = previewStyles.title.family;
+      el.style.fontSize = `${previewStyles.title.size}pt`;
+      el.querySelectorAll('*').forEach(c => {
+        c.style.fontFamily = previewStyles.title.family;
+        c.style.fontSize = `${previewStyles.title.size}pt`;
+      });
+    });
+    
+    clone.querySelectorAll('.pdf-meta').forEach(el => {
+      el.style.fontFamily = previewStyles.meta.family;
+      el.style.fontSize = `${previewStyles.meta.size}pt`;
+      el.querySelectorAll('*').forEach(c => {
+        c.style.fontFamily = previewStyles.meta.family;
+        c.style.fontSize = `${previewStyles.meta.size}pt`;
+      });
+    });
+
+    const tableSelectors = ['.pdf-items-list table', '.pdf-excluded-list table', '.pdf-service-items table'];
+    tableSelectors.forEach(sel => {
+      clone.querySelectorAll(sel).forEach(el => {
+        el.style.fontFamily = previewStyles.tables.family;
+        el.style.fontSize = `${previewStyles.tables.size}pt`;
+        el.querySelectorAll('*').forEach(c => {
+          c.style.fontFamily = previewStyles.tables.family;
+          c.style.fontSize = `${previewStyles.tables.size}pt`;
+        });
+      });
+    });
+
+    clone.querySelectorAll('.pdf-seals-text').forEach(el => {
+      el.style.fontFamily = previewStyles.seals.family;
+      el.style.fontSize = `${previewStyles.seals.size}pt`;
+      el.querySelectorAll('*').forEach(c => {
+        c.style.fontFamily = previewStyles.seals.family;
+        c.style.fontSize = `${previewStyles.seals.size}pt`;
+      });
+    });
+
+    const pageHtml = clone.innerHTML;
+    
+    if (idx > 0) {
+      combinedHtml += `<br style="page-break-before: always; clear: both; mso-break-type: section-break;">`;
+    }
+    combinedHtml += `<div class="word-page" style="font-family: ${previewStyles.whole.family}; font-size: ${previewStyles.whole.size}pt;">${pageHtml}</div>`;
+  });
+
+  const wordDoc = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Valuation Estimate</title>
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: A4;
+    margin: 1in;
+  }
+  body {
+    font-family: ${previewStyles.whole.family};
+    font-size: ${previewStyles.whole.size}pt;
+    color: #000000;
+    line-height: 1.4;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 6px;
+    vertical-align: top;
+    font-size: ${previewStyles.whole.size}pt;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  .pdf-row {
+    display: table;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .pdf-row > div {
+    display: table-cell;
+    vertical-align: top;
+  }
+  .bold-right { font-weight: bold; text-align: right; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+</style>
+</head>
+<body>
+  ${combinedHtml}
+</body>
+</html>
+  `;
+
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), wordDoc], { type: "application/msword;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+
+  const cleanName = (currentPreviewEntry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+  const namePart = cleanName.substring(0, 33).replace(/_$/, '');
+  const filename = `${namePart}_valuation_estimate.doc`;
+
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function initPrintPreviewEvents() {
+  const prevPageSize = document.getElementById('prev-page-size');
+  const prevPageOrient = document.getElementById('prev-page-orient');
+  const prevPageMargin = document.getElementById('prev-page-margin');
+  const prevFontFamily = document.getElementById('prev-font-family');
+  const prevFontSize = document.getElementById('prev-font-size');
+  const prevZoomSlider = document.getElementById('prev-zoom-slider');
+  const prevStyleTarget = document.getElementById('prev-style-target');
+
+  if (prevPageSize) {
+    prevPageSize.addEventListener('change', () => {
+      updatePreviewStyles();
+    });
+  }
+  if (prevPageOrient) {
+    prevPageOrient.addEventListener('change', () => {
+      updatePreviewStyles();
+    });
+  }
+  if (prevPageMargin) prevPageMargin.addEventListener('input', updatePreviewStyles);
+  
+  if (prevStyleTarget) {
+    prevStyleTarget.addEventListener('change', () => {
+      const target = prevStyleTarget.value;
+      const styles = previewStyles[target] || previewStyles.whole;
+      if (prevFontFamily) prevFontFamily.value = styles.family;
+      if (prevFontSize) prevFontSize.value = styles.size;
+    });
+  }
+
+  if (prevFontFamily) {
+    prevFontFamily.addEventListener('change', () => {
+      const target = prevStyleTarget ? prevStyleTarget.value : 'whole';
+      if (previewStyles[target]) {
+        previewStyles[target].family = prevFontFamily.value;
+      }
+      updatePreviewStyles();
+    });
+  }
+  if (prevFontSize) {
+    prevFontSize.addEventListener('change', () => {
+      const target = prevStyleTarget ? prevStyleTarget.value : 'whole';
+      if (previewStyles[target]) {
+        previewStyles[target].size = prevFontSize.value;
+      }
+      updatePreviewStyles();
+    });
+  }
+
+  if (prevZoomSlider) {
+    prevZoomSlider.addEventListener('input', () => {
+      updatePreviewStyles();
+    });
+  }
+
+  const btnPageBreak = document.getElementById('prev-btn-pagebreak');
+  if (btnPageBreak) btnPageBreak.addEventListener('click', insertPageBreakAtCursor);
+
+  const btnPdf = document.getElementById('prev-btn-pdf');
+  if (btnPdf) btnPdf.addEventListener('click', () => exportPreviewedDocument(false));
+
+  const btnExcel = document.getElementById('prev-btn-excel');
+  if (btnExcel) {
+    btnExcel.addEventListener('click', () => {
+      if (currentPreviewEntry) {
+        exportSingleEstimateToExcel(currentPreviewEntry.id);
+      }
+    });
+  }
+
+  const btnWord = document.getElementById('prev-btn-word');
+  if (btnWord) btnWord.addEventListener('click', exportPreviewedDocumentToWord);
+
+  const btnPrint = document.getElementById('prev-btn-print');
+  if (btnPrint) btnPrint.addEventListener('click', () => exportPreviewedDocument(true));
+
+  const btnClose = document.getElementById('prev-btn-close');
+  if (btnClose) {
+    btnClose.addEventListener('click', () => {
+      switchView('dashboard');
+    });
+  }
 }
 
 // ── Particle Background Effect ──────────────────────────────────────────

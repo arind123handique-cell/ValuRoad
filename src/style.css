@@ -1996,11 +1996,14 @@ body {
 /* ── WYSIWYG PDF Template Editor ─────────────────────────────────────── */
 #view-pdf-template {
   display: none;
+  flex-grow: 1;
   flex-direction: column;
   height: 100%;
   padding: 0;
   background-color: #f3f4f6; /* Gray background for document viewer */
   overflow: hidden;
+  max-width: none;
+  margin: 0;
 }
 #view-pdf-template.active {
   display: flex;
@@ -2171,4 +2174,187 @@ body {
 }
 .pdf-nb {
   margin-top: 0.25rem;
+}
+
+/* ── Interactive Print Preview Styles ── */
+#view-print-preview {
+  display: none;
+  flex-grow: 1;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  background-color: #475569; /* Slate desk background */
+  overflow: hidden;
+  max-width: none; /* override standard view-container bounds */
+  margin: 0;
+}
+#view-print-preview.active {
+  display: flex;
+}
+
+/* Hide main app container when full-screen panels are active */
+body:has(#view-print-preview.active) main,
+body:has(#view-pdf-template.active) main {
+  display: none !important;
+}
+
+.preview-canvas-container {
+  flex: 1;
+  overflow: auto;
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2rem;
+  background-color: #64748b; /* dark slate gray desk background */
+  position: relative;
+}
+
+.preview-ruler {
+  height: 22px;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-bottom: 2.5px solid #475569;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  border-radius: 4px;
+  flex-shrink: 0;
+  zoom: var(--preview-zoom, 1);
+  margin-left: auto;
+  margin-right: auto;
+  
+  /* 1mm tick marks repeating */
+  background-image: 
+    repeating-linear-gradient(90deg, #475569 0px, #475569 1px, transparent 1px, transparent 10mm), /* 10mm ticks */
+    repeating-linear-gradient(90deg, #64748b 0px, #64748b 1px, transparent 1px, transparent 5mm),  /* 5mm ticks */
+    repeating-linear-gradient(90deg, #94a3b8 0px, #94a3b8 1px, transparent 1px, transparent 1mm);  /* 1mm ticks */
+  background-size: 100% 12px, 100% 8px, 100% 5px;
+  background-repeat: repeat-x;
+  background-position: 0 bottom, 0 bottom, 0 bottom;
+}
+
+.preview-paper {
+  background: #ffffff;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.25), 0 5px 15px rgba(0,0,0,0.2);
+  padding: var(--preview-margin, 10mm);
+  box-sizing: border-box;
+  font-family: var(--preview-font-family, Arial, Helvetica, sans-serif);
+  font-size: var(--preview-font-size, 10.5pt);
+  color: #000;
+  line-height: 1.55;
+  position: relative;
+  page-break-after: always;
+  zoom: var(--preview-zoom, 1);
+  transition: padding 0.15s, font-size 0.15s, font-family 0.15s;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Typography control overrides to bypass inline HTML template styles */
+.preview-paper,
+.pdf-page {
+  font-family: var(--preview-whole-font-family, Arial, Helvetica, sans-serif) !important;
+  font-size: var(--preview-whole-font-size, 10.5pt) !important;
+}
+
+.preview-paper *,
+.a4-paper *,
+.pdf-page * {
+  font-family: inherit;
+}
+
+.pdf-title, .pdf-title * {
+  font-family: var(--preview-title-font-family, inherit) !important;
+  font-size: var(--preview-title-font-size, 12pt) !important;
+}
+
+.pdf-meta, .pdf-meta * {
+  font-family: var(--preview-meta-font-family, inherit) !important;
+  font-size: var(--preview-meta-font-size, 10.5pt) !important;
+}
+
+.pdf-table-text, .pdf-table-text *, .pdf-table-text td, .pdf-table-text th {
+  font-family: var(--preview-tables-font-family, inherit) !important;
+  font-size: var(--preview-tables-font-size, 10pt) !important;
+}
+
+.pdf-seals-text, .pdf-seals-text * {
+  font-family: var(--preview-seals-font-family, inherit) !important;
+  font-size: var(--preview-seals-font-size, 8.5pt) !important;
+}
+
+/* Preset Page Sizes (Portrait) */
+.preview-paper.size-a4 {
+  width: 210mm;
+  min-height: 297mm;
+}
+.preview-paper.size-letter {
+  width: 216mm;
+  min-height: 279mm;
+}
+.preview-paper.size-legal {
+  width: 216mm;
+  min-height: 356mm;
+}
+.preview-paper.size-a3 {
+  width: 297mm;
+  min-height: 420mm;
+}
+
+/* Preset Page Sizes (Landscape) */
+.preview-paper.landscape.size-a4 {
+  width: 297mm;
+  min-height: 210mm;
+}
+.preview-paper.landscape.size-letter {
+  width: 279mm;
+  min-height: 216mm;
+}
+.preview-paper.landscape.size-legal {
+  width: 356mm;
+  min-height: 216mm;
+}
+.preview-paper.landscape.size-a3 {
+  width: 420mm;
+  min-height: 297mm;
+}
+
+/* Page Break Divider in Editor */
+.preview-page-break {
+  width: 100%;
+  border-top: 2px dashed #3b82f6;
+  margin: 25px 0;
+  position: relative;
+  height: 0;
+  cursor: pointer;
+  user-select: none;
+  page-break-before: always;
+  break-before: page;
+}
+
+.preview-page-break::after {
+  content: "✂ PAGE BREAK (Click to delete)";
+  position: absolute;
+  top: -11px;
+  left: 24px;
+  background: #eff6ff;
+  color: #3b82f6;
+  border: 1px solid #bfdbfe;
+  font-size: 8pt;
+  font-weight: bold;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+  transition: all 0.2s;
+}
+
+.preview-page-break:hover::after {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  content: "🗑 REMOVE PAGE BREAK";
 }

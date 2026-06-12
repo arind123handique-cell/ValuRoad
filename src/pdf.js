@@ -495,14 +495,53 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       </div>
     `;
   }
-
-
-  let profileHtml = '';
+  let profileHtml = '';
+  let prof = {};
+  let sealsSize = '8.5pt';
   try {
     const savedProf = localStorage.getItem('valuroad_user_profile');
+    let useThreeSeals = true;
+    let includePdf = true;
     if (savedProf) {
-      const prof = JSON.parse(savedProf);
-      if (prof.includePdf !== false && (prof.name || prof.designation || prof.signatureBase64)) {
+      prof = JSON.parse(savedProf);
+      useThreeSeals = prof.useThreeSeals !== false;
+      includePdf = prof.includePdf !== false;
+      if (prof.sealsFontSize) {
+        sealsSize = prof.sealsFontSize;
+      }
+    }
+
+    if (includePdf) {
+      if (useThreeSeals) {
+        const jeDesig = (prof.jeDesignation !== undefined ? prof.jeDesignation : 'Junior Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const jeAddr = (prof.jeAddress !== undefined ? prof.jeAddress : 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat').replace(/\n/g, '<br>');
+        
+        const aeeDesig = (prof.aeeDesignation !== undefined ? prof.aeeDesignation : 'Asstt. Executive Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const aeeAddr = (prof.aeeAddress !== undefined ? prof.aeeAddress : 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat').replace(/\n/g, '<br>');
+        
+        const eeDesig = (prof.eeDesignation !== undefined ? prof.eeDesignation : 'Executive Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
+        const eeAddr = (prof.eeAddress !== undefined ? prof.eeAddress : 'Golaghat District Territorial\nBldg Division, Golaghat').replace(/\n/g, '<br>');
+
+        profileHtml = `
+          <div class="pdf-seals-text" style="margin-top: 15mm; display: flex; justify-content: space-between; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
+            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+              <div style="height: 15mm;"></div>
+              ${jeDesig ? `<div style="font-weight: bold;">${jeDesig}</div>` : ''}
+              ${jeAddr ? `<div>${jeAddr}</div>` : ''}
+            </div>
+            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+              <div style="height: 15mm;"></div>
+              ${aeeDesig ? `<div style="font-weight: bold;">${aeeDesig}</div>` : ''}
+              ${aeeAddr ? `<div>${aeeAddr}</div>` : ''}
+            </div>
+            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+              <div style="height: 15mm;"></div>
+              ${eeDesig ? `<div style="font-weight: bold;">${eeDesig}</div>` : ''}
+              ${eeAddr ? `<div>${eeAddr}</div>` : ''}
+            </div>
+          </div>
+        `;
+      } else if (prof.name || prof.designation || prof.signatureBase64) {
         profileHtml = `
           <div style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
             <div style="text-align: center; width: 65mm; font-family: Arial, Helvetica, sans-serif;">
@@ -520,15 +559,15 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
   // ── PAGE 1: VALUATION ESTIMATE SHEET ────────────────────────────────────────
   const orgBlock = tpl.orgName ? `
-    <div style="text-align:center;font-weight:bold;font-size:${parseFloat(tpl.fontSize)+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${tpl.orgName}</div>` : '';
+    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${parseFloat(tpl.fontSize)+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${tpl.orgName}</div>` : '';
   const subBlock = tpl.subtitle ? `
-    <div style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
+    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
 
   let html = `
-    <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000;">
+    <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize};">
       ${orgBlock}
       ${subBlock}
-      <div class="pdf-estimate-header" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
+      <div class="pdf-estimate-header pdf-meta" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
         <div class="pdf-row" style="margin-bottom: 4px;">
           <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
           <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
@@ -558,19 +597,25 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         This estimate is prepared on the basis of ${tpl.basisText}
       </div>
 
-      <div class="pdf-items-list">
+      <div class="pdf-items-list pdf-table-text">
         ${depreciatedItemsHtml}
       </div>
 
-      ${subtotalsHtml}
+      <div class="pdf-table-text">
+        ${subtotalsHtml}
+      </div>
 
-      <div class="pdf-excluded-list">
+      <div class="pdf-excluded-list pdf-table-text">
         ${excludedItemsHtml}
       </div>
 
-      ${serviceItemsHtml}
+      <div class="pdf-table-text">
+        ${serviceItemsHtml}
+      </div>
 
-      ${grandTotalHtml}
+      <div class="pdf-table-text">
+        ${grandTotalHtml}
+      </div>
 
       ${nbHtml}
 
@@ -651,62 +696,31 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     container.innerHTML = html;
   }
 
-  if (isPrint) {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-      <head>
-        <title>Print Estimate - ${(report.clientName || 'Owner')}</title>
-        <style>
-          @media print {
-            body { padding: 0; margin: 0; }
-            .no-print { display: none !important; }
-          }
-          .no-print {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f1f5f9;
-            padding: 10px;
-            font-family: sans-serif;
-            font-size: 13px;
-            color: #334155;
-            border-bottom: 1px solid #cbd5e1;
-            margin-bottom: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="no-print">
-          <span>Use your browser's Print dialog to print this estimate report or save it as a PDF.</span>
-          <button onclick="window.print()" style="padding: 6px 12px; font-weight: bold; cursor: pointer; background: #1e3a8a; color: white; border: none; border-radius: 4px;">Print Now</button>
-        </div>
-        <div style="padding: 10px 20px;">
-          ${html}
-        </div>
-        <script>
-          window.onload = function() {
-            setTimeout(function() { window.print(); }, 500);
-          }
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  } else {
-    // Run html2pdf options
-    const opt = {
-      margin: [tpl.margin, tpl.margin, tpl.margin, tpl.margin],
-      filename: (() => {
-        const cleanName = (report.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-        const rawPart = `Valuation_${cleanName}_${report.id}`.replace(/_+/g, '_');
-        return rawPart.substring(0, 46).replace(/_$/, '') + '.pdf';
-      })(),
-      image: { type: 'jpeg', quality: tpl.imgQuality },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+  // Run html2pdf options
+  const opt = {
+    margin: [tpl.margin, tpl.margin, tpl.margin, tpl.margin],
+    filename: (() => {
+      const cleanName = (report.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+      const rawPart = `Valuation_${cleanName}_${report.id}`.replace(/_+/g, '_');
+      return rawPart.substring(0, 46).replace(/_$/, '') + '.pdf';
+    })(),
+    image: { type: 'jpeg', quality: tpl.imgQuality },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
 
+  if (isPrint === 'preview') {
+    return html;
+  }
+
+  if (isPrint === true || isPrint === 'true') {
+    html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    }).catch(err => {
+      console.error("Error generating print PDF:", err);
+    });
+  } else {
     // Generate PDF and trigger download
     html2pdf().from(html).set(opt).save();
   }

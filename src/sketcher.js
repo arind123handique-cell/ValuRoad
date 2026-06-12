@@ -48,6 +48,10 @@ export class SiteSketcher {
     this.shiftDown     = false;
     this.spaceDown     = false;
 
+    // ── typography ──
+    this.globalFontSizeBase = 10;
+    this.globalFontFamily = 'sans-serif';
+
     // ── map bg ──
     this.mapBgImage      = null;
     this.mapBgLoaded     = false;
@@ -725,9 +729,9 @@ export class SiteSketcher {
       // label
       let cx=0,cy=0;s.points.forEach(pt=>{cx+=pt.x;cy+=pt.y;});cx/=s.points.length;cy/=s.points.length;
       const csp=this.w2s(cx,cy);
-      ctx.fillStyle='#1e293b'; ctx.font=`bold ${Math.max(10,Math.min(14,13*z))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#1e293b'; ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.3 * z))}px ${this.globalFontFamily}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(s.label||'Room',csp.x,csp.y-8);
-      if(s.areaSqm>0){ctx.font=`${Math.max(9,Math.min(11,10*z))}px sans-serif`; ctx.fillStyle='#475569'; ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp.x,csp.y+8);}
+      if(s.areaSqm>0){ctx.font=`${Math.max(8, Math.round(this.globalFontSizeBase * 1.0 * z))}px ${this.globalFontFamily}`; ctx.fillStyle='#475569'; ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp.x,csp.y+8);}
 
     } else if (s.type==='wall') {
       const s1=this.w2s(s.x1,s.y1), s2=this.w2s(s.x2,s.y2);
@@ -761,7 +765,7 @@ export class SiteSketcher {
       ctx.fillRect(sp.x,sp.y,sw,sh);
       ctx.lineWidth=1.5; ctx.strokeRect(sp.x,sp.y,sw,sh); ctx.setLineDash([]);
       // label
-      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(9,Math.min(13,11*z))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.1 * z))}px ${this.globalFontFamily}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       const lbl=s.label||'Block';
       lbl.split('\n').forEach((l,i,a)=>ctx.fillText(l,sp.x+sw/2,sp.y+sh/2-(a.length-1)*7+i*13));
       // dimensions
@@ -777,7 +781,7 @@ export class SiteSketcher {
       ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.closePath();ctx.stroke();ctx.setLineDash([]);
       let cx=0,cy=0;s.points.forEach(pt=>{cx+=pt.x;cy+=pt.y;});cx/=s.points.length;cy/=s.points.length;
       const csp2=this.w2s(cx,cy);
-      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(9,Math.min(13,11*z))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.1 * z))}px ${this.globalFontFamily}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(s.label||'Building',csp2.x,csp2.y);
 
     } else if (s.type==='road') {
@@ -787,7 +791,7 @@ export class SiteSketcher {
       ctx.beginPath();ctx.moveTo(0,sy1);ctx.lineTo(this.W,sy1);ctx.moveTo(0,sy2);ctx.lineTo(this.W,sy2);ctx.stroke();
       ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([15,15]);
       ctx.beginPath();ctx.moveTo(0,(sy1+sy2)/2);ctx.lineTo(this.W,(sy1+sy2)/2);ctx.stroke(); ctx.setLineDash([]);
-      ctx.font=`bold ${Math.max(10,Math.min(15,13*z))}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.3 * z))}px ${this.globalFontFamily}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       if(s.leftLabel){ctx.fillStyle='#64748b';ctx.fillText(`← ${s.leftLabel}`,this.W*0.2,(sy1+sy2)/2);}
       ctx.fillStyle='#0f172a'; ctx.fillText(s.label||'',(this.W/2),(sy1+sy2)/2);
       if(s.rightLabel){ctx.fillStyle='#64748b';ctx.fillText(`${s.rightLabel} →`,this.W*0.8,(sy1+sy2)/2);}
@@ -795,8 +799,8 @@ export class SiteSketcher {
     } else if (s.type==='text') {
       const sp=this.w2s(s.x,s.y);
       const fs=s.fontSize||13;
-      const ff=s.fontFamily||'sans-serif';
-      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(9,Math.min(fs*this.zoom*1.2,fs*this.zoom))}px ${ff}`;
+      const ff=s.fontFamily||this.globalFontFamily;
+      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(fs*this.zoom))}px ${ff}`;
       ctx.textBaseline='alphabetic'; ctx.fillText(s.text||'',sp.x,sp.y);
 
     } else if (s.type==='line') {
@@ -804,7 +808,7 @@ export class SiteSketcher {
       ctx.strokeStyle='#334155'; ctx.lineWidth=1.5;
       if(s.style==='dashed')ctx.setLineDash([8,6]);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
-      if(s.label){const mx=(s1.x+s2.x)/2,my=(s1.y+s2.y)/2;ctx.font=`italic ${Math.max(9,10*z)}px sans-serif`;ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText(s.label,mx,my-6);}
+      if(s.label){const mx=(s1.x+s2.x)/2,my=(s1.y+s2.y)/2;ctx.font=`italic ${Math.max(8, Math.round(this.globalFontSizeBase * 1.0 * z))}px ${this.globalFontFamily}`;ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText(s.label,mx,my-6);}
 
       // ROW autodimension removed — only the ROW line is drawn
 
@@ -826,7 +830,7 @@ export class SiteSketcher {
       ctx.strokeStyle='#d97706'; ctx.lineWidth=2.5;
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s1.x+Math.cos(gA-Math.PI/4)*gLen/2,s1.y+Math.sin(gA-Math.PI/4)*gLen/2);
       ctx.moveTo(s2.x,s2.y);ctx.lineTo(s2.x+Math.cos(gA+Math.PI-Math.PI/4)*gLen/2,s2.y+Math.sin(gA+Math.PI-Math.PI/4)*gLen/2);ctx.stroke();
-      ctx.font=`bold ${Math.max(8,9*z)}px sans-serif`;ctx.fillStyle='#d97706';ctx.textAlign='center';
+      ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 0.9 * z))}px ${this.globalFontFamily}`;ctx.fillStyle='#d97706';ctx.textAlign='center';
       ctx.fillText(s.label||'GATE',(s1.x+s2.x)/2,(s1.y+s2.y)/2-10);
       if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1));
 
@@ -844,7 +848,7 @@ export class SiteSketcher {
       const cIx=tmx+tnx*aH*0.65,cIy=tmy+tny*aH*0.65;
       ctx.strokeStyle='#10b981';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.quadraticCurveTo(cIx,cIy,s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
       ctx.fillStyle='#047857';for(let i=0;i<=4;i++){const t=i/4;const hx=(1-t)**2*s1.x+2*(1-t)*t*cOx+t**2*s2.x,hy=(1-t)**2*s1.y+2*(1-t)*t*cOy+t**2*s2.y;ctx.beginPath();ctx.arc(hx,hy,2,0,Math.PI*2);ctx.fill();}
-      ctx.font=`bold ${Math.max(8,9*z)}px sans-serif`;ctx.fillStyle='#065f46';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(s.label||'GATE WITH TORAN',cOx,cOy-6);ctx.textBaseline='alphabetic';
+      ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 0.9 * z))}px ${this.globalFontFamily}`;ctx.fillStyle='#065f46';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(s.label||'GATE WITH TORAN',cOx,cOy-6);ctx.textBaseline='alphabetic';
       if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1));
 
     } else if (s.type==='dimension') {
@@ -863,8 +867,8 @@ export class SiteSketcher {
       for(let j=0;j<s.points.length;j++){const n=(j+1)%s.points.length,p1=s.points[j],p2=s.points[n];if(p1.sideLength)this._drawBoxDim(p1.x,p1.y,p2.x,p2.y,`${p1.sideLength.toFixed(2)}m`,0.8);}
       let pcx=0,pcy=0;s.points.forEach(pt=>{pcx+=pt.x;pcy+=pt.y;});pcx/=s.points.length;pcy/=s.points.length;
       const csp3=this.w2s(pcx,pcy);
-      ctx.fillStyle='#0f766e';ctx.font=`bold ${Math.max(10,12*z)}px sans-serif`;ctx.textAlign='center';ctx.fillText(s.label||'Plot',csp3.x,csp3.y-8);
-      ctx.fillStyle='#475569';ctx.font=`${Math.max(9,10*z)}px sans-serif`;ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp3.x,csp3.y+8);
+      ctx.fillStyle='#0f766e';ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.2 * z))}px ${this.globalFontFamily}`;ctx.textAlign='center';ctx.fillText(s.label||'Plot',csp3.x,csp3.y-8);
+      ctx.fillStyle='#475569';ctx.font=`${Math.max(8, Math.round(this.globalFontSizeBase * 1.0 * z))}px ${this.globalFontFamily}`;ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp3.x,csp3.y+8);
     }
 
     ctx.restore();
@@ -880,7 +884,7 @@ export class SiteSketcher {
     const ctx=this.ctx;
     ctx.save();
     ctx.strokeStyle='#475569';ctx.fillStyle='#475569';ctx.lineWidth=1;
-    ctx.font=`${Math.max(9,Math.min(11,10*this.zoom))}px sans-serif`;
+    ctx.font=`${Math.max(8, Math.round(this.globalFontSizeBase * 1.0 * this.zoom))}px ${this.globalFontFamily}`;
     const ax1=s1.x+nx*pxOff,ay1=s1.y+ny*pxOff,ax2=s2.x+nx*pxOff,ay2=s2.y+ny*pxOff;
     ctx.beginPath();ctx.moveTo(s1.x+nx*(pxOff-5),s1.y+ny*(pxOff-5));ctx.lineTo(s1.x+nx*(pxOff+5),s1.y+ny*(pxOff+5));
     ctx.moveTo(s2.x+nx*(pxOff-5),s2.y+ny*(pxOff-5));ctx.lineTo(s2.x+nx*(pxOff+5),s2.y+ny*(pxOff+5));ctx.stroke();
@@ -903,7 +907,7 @@ export class SiteSketcher {
     const nx=-dy/len,ny=dx/len,pxOff=worldOff*this.ppm;
     const mx=(s1.x+s2.x)/2+nx*pxOff,my=(s1.y+s2.y)/2+ny*pxOff;
     const ctx=this.ctx; ctx.save();
-    ctx.font=`bold ${Math.max(9,Math.min(11,10*this.zoom))}px sans-serif`;
+    ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.0 * this.zoom))}px ${this.globalFontFamily}`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     const tw=ctx.measureText(label).width+6;
     ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fillRect(mx-tw/2,my-8,tw,16);
@@ -930,7 +934,7 @@ export class SiteSketcher {
     const ang=Math.atan2(dy,dx);hd(ax1,ay1,ang);hd(ax2,ay2,ang+Math.PI);
     const label=s.manualLabel||s.label||`${Math.hypot(s.x2-s.x1,s.y2-s.y1).toFixed(2)}m`;
     const mx=(ax1+ax2)/2,my=(ay1+ay2)/2;
-    ctx.font=`bold ${Math.max(9,Math.min(12,11*this.zoom))}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.1 * this.zoom))}px ${this.globalFontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';
     const tw=ctx.measureText(label).width+8;
     ctx.fillStyle='rgba(219,234,254,0.95)';ctx.fillRect(mx-tw/2,my-9,tw,18);
     ctx.strokeStyle='#2563eb';ctx.lineWidth=0.5;ctx.strokeRect(mx-tw/2,my-9,tw,18);
@@ -1155,6 +1159,14 @@ export class SiteSketcher {
   // ═══════════════════════════════════════════════════════════════════════
   loadData(shapes){this.shapes=shapes||[];this.selectedShape=null;this.wallChain=[];this.polyChain=[];this.history=[];this.future=[];this.draw();if(this.onHistoryChange)this.onHistoryChange(0,0);}
   exportData(){return this.shapes;}
+  setFontSize(size) {
+    this.globalFontSizeBase = parseFloat(size) || 10;
+    this.draw();
+  }
+  setFontFamily(family) {
+    this.globalFontFamily = family || 'sans-serif';
+    this.draw();
+  }
   exportImage(){
     const prev=this.selectedShape;
     this.selectedShape=null;
