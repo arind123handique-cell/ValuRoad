@@ -399,10 +399,10 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       
       <div class="pdf-row" style="margin-bottom: 2px;">
         <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
-          Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} = ${report.totalDepreciationPct}% =
+          Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
         </div>
-        <div style="width: 60mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
-          <span style="width: 15mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)} % =</span>
+        <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
+          <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
           <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
         </div>
       </div>
