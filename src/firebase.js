@@ -21,13 +21,13 @@ import {
 } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCy0Ag2-KyNxX0NymeReKLctiw71RYql1k",
-  authDomain: "road-val-v9zgrb.firebaseapp.com",
-  projectId: "road-val-v9zgrb",
-  storageBucket: "road-val-v9zgrb.firebasestorage.app",
-  messagingSenderId: "41687836536",
-  appId: "1:41687836536:web:e79a5be2d06499ea8e0a8d",
-  measurementId: "G-4HXCDLC56M"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

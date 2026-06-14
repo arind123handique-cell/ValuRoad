@@ -810,6 +810,13 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     return html;
   }
 
+  if (!window.html2pdf) {
+    const msg = 'PDF export library is not loaded yet. Please check your internet connection.';
+    if (typeof alert === 'function') alert(msg);
+    console.error(msg);
+    return html;
+  }
+
   if (isPrint === true || isPrint === 'true') {
     html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
       const blobUrl = URL.createObjectURL(blob);

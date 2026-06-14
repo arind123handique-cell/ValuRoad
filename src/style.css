@@ -455,6 +455,27 @@ main {
   color: #059669;
 }
 
+.print-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.print-status-badge.printed {
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.print-status-badge.not-printed {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: var(--text-muted);
+}
+
 .action-btns {
   display: flex;
   gap: 0.5rem;
@@ -1187,6 +1208,23 @@ main {
 
 .pdf-page:last-child {
   page-break-after: avoid;
+}
+
+.pdf-page table,
+.pdf-page tr,
+.pdf-estimate-header,
+.pdf-meta,
+.pdf-items-list,
+.pdf-excluded-list,
+.summary-box,
+.plinth-calculation,
+.pdf-seals-text {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pdf-page thead {
+  display: table-header-group;
 }
 
 /* Page Break Divider */

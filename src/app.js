@@ -21,6 +21,8 @@ import {
   deleteProjectEntry
 } from './firebase.js';
 
+const lucide = window.lucide || { createIcons() {} };
+
 // Application State
 let projects = [];
 let activeProject = null;
@@ -1243,6 +1245,7 @@ function printSingleEstimate(entryId) {
     nbNote: activeProject.nbNote
   };
   exportToPDF(pdfData, entry.sketcherImage, true);
+  if (window.html2pdf) markEntryPrinted(entryId);
 }
 
 function exportProjectToWord() {
@@ -1479,7 +1482,7 @@ function renderProjectDetails() {
   if (entries.length === 0) {
     if (activeProject.entries && activeProject.entries.length > 0) {
       // Filtered out all items
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
       emptyState.style.display = 'none';
       table.style.display = 'table';
     } else {
@@ -1493,6 +1496,13 @@ function renderProjectDetails() {
     entries.forEach(e => {
       const tr = document.createElement('tr');
       const gpsText = e.gpsLat && e.gpsLon ? `${parseFloat(e.gpsLat).toFixed(4)}, ${parseFloat(e.gpsLon).toFixed(4)}` : 'No GPS';
+      const printedDate = e.printedAt ? new Date(e.printedAt) : null;
+      const printedText = printedDate && !Number.isNaN(printedDate.getTime())
+        ? `Printed ${printedDate.toLocaleDateString('en-IN')}`
+        : 'Not printed';
+      const printedTitle = e.printedAt
+        ? `Printed ${e.printCount || 1} time${(e.printCount || 1) === 1 ? '' : 's'}`
+        : 'This estimate has not been printed/exported as PDF yet';
       
       tr.innerHTML = `
         <td>
@@ -1502,6 +1512,7 @@ function renderProjectDetails() {
         <td style="font-family: monospace; font-size: 0.85rem;">${gpsText}</td>
         <td style="font-weight: bold; color: var(--accent);">Rs. ${formatIndianCurrency(e.grandTotal || 0)}</td>
         <td><span class="status-badge ${e.status}">${e.status}</span></td>
+        <td><span class="print-status-badge ${e.printedAt ? 'printed' : 'not-printed'}" title="${printedTitle}">${printedText}</span></td>
         <td>
           <div class="action-btns" onclick="event.stopPropagation();">
             <button class="edit-btn" title="Edit Owner Valuation" data-id="${e.id}"><i data-lucide="edit-2"></i></button>
@@ -1543,6 +1554,33 @@ function renderProjectDetails() {
   }
 
   updateProjectMetrics();
+}
+
+async function markEntryPrinted(entryId) {
+  if (!activeProject || !entryId) return;
+
+  const entry = activeProject.entries?.find(e => e.id === entryId);
+  if (!entry) return;
+
+  entry.printedAt = new Date().toISOString();
+  entry.printCount = (parseInt(entry.printCount, 10) || 0) + 1;
+
+  if (activeEntry && activeEntry.id === entryId) {
+    activeEntry.printedAt = entry.printedAt;
+    activeEntry.printCount = entry.printCount;
+  }
+  if (currentPreviewEntry && currentPreviewEntry.id === entryId) {
+    currentPreviewEntry.printedAt = entry.printedAt;
+    currentPreviewEntry.printCount = entry.printCount;
+  }
+
+  saveProjects();
+  renderProjectDetails();
+
+  if (auth.currentUser) {
+    await saveProjectEntry(activeProject.id, entry).catch(err => console.error("Error saving printed status:", err));
+    await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project printed status:", err));
+  }
 }
 
 function updateProjectMetrics() {
@@ -2470,12 +2508,15 @@ function loadEntryToEditor() {
   if (activeEntry.mapLat && activeEntry.mapLon) {
     const mapZoom = activeEntry.mapZoom || 17;
     const mapType = activeEntry.mapType || 'satellite';
-    document.getElementById('map-search-input').value = `${activeEntry.mapLat}, ${activeEntry.mapLon}`;
-    document.getElementById('map-type-select').value = mapType;
+    const mapSearchInput = document.getElementById('map-search-input');
+    const mapTypeSelect = document.getElementById('map-type-select');
+    if (mapSearchInput) mapSearchInput.value = `${activeEntry.mapLat}, ${activeEntry.mapLon}`;
+    if (mapTypeSelect) mapTypeSelect.value = mapType;
     sketcher.loadMapBackground(activeEntry.mapLat, activeEntry.mapLon, mapZoom, mapType);
   } else {
     sketcher.clearMapBackground();
-    document.getElementById('map-search-input').value = activeEntry.gpsLat ? `${activeEntry.gpsLat}, ${activeEntry.gpsLon}` : '';
+    const mapSearchInput = document.getElementById('map-search-input');
+    if (mapSearchInput) mapSearchInput.value = activeEntry.gpsLat ? `${activeEntry.gpsLat}, ${activeEntry.gpsLon}` : '';
   }
 
   // Clear any previous modified highlights
@@ -3645,6 +3686,10 @@ function calculateAndRenderTotals() {
   activeEntry.grandTotal = Math.round(grandTotal);
 
   const table = document.querySelector('.builder-table');
+  if (!table) {
+    checkForModifiedFields();
+    return;
+  }
   // Use native tFoot property (direct child only) to avoid matching nested mbook-table tfoot elements
   let tfoot = table.tFoot;
   if (!tfoot) {
@@ -4612,6 +4657,10 @@ function setupDsrSettings() {
 
   async function handleOcrImageFile(file) {
     if (!ocrProgressContainer || !ocrProgressStatus || !ocrProgressPercent || !ocrProgressBar) return;
+    if (!window.Tesseract) {
+      alert('Tesseract OCR library is not loaded yet. Please check your internet connection.');
+      return;
+    }
     
     ocrProgressContainer.style.display = 'block';
     ocrProgressStatus.innerText = 'Initializing OCR Engine...';
@@ -5195,6 +5244,7 @@ function runPdfExport(entryId) {
   };
 
   exportToPDF(pdfData, entry.sketcherImage);
+  if (window.html2pdf) markEntryPrinted(entryId);
 }
 
 function saveActiveEntry_noExport() {
@@ -5219,6 +5269,7 @@ function saveActiveEntryAndExportPDF() {
   };
 
   exportToPDF(pdfData, activeEntry.sketcherImage);
+  if (window.html2pdf) markEntryPrinted(activeEntry.id);
 }
 
 // Save Modifications / Save & Finalize
@@ -5253,6 +5304,7 @@ document.getElementById('editor-export-pdf-btn').addEventListener('click', () =>
     nbNote: activeProject.nbNote
   };
   exportToPDF(pdfData, activeEntry.sketcherImage);
+  if (window.html2pdf) markEntryPrinted(activeEntry.id);
 });
 
 // ── PDF Template Settings ────────────────────────────────────────────────────
@@ -6208,6 +6260,10 @@ function renderPreviewPages() {
 
 function exportPreviewedDocument(isPrint = false) {
   if (!currentPreviewEntry) return;
+  if (!window.html2pdf) {
+    alert('PDF export library is not loaded yet. Please check your internet connection.');
+    return;
+  }
 
   const canvas = document.getElementById('print-preview-pages-canvas');
   const papers = canvas.querySelectorAll('.preview-paper');
@@ -6265,6 +6321,7 @@ function exportPreviewedDocument(isPrint = false) {
   } else {
     html2pdf().from(combinedHtml).set(opt).save();
   }
+  markEntryPrinted(currentPreviewEntry.id);
 }
 
 function insertPageBreakAtCursor() {
