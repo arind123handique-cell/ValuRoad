@@ -7002,7 +7002,10 @@ function setupAiChatbox() {
     } catch (error) {
       console.error('Estimator AI Error:', error);
       typingIndicator.remove();
-      appendMessageBubble('bot', 'Sorry, I encountered an issue connecting to my brain. Please try again in a moment.');
+      const errorMsg = error.message.includes('API key is missing')
+        ? 'Estimator AI key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env file and refresh the page.'
+        : 'Sorry, I encountered an issue connecting to my brain. Please try again in a moment.';
+      appendMessageBubble('bot', errorMsg);
     }
   }
 
@@ -7036,6 +7039,10 @@ function setupAiChatbox() {
 
 async function callOpenRouterCompletions(history) {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  if (!apiKey) {
+    throw new Error('API key is missing. Please ensure VITE_OPENROUTER_API_KEY is set in your .env file and restart/reload the application.');
+  }
+
   const model = 'nex-agi/nex-n2-pro:free';
   const systemPrompt = "You are Estimator AI, a helpful AI assistant built into ValuRoad, a professional real estate and road valuation application. You assist users with calculating structural depreciation, using the CPWD DSR catalog, doing road acquisitions, estimating construction classes (RCC, Assam Type, Temporary sheds), and using the application. Keep your responses helpful, precise, and professional. Format outputs nicely using Markdown if needed.";
 
@@ -7044,7 +7051,7 @@ async function callOpenRouterCompletions(history) {
     ...history
   ];
 
-  const response = await fetch('https://openrouter.ai/v1/chat/completions', {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
