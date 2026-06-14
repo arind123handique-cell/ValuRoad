@@ -12,8 +12,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- html2pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <!-- Tesseract.js (Client-side OCR) -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- AI-powered BOQ parsing via OpenRouter (Nvidia Nemotron Vision) -->
   <!-- PDF.js (Client-side PDF text extraction) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <!-- tsParticles (Background effects) -->
@@ -1025,22 +1024,22 @@
       <div class="dashboard-header">
         <div>
           <h2>DSR 2021 Reference Database</h2>
-          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Import custom OCR scan blocks or search preloaded CPWD rates</p>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">AI-powered BOQ/DSR import &mdash; upload a PDF or image and let the AI extract all items automatically</p>
         </div>
       </div>
 
       <div class="editor-layout">
         <div class="form-panel">
-          <h3>Import Scanned DSR OCR Text</h3>
+          <h3>🤖 Import DSR / BOQ — AI-Powered</h3>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-            Copy a page of items from your DSR PDF and paste the OCR output below. The scanner will identify item numbers, descriptions, units, and rates automatically.
+            Upload a DSR/BOQ PDF or a scanned image. The AI will read the document, understand its structure, and automatically extract item numbers, descriptions, units, and rates.
           </p>
 
           <!-- Drag-and-drop file uploader box -->
           <div class="ocr-uploader-box" id="ocr-file-uploader">
-            <i data-lucide="file-text" style="width: 2.5rem; height: 2.5rem; color: var(--accent); margin-bottom: 0.5rem; display: inline-block;"></i>
-            <p style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">Upload or Drop DSR PDF or Screenshot</p>
-            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">Supports PDF documents or PNG, JPG, JPEG images</p>
+            <i data-lucide="brain-circuit" style="width: 2.5rem; height: 2.5rem; color: var(--accent); margin-bottom: 0.5rem; display: inline-block;"></i>
+            <p style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">Upload or Drop DSR / BOQ PDF or Image</p>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">AI reads PDF pages or scanned images &mdash; PNG, JPG, JPEG supported</p>
             <input type="file" id="ocr-file-input" accept="application/pdf,image/*" style="display: none;">
           </div>
 
@@ -1059,7 +1058,7 @@
           <!-- OCR Progress Bar Container -->
           <div id="ocr-progress-container" style="display: none; margin-bottom: 1.25rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="ocr-progress-status">Initializing Parser...</span>
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="ocr-progress-status">Initializing AI...</span>
               <span style="font-size: 0.85rem; font-weight: 700; color: var(--accent);" id="ocr-progress-percent">0%</span>
             </div>
             <div style="width: 100%; height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;">
@@ -1068,16 +1067,16 @@
           </div>
 
           <div class="form-group full-width">
-            <label for="ocr-pasted-text">Paste Scan OCR Text Here</label>
-            <textarea id="ocr-pasted-text" class="ocr-textarea" placeholder="Example format:
-Item No 12.5 62 mm thick cement concrete flooring with concrete hardener topping... sqm Rate: 512.50
+            <label for="ocr-pasted-text">Or Paste Text Manually (Fallback)</label>
+            <textarea id="ocr-pasted-text" class="ocr-textarea" placeholder="Paste raw DSR/BOQ text here as a fallback. Example:
+Item No 12.5  62 mm thick cement concrete flooring with concrete hardener topping... sqm  Rate: 512.50
 OR
-Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
+Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
           </div>
 
           <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
             <button class="btn-primary" id="ocr-parse-btn">
-              <i data-lucide="scan"></i> Parse Text Blocks
+              <i data-lucide="brain-circuit"></i> Parse Text (Manual)
             </button>
             <button class="btn-secondary" id="ocr-save-catalog-btn" disabled>
               <i data-lucide="database-backup"></i> Import items to Autocomplete

@@ -4842,7 +4842,13 @@ function setupDsrSettings() {
 
   async function handleDsrPdfFile(file) {
     if (!ocrProgressContainer || !ocrProgressStatus || !ocrProgressPercent || !ocrProgressBar) return;
-    
+
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+    if (!apiKey) {
+      alert('Estimator AI key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env file and reload.');
+      return;
+    }
+
     if (window.pdfjsLib) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
     } else {
@@ -4851,13 +4857,13 @@ function setupDsrSettings() {
     }
 
     ocrProgressContainer.style.display = 'block';
-    ocrProgressStatus.innerText = 'Loading DSR PDF...';
+    ocrProgressStatus.innerText = 'Loading PDF...';
     ocrProgressPercent.innerText = '0%';
     ocrProgressBar.style.width = '0%';
 
     try {
-      console.log('Reading DSR PDF file:', file.name);
-      
+      console.log('[BOQ AI] Reading PDF file:', file.name);
+
       const fileReader = new FileReader();
       const loadPromise = new Promise((resolve, reject) => {
         fileReader.onload = function() { resolve(new Uint8Array(this.result)); };
@@ -4867,128 +4873,151 @@ function setupDsrSettings() {
       const typedarray = await loadPromise;
 
       const pdf = await pdfjsLib.getDocument(typedarray).promise;
-      console.log('PDF document loaded. Total pages:', pdf.numPages);
+      console.log('[BOQ AI] PDF loaded. Pages:', pdf.numPages);
 
       const startPageInput = document.getElementById('ocr-pdf-start-page');
       const endPageInput = document.getElementById('ocr-pdf-end-page');
-      
+
       let startPage = parseInt(startPageInput?.value) || 1;
       let endPage = parseInt(endPageInput?.value) || pdf.numPages;
-
       startPage = Math.max(1, Math.min(pdf.numPages, startPage));
       endPage = Math.max(startPage, Math.min(pdf.numPages, endPage));
 
-      console.log(`Extracting pages ${startPage} to ${endPage}...`);
-      
-      let fullText = '';
       const totalPagesToParse = (endPage - startPage) + 1;
-      
+      console.log(`[BOQ AI] Rendering pages ${startPage}–${endPage} to canvas images...`);
+
+      let allItems = [];
+
       for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
         const pageIndex = (pageNum - startPage) + 1;
-        const progressPct = Math.round(((pageIndex - 1) / totalPagesToParse) * 100);
-        
-        ocrProgressStatus.innerText = `Extracting PDF Page ${pageNum} of ${endPage}...`;
-        ocrProgressPercent.innerText = `${progressPct}%`;
-        ocrProgressBar.style.width = `${progressPct}%`;
+        const baseProgress = Math.round(((pageIndex - 1) / totalPagesToParse) * 90);
 
+        ocrProgressStatus.innerText = `Rendering PDF Page ${pageNum} of ${endPage}...`;
+        ocrProgressPercent.innerText = `${baseProgress}%`;
+        ocrProgressBar.style.width = `${baseProgress}%`;
+
+        // Render page to canvas
         const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
+        const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for legibility
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const base64DataUrl = canvas.toDataURL('image/png');
 
-        const lineMap = {};
-        textContent.items.forEach(item => {
-          const y = Math.round(item.transform[5] * 10) / 10;
-          if (!lineMap[y]) lineMap[y] = [];
-          lineMap[y].push(item);
-        });
+        ocrProgressStatus.innerText = `AI Analysing Page ${pageNum} of ${endPage}...`;
+        const aiProgress = baseProgress + Math.round((1 / totalPagesToParse) * 45);
+        ocrProgressPercent.innerText = `${Math.min(aiProgress, 95)}%`;
+        ocrProgressBar.style.width = `${Math.min(aiProgress, 95)}%`;
 
-        const sortedYs = Object.keys(lineMap).map(Number).sort((a, b) => b - a);
-        const pageText = sortedYs.map(y => {
-          const items = lineMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
-          return items.map(item => item.str).join(' ');
-        }).join('\n');
-
-        fullText += pageText + '\n';
+        console.log(`[BOQ AI] Sending page ${pageNum} to AI vision model...`);
+        const pageItems = await callAiVisionForBoqImage(base64DataUrl, apiKey);
+        console.log(`[BOQ AI] Page ${pageNum}: extracted ${pageItems.length} items`);
+        allItems = allItems.concat(pageItems);
       }
 
-      console.log('PDF Text extraction complete. Total characters:', fullText.length);
-
-      if (textInput) {
-        textInput.value = fullText;
-        if (parseBtn) parseBtn.click();
+      // Deduplicate by code (later pages win)
+      const seen = {};
+      const deduped = [];
+      for (const item of allItems) {
+        seen[item.code] = item;
+      }
+      for (const code of Object.keys(seen)) {
+        deduped.push(seen[code]);
       }
 
-      ocrProgressStatus.innerText = 'Success!';
+      console.log(`[BOQ AI] Total deduplicated items from PDF: ${deduped.length}`);
+
+      if (deduped.length === 0) {
+        ocrProgressStatus.innerText = 'No items found!';
+        ocrProgressPercent.innerText = '';
+        alert('The AI could not extract any BOQ items from this PDF. Try selecting a smaller page range or checking the document quality.');
+        return;
+      }
+
+      parsedOcrItems = deduped;
+      renderOcrPreview();
+
+      ocrProgressStatus.innerText = `✅ Extracted ${deduped.length} items!`;
       ocrProgressPercent.innerText = '100%';
       ocrProgressBar.style.width = '100%';
 
       setTimeout(() => {
         ocrProgressContainer.style.display = 'none';
-      }, 1500);
+      }, 2000);
 
     } catch (err) {
-      console.error('PDF Extraction Error:', err);
-      ocrProgressStatus.innerText = 'Extraction Error!';
+      console.error('[BOQ AI] PDF Error:', err);
+      ocrProgressStatus.innerText = 'AI Extraction Error!';
       ocrProgressPercent.innerText = '';
       ocrProgressBar.style.width = '0%';
-      alert('Failed to parse DSR PDF: ' + err.message);
+      alert('Failed to parse DSR/BOQ PDF with AI: ' + err.message);
     }
   }
 
   async function handleOcrImageFile(file) {
     if (!ocrProgressContainer || !ocrProgressStatus || !ocrProgressPercent || !ocrProgressBar) return;
-    if (!window.Tesseract) {
-      alert('Tesseract OCR library is not loaded yet. Please check your internet connection.');
+
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+    if (!apiKey) {
+      alert('Estimator AI key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env file and reload.');
       return;
     }
-    
+
     ocrProgressContainer.style.display = 'block';
-    ocrProgressStatus.innerText = 'Initializing OCR Engine...';
-    ocrProgressPercent.innerText = '0%';
-    ocrProgressBar.style.width = '0%';
+    ocrProgressStatus.innerText = 'Reading image...';
+    ocrProgressPercent.innerText = '10%';
+    ocrProgressBar.style.width = '10%';
 
     try {
-      console.log('Running client-side OCR on:', file.name);
-      
-      const { data: { text } } = await Tesseract.recognize(
-        file,
-        'eng',
-        {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              const pct = Math.round(m.progress * 100);
-              ocrProgressStatus.innerText = 'Extracting Text (OCR)...';
-              ocrProgressPercent.innerText = `${pct}%`;
-              ocrProgressBar.style.width = `${pct}%`;
-            } else {
-              let friendly = m.status.replace(/_/g, ' ');
-              friendly = friendly.charAt(0).toUpperCase() + friendly.slice(1);
-              ocrProgressStatus.innerText = `${friendly}...`;
-            }
-          }
-        }
-      );
+      console.log('[BOQ AI] Processing image file:', file.name);
 
-      console.log('OCR Extraction complete. Length:', text.length);
-      
-      if (textInput) {
-        textInput.value = text;
-        if (parseBtn) parseBtn.click();
+      // Convert image file to base64 data URL
+      const base64DataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      ocrProgressStatus.innerText = 'Sending image to AI...';
+      ocrProgressPercent.innerText = '30%';
+      ocrProgressBar.style.width = '30%';
+
+      console.log('[BOQ AI] Sending image to Nvidia Nemotron vision model...');
+      const items = await callAiVisionForBoqImage(base64DataUrl, apiKey);
+      console.log('[BOQ AI] AI returned', items.length, 'items');
+
+      ocrProgressStatus.innerText = 'Parsing AI response...';
+      ocrProgressPercent.innerText = '85%';
+      ocrProgressBar.style.width = '85%';
+
+      if (items.length === 0) {
+        ocrProgressStatus.innerText = 'No items found!';
+        ocrProgressPercent.innerText = '';
+        alert('The AI could not extract any BOQ items from this image. Make sure the image is clear and contains a BOQ/DSR table with item numbers and rates.');
+        ocrProgressContainer.style.display = 'none';
+        return;
       }
 
-      ocrProgressStatus.innerText = 'Success!';
+      parsedOcrItems = items;
+      renderOcrPreview();
+
+      ocrProgressStatus.innerText = `✅ Extracted ${items.length} items!`;
       ocrProgressPercent.innerText = '100%';
       ocrProgressBar.style.width = '100%';
-      
+
       setTimeout(() => {
         ocrProgressContainer.style.display = 'none';
-      }, 1500);
+      }, 2000);
 
     } catch (err) {
-      console.error('OCR Error:', err);
-      ocrProgressStatus.innerText = 'OCR Error!';
+      console.error('[BOQ AI] Image Error:', err);
+      ocrProgressStatus.innerText = 'AI Error!';
       ocrProgressPercent.innerText = '';
       ocrProgressBar.style.width = '0%';
-      alert('Failed to perform OCR on image: ' + err.message);
+      alert('Failed to extract BOQ items from image: ' + err.message);
     }
   }
 
@@ -5453,11 +5482,118 @@ function parseOcrDsrText(text) {
     item.description = item.description.replace(/\s{2,}/g, ' ').trim();
   });
 
+
   // Only return items with a valid code and non-zero rate
   return items.filter(i => i.code && i.description && i.rate > 0);
 }
 
+// ── AI Vision BOQ Extractor ─────────────────────────────────────────────────
+// Sends a base64 image to the Nvidia Nemotron vision model via OpenRouter.
+// Returns a structured array of BOQ items: [{ code, description, unit, rate }]
+async function callAiVisionForBoqImage(base64DataUrl, apiKey) {
+  const model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
+
+  const systemPrompt = `You are a BOQ/DSR data extraction specialist for Indian construction projects.
+You will receive an image of a Bill of Quantities (BOQ) or Schedule of Rates (DSR) document page.
+Extract ALL line items from the document and return them as a valid JSON array with this exact format:
+[{"code":"...","description":"...","unit":"...","rate":...}]
+
+Rules:
+- "code" is the item number (e.g. "12.5", "16.1", "3.2.a", "Sl.No.5"). Use the exact number shown.
+- "description" is the full item description text — exclude the code and rate from it.
+- "unit" must be one of: sqm, sqft, cum, nos, rm, rmt, kg, ls, lump, set, bag, pair, each, qtr, quintal. Pick the closest match.
+- "rate" is a plain number (no Rs., no commas, no symbols). Must be greater than 0.
+- Ignore header rows, chapter headings, sub-totals, blank rows, and notes.
+- If a description spans multiple lines in the image, merge it into one string.
+- Return ONLY the JSON array. No markdown, no explanation, no preamble.`;
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://valuroad.app',
+      'X-Title': 'ValuRoad BOQ Parser'
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Please extract all BOQ/DSR items from this document image and return them as a JSON array.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: base64DataUrl,
+                detail: 'high'
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.1, // Very low temp for deterministic extraction
+      max_tokens: 4096
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`AI Vision API Error (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const rawContent = data?.choices?.[0]?.message?.content || '';
+
+  console.log('[BOQ AI] Raw AI response:', rawContent.substring(0, 500));
+
+  // Extract JSON array from the response (may have surrounding text from reasoning model)
+  let jsonStr = rawContent.trim();
+
+  // Try to find a JSON array in the response
+  const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+  if (arrayMatch) {
+    jsonStr = arrayMatch[0];
+  }
+
+  let parsed = [];
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch (parseErr) {
+    console.warn('[BOQ AI] JSON parse failed:', parseErr.message);
+    console.warn('[BOQ AI] Raw content was:', rawContent);
+    // Return empty array rather than throwing — caller handles empty results
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    console.warn('[BOQ AI] Response was not an array:', parsed);
+    return [];
+  }
+
+  // Sanitize and validate each item
+  const valid = parsed
+    .filter(item => item && item.code && item.description && item.rate > 0)
+    .map(item => ({
+      code: String(item.code).trim(),
+      description: String(item.description).trim(),
+      unit: String(item.unit || 'sqm').toLowerCase().trim(),
+      rate: parseFloat(item.rate) || 0
+    }))
+    .filter(item => item.rate > 0 && item.code.length > 0);
+
+  return valid;
+}
+
 function renderOcrPreview() {
+
   const tbody = document.getElementById('ocr-preview-tbody');
   const countText = document.getElementById('ocr-preview-count');
   const panel = document.getElementById('ocr-preview-panel');
