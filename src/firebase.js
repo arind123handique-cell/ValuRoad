@@ -30,6 +30,11 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+console.log("Firebase Project ID:", firebaseConfig.projectId);
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API Key is missing! Check your environment variables.");
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
