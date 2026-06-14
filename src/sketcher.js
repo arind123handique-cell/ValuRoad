@@ -355,9 +355,9 @@ export class SiteSketcher {
           this.pushHistory();
           const pt = this._snap(raw, null);
           const nb = { id:Date.now(), type:'building', x:pt.x, y:pt.y, w:6, h:4,
-                       label:'Building Block', structureType:'rcc',
+                       label:'Building', structureType:'',
                        dimW:'6.00m', dimH:'4.00m', dimWOffset:-1.5, dimHOffset:-1.5 };
-          this.shapes.push(nb); this.selectedShape = nb; this.mode = 'select';
+          this.shapes.push(nb); this.selectedShape = nb;
           if (this.onSelectionChange) this.onSelectionChange(nb);
           this.draw(); break;
         }

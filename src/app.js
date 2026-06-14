@@ -1836,12 +1836,7 @@ function setupEditor() {
 
     if (s.type === 'building' || s.type === 'polygon-building') {
       s.structureType = inputStructType.value;
-      if (s.structureType === 'rcc')           s.label = 'RCC Structure';
-      else if (s.structureType === 'assam')    s.label = 'Assam Type Building';
-      else if (s.structureType === 'temp-building') s.label = 'Temporary Building';
-      else if (s.structureType === 'temp-shed') s.label = 'Temp Shed';
-      else                                     s.label = inputLabel.value;
-      inputLabel.value = s.label;
+      s.label = inputLabel.value;
       // Sync width/height → actual shape size
       const wVal = parseM(inputWidth.value);
       const hVal = parseM(inputHeight.value);
@@ -1879,21 +1874,22 @@ function setupEditor() {
     }
 
     sketcher.draw();
+    showToast('Changes applied');
   };
 
+  const applyBtn = document.getElementById('prop-btn-apply');
+  if (applyBtn) applyBtn.addEventListener('click', updateSelectedShape);
 
-  inputLabel.addEventListener('input', updateSelectedShape);
-  inputWidth.addEventListener('input', updateSelectedShape);
-  inputHeight.addEventListener('input', updateSelectedShape);
-  inputLeft.addEventListener('input', updateSelectedShape);
-  inputRight.addEventListener('input', updateSelectedShape);
-  inputStructType.addEventListener('change', updateSelectedShape);
-  inputDimLabel.addEventListener('input', updateSelectedShape);
-  inputBlockStyle.addEventListener('change', updateSelectedShape);
+  // Auto-fill label when structure type changes, but allow manual override after
+  inputStructType.addEventListener('change', () => {
+    if (inputStructType.value === 'rcc')           inputLabel.value = 'RCC Structure';
+    else if (inputStructType.value === 'assam')    inputLabel.value = 'Assam Type Building';
+    else if (inputStructType.value === 'temp-building') inputLabel.value = 'Temporary Building';
+    else if (inputStructType.value === 'temp-shed') inputLabel.value = 'Temp Shed';
+  });
+
   const roomColorInput = document.getElementById('prop-input-room-color');
-  if (roomColorInput) roomColorInput.addEventListener('input', updateSelectedShape);
-  if (inputTextSize) inputTextSize.addEventListener('change', updateSelectedShape);
-  if (inputFontFamily) inputFontFamily.addEventListener('change', updateSelectedShape);
+  if (roomColorInput) roomColorInput.addEventListener('input', () => { if (sketcher && sketcher.selectedShape) { sketcher.selectedShape.color = roomColorInput.value; sketcher.draw(); } });
 
   const mergeBtn = document.getElementById('prop-btn-merge');
   if (mergeBtn) {
@@ -2398,6 +2394,68 @@ function loadEntryToEditor() {
       selectedShapes.forEach(s => {
         if (!s) return;
         
+        const title = s.label || 'Building Block';
+        
+        // Handle predefined building types as Plinth Area Rooms
+        const predefinedTypes = ['RCC Structure', 'Assam Type Building', 'Temporary Building', 'Temp Shed'];
+        if ((s.type === 'building' || s.type === 'custom-block' || s.type === 'room') && 
+            predefinedTypes.includes(title)) {
+          
+          let plinthItem = activeEntry.items.find(it => it.type === 'plinth-area' && it.title === title);
+          if (!plinthItem) {
+            addItem('plinth-area');
+            plinthItem = activeEntry.items[activeEntry.items.length - 1];
+            plinthItem.title = title;
+            plinthItem.rooms = []; // Clear default room
+            
+            // Set correct rates/units for the new plinth section
+            if (title === 'RCC Structure') {
+              plinthItem.rate = 20685.00;
+              plinthItem.unit = 'sqm';
+            } else if (title === 'Assam Type Building') {
+              plinthItem.rate = 15867.00;
+              plinthItem.unit = 'sqm';
+            } else if (title === 'Temporary Building' || title === 'Temp Shed') {
+              plinthItem.rate = 205.00;
+              plinthItem.unit = 'sqf';
+            }
+          }
+
+          const floors = parseInt(s.floors) || 1;
+          for (let i = 0; i < floors; i++) {
+            let floorName = "Ground Floor";
+            if (i === 1) floorName = "1st Floor";
+            else if (i === 2) floorName = "2nd Floor";
+            else if (i === 3) floorName = "3rd Floor";
+            else if (i > 3) floorName = `${i}th Floor`;
+
+            const roomName = floors > 1 ? `${title} (${floorName})` : title;
+            let l = 0, w = 0, area = 0;
+
+            if (s.type === 'building' || s.type === 'custom-block') {
+              l = s.w || 0;
+              w = s.h || 0;
+              area = l * w;
+            } else {
+              area = s.areaSqm || 0;
+              l = Math.sqrt(area);
+              w = l;
+            }
+
+            plinthItem.rooms.push({
+              id: Date.now() + Math.random(),
+              name: roomName,
+              l: parseFloat(l.toFixed(2)),
+              w: parseFloat(w.toFixed(2)),
+              areaSqm: parseFloat(area.toFixed(2))
+            });
+          }
+
+          loadEntryToEditor();
+          showToast(`Added ${title} to Plinth Area`);
+          return;
+        }
+
         const itemsToAdd = [];
 
         if (s.type === 'room' || s.type === 'polygon' || s.type === 'polygon-building' || s.type === 'building' || s.type === 'custom-block') {
