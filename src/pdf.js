@@ -120,7 +120,7 @@ function renderQuantityRateItem(item) {
           <td style="padding: 1px 4px; text-align: left;">${m.description || ''}</td>
           <td style="padding: 1px 4px; text-align: center; width: 30px;">${nos}</td>
           <td style="padding: 1px 4px; text-align: left; color: #334155;">${dimStr}</td>
-          <td style="padding: 1px 4px; text-align: right; font-weight: 600; width: 60px;">${subQty.toFixed(3)}</td>
+          <td style="padding: 1px 4px; text-align: right; font-weight: 600; width: 60px;">${(parseFloat(subQty) || 0).toFixed(3)}</td>
         </tr>
       `;
     }).join('');
@@ -354,9 +354,10 @@ function renderLumpSumItem(item) {
 }
 
 export function exportToPDF(report, sketcherImage, isPrint = false) {
-  const tpl = getPdfTemplateSettings();
+  try {
+    const tpl = getPdfTemplateSettings();
 
-  const includedItems = report.items.filter(item => item.includeInValuation);
+    const includedItems = report.items.filter(item => item.includeInValuation);
   const depreciatedItems = includedItems.filter(item => !item.excludeFromDepreciation);
   const excludedItems = includedItems.filter(item => item.excludeFromDepreciation);
 
@@ -597,6 +598,11 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // Define sitePlanProfileHtml if not defined
   if (typeof sitePlanProfileHtml === 'undefined') sitePlanProfileHtml = profileHtml;
 
+  const orgBlock = tpl.orgName ? `
+    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${parseFloat(tpl.fontSize)+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${tpl.orgName}</div>` : '';
+  const subBlock = tpl.subtitle ? `
+    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
+
   // ── PREPARE PAGES ────────────────────────────────────────────────────────────
   let pagesHtml = [];
   const MAX_ITEMS_PER_PAGE = 20;
@@ -815,4 +821,13 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     // Generate PDF and trigger download
     html2pdf().from(html).set(opt).save();
   }
-}
+  } catch (err) {
+  console.error("Critical error in exportToPDF:", err);
+  return `<div class="pdf-page" style="padding: 20mm; color: #b91c1c; font-family: sans-serif;">
+    <h2 style="margin-bottom: 10px;">⚠️ PDF Generation Error</h2>
+    <p style="margin-bottom: 10px;">An unexpected error occurred while generating the document preview.</p>
+    <pre style="background: #fef2f2; padding: 10px; border-radius: 4px; font-size: 9pt; white-space: pre-wrap;">${err.message}</pre>
+    <p style="margin-top: 10px; font-size: 10pt; color: #475569;">This usually happens if some data in the project is invalid or if a calculation failed.</p>
+  </div>`;
+  }
+  }

@@ -875,6 +875,27 @@
 
             <!-- ── Canvas ── -->
             <div class="canvas-wrapper">
+              <!-- Paint-style Vertical Toolbar -->
+              <div class="sketcher-vertical-toolbar">
+                <button type="button" class="vtool-btn active" id="vtool-select" title="Select / Move (S)"><i data-lucide="mouse-pointer-2"></i></button>
+                <div class="vtool-sep"></div>
+                <button type="button" class="vtool-btn" id="vtool-wall" title="Wall Tool (W)"><i data-lucide="pencil-ruler"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-room" title="Room / Fill Tool (R)"><i data-lucide="layers"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-building" title="Building Block (B)"><i data-lucide="square"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-polybuilding" title="Polygon Building (P)"><i data-lucide="hexagon"></i></button>
+                <div class="vtool-sep"></div>
+                <button type="button" class="vtool-btn" id="vtool-freehand" title="Pen / Freehand (F)"><i data-lucide="brush"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-line" title="ROW Line (L)"><i data-lucide="minus"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-dimension" title="Dimension (D)"><i data-lucide="ruler"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-boundary" title="Boundary Wall"><i data-lucide="grip-horizontal"></i></button>
+                <div class="vtool-sep"></div>
+                <button type="button" class="vtool-btn" id="vtool-text" title="Text Label (T)"><i data-lucide="type"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-gate" title="Gate"><i data-lucide="door-closed"></i></button>
+                <div class="vtool-sep"></div>
+                <button type="button" class="vtool-btn" id="vtool-undo" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-redo" title="Redo (Ctrl+Y)"><i data-lucide="redo-2"></i></button>
+                <button type="button" class="vtool-btn vtool-danger" id="vtool-delete" title="Delete Selected (Del)"><i data-lucide="trash-2"></i></button>
+              </div>
               <canvas id="sketcher-canvas"></canvas>
             </div>
             <p style="font-size:0.78rem;color:var(--text-muted);font-style:italic;margin-top:0.3rem;">

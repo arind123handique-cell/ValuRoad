@@ -170,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupPdfTemplate(); // redraw template settings fields
         startAutoSync();
         setupStatusBar();
+        setupSketcherToolbar();
         startAutoBackup();
         setSyncStatus('ok', `Signed in · ${user.email}`);
       } catch (e) {
@@ -4074,17 +4075,39 @@ window.getActiveProjectRoute = () => {
 // Line Sketcher Toolbar Setup
 function setupSketcherToolbar() {
   const tools = ['select', 'building', 'polybuilding', 'room', 'road', 'text', 'line', 'wall', 'boundary-wall', 'gate', 'gate-toran', 'custom-block', 'dimension', 'freehand', 'erase'];
-  
+
+  // Vertical Toolbar Buttons mapping
+  const vToolsMap = {
+    'vtool-select': 'select',
+    'vtool-wall': 'wall',
+    'vtool-room': 'room',
+    'vtool-building': 'building',
+    'vtool-polybuilding': 'polybuilding',
+    'vtool-freehand': 'freehand',
+    'vtool-line': 'line',
+    'vtool-dimension': 'dimension',
+    'vtool-boundary': 'boundary-wall',
+    'vtool-text': 'text',
+    'vtool-gate': 'gate'
+  };
+
+  const syncAllToolbars = (activeMode) => {
+    // Sync Horizontal
+    tools.forEach(x => {
+      const b = document.getElementById(`tool-${x}`);
+      if (b) b.classList.toggle('active', x === activeMode);
+    });
+    // Sync Vertical
+    Object.entries(vToolsMap).forEach(([vId, mode]) => {
+      const b = document.getElementById(vId);
+      if (b) b.classList.toggle('active', mode === activeMode);
+    });
+  };
+
   tools.forEach(t => {
     const btn = document.getElementById(`tool-${t}`);
     if (btn) {
       btn.addEventListener('click', () => {
-        tools.forEach(x => {
-          const b = document.getElementById(`tool-${x}`);
-          if (b) b.classList.remove('active');
-        });
-        btn.classList.add('active');
-        
         if (sketcher) {
           sketcher.mode = t;
           sketcher.currentPath = [];
@@ -4092,11 +4115,39 @@ function setupSketcherToolbar() {
           sketcher.wallChain = [];
           sketcher.polyChain = [];
           document.getElementById('tool-close-poly').style.display = 'none';
+          syncAllToolbars(t);
           sketcher.draw();
         }
       });
     }
   });
+
+  // Vertical Toolbar Listeners
+  Object.entries(vToolsMap).forEach(([vId, mode]) => {
+    const btn = document.getElementById(vId);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        if (sketcher) {
+          sketcher.mode = mode;
+          sketcher.currentPath = [];
+          sketcher.hoverPos = null;
+          sketcher.wallChain = [];
+          sketcher.polyChain = [];
+          document.getElementById('tool-close-poly').style.display = 'none';
+          syncAllToolbars(mode);
+          sketcher.draw();
+        }
+      });
+    }
+  });
+
+  // Vertical Utils
+  const vUndo = document.getElementById('vtool-undo');
+  const vRedo = document.getElementById('vtool-redo');
+  const vDel = document.getElementById('vtool-delete');
+  if (vUndo) vUndo.addEventListener('click', () => { if (sketcher) sketcher.undo(); });
+  if (vRedo) vRedo.addEventListener('click', () => { if (sketcher) sketcher.redo(); });
+  if (vDel) vDel.addEventListener('click', () => { if (sketcher) sketcher.deleteSelected(); });
 
   document.getElementById('tool-close-poly').addEventListener('click', () => {
     if (sketcher) {
