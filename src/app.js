@@ -709,6 +709,16 @@ function setupProjectDetails() {
   document.getElementById('proj-print-btn').addEventListener('click', () => {
     if (activeProject) printProjectOwnerList();
   });
+
+  const searchInput = document.getElementById('owner-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', renderProjectDetails);
+  }
+
+  const filterStatus = document.getElementById('owner-filter-status');
+  if (filterStatus) {
+    filterStatus.addEventListener('change', renderProjectDetails);
+  }
 }
 
 function exportProjectToExcel() {
@@ -1443,12 +1453,38 @@ function renderProjectDetails() {
   const emptyState = document.getElementById('owner-entries-empty-state');
   const table = document.getElementById('owner-entries-table');
 
-  const entries = activeProject.entries || [];
+  const searchInput = document.getElementById('owner-search-input');
+  const filterStatus = document.getElementById('owner-filter-status');
+  
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const statusFilter = filterStatus ? filterStatus.value : 'all';
+
+  let entries = activeProject.entries || [];
+
+  // Apply filters
+  if (query || statusFilter !== 'all') {
+    entries = entries.filter(e => {
+      const nameMatch = (e.clientName || '').toLowerCase().includes(query);
+      const locMatch = (e.location || '').toLowerCase().includes(query);
+      const villageMatch = (e.village || '').toLowerCase().includes(query); // Some might use village
+      
+      const statusMatch = statusFilter === 'all' || e.status === statusFilter;
+      
+      return (nameMatch || locMatch || villageMatch) && statusMatch;
+    });
+  }
 
   tbody.innerHTML = '';
   if (entries.length === 0) {
-    emptyState.style.display = 'flex';
-    table.style.display = 'none';
+    if (activeProject.entries && activeProject.entries.length > 0) {
+      // Filtered out all items
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
+      emptyState.style.display = 'none';
+      table.style.display = 'table';
+    } else {
+      emptyState.style.display = 'flex';
+      table.style.display = 'none';
+    }
   } else {
     emptyState.style.display = 'none';
     table.style.display = 'table';

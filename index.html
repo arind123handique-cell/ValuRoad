@@ -282,6 +282,19 @@
         </button>
       </div>
 
+      <!-- Search & Filter Bar -->
+      <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; background: var(--bg-secondary); padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid var(--border-color);">
+        <div style="position: relative; flex-grow: 1;">
+          <i data-lucide="search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted);"></i>
+          <input type="text" id="owner-search-input" placeholder="Search by name, village or location..." style="width: 100%; padding: 0.5rem 1rem 0.5rem 2.25rem; border-radius: 0.5rem; border: 1px solid var(--border-color); font-size: 0.9rem; background: var(--bg-primary); color: var(--text-primary);">
+        </div>
+        <select id="owner-filter-status" style="padding: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color); font-size: 0.9rem; background: var(--bg-primary); color: var(--text-primary); min-width: 140px;">
+          <option value="all">All Statuses</option>
+          <option value="completed">Completed</option>
+          <option value="draft">Draft</option>
+        </select>
+      </div>
+
       <!-- Owner Entries Table -->
       <div class="reports-card">
         <table class="reports-table" id="owner-entries-table">
