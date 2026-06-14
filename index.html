@@ -106,9 +106,6 @@
       <button id="nav-settings-btn">
         <i data-lucide="database"></i> DSR Catalog / OCR
       </button>
-      <button id="nav-pdf-template-btn">
-        <i data-lucide="file-text"></i> PDF Template
-      </button>
       <button id="nav-profile-btn">
         <i data-lucide="user"></i> My Profile
       </button>
@@ -422,6 +419,12 @@
         <!-- PANEL B: BUILDING AGE & DEPRECIATION -->
         <div class="form-panel">
           <h3>2. Building Age & Depreciation</h3>
+          <div style="margin-bottom: 1rem;">
+            <label class="check-label" style="justify-content: flex-start; padding: 0.5rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer;">
+              <input type="checkbox" id="enable-depreciation" checked>
+              <span style="font-size: 0.9rem; font-weight: 600;">Enable Depreciation Calculations</span>
+            </label>
+          </div>
           <div class="form-grid">
             <div class="form-group">
               <label for="construction-year">Year of Construction</label>
@@ -780,9 +783,21 @@
               </div>
 
               <!-- Height -->
-              <div id="prop-field-height" style="display:flex;align-items:center;gap:0.5rem;">
-                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Height:</label>
-                <input type="text" id="prop-input-height" placeholder="9.00m" style="width:75px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              <div id="prop-field-height" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">H (Above Beam):</label>
+                <input type="text" id="prop-input-height" placeholder="2.00m" style="width:75px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              </div>
+
+              <!-- Wall Length Above -->
+              <div id="prop-field-wall-len-above" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">L (Above Beam):</label>
+                <input type="text" id="prop-input-wall-len-above" placeholder="Full" style="width:75px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+              </div>
+
+              <!-- Floors -->
+              <div id="prop-field-floors" style="display:none;align-items:center;gap:0.5rem;">
+                <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Floors:</label>
+                <input type="number" id="prop-input-floors" value="1" min="1" step="1" style="width:55px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
               </div>
 
               <!-- Dim label (lines/walls) -->
@@ -955,6 +970,23 @@
               <textarea id="profile-ee-address" rows="2" style="font-family: inherit; font-size: 0.9rem; width: 100%; border: 1px solid var(--border-color); border-radius: 0.375rem; background: var(--bg-primary); color: var(--text-color); padding: 0.5rem; box-sizing: border-box;" placeholder="e.g. Golaghat District Territorial Bldg Division, Golaghat"></textarea>
             </div>
           </div>
+        </div>
+
+        <h3 class="section-title" style="margin-top: 2rem;">Site Plan Page Seal Visibility</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Select which officer seals should appear specifically on the Site Plan / Layout page.</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;">
+          <label class="check-label" style="justify-content: flex-start; padding: 0.4rem 0.5rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" id="profile-siteplan-je" checked>
+            <span style="font-size: 0.85rem;">Show Junior Engineer Seal on Site Plan</span>
+          </label>
+          <label class="check-label" style="justify-content: flex-start; padding: 0.4rem 0.5rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" id="profile-siteplan-aee">
+            <span style="font-size: 0.85rem;">Show Assistant Executive Engineer Seal on Site Plan</span>
+          </label>
+          <label class="check-label" style="justify-content: flex-start; padding: 0.4rem 0.5rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer;">
+            <input type="checkbox" id="profile-siteplan-ee">
+            <span style="font-size: 0.85rem;">Show Executive Engineer Seal on Site Plan</span>
+          </label>
         </div>
 
         <h3 class="section-title">PDF Export Preferences</h3>
@@ -1304,7 +1336,8 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
           </label>
           <select id="tpl-lineplan-height" class="ribbon-select" style="width: 110px;" title="Line Plan Height">
             <option value="150mm">150mm Plan</option>
-            <option value="170mm" selected>170mm Plan</option>
+            <option value="160mm" selected>160mm Plan</option>
+            <option value="170mm">170mm Plan</option>
             <option value="190mm">190mm Plan</option>
           </select>
           <select id="tpl-photos-per-row" class="ribbon-select" style="width: 100px;" title="Photos per row">

@@ -14,14 +14,15 @@ export class SiteSketcher {
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
 
-    this.W = 900; this.H = 560;
+    // Increase resolution for higher precision
+    this.W = 1200; this.H = 750;
     this.canvas.width  = this.W;
     this.canvas.height = this.H;
 
     // ── viewport ──
     this.zoom   = 1;
-    this.panX   = 40;   // screen-px offset
-    this.panY   = 40;
+    this.panX   = 60;   // screen-px offset
+    this.panY   = 60;
     this.basePPM = 50;  // pixels per metre at zoom=1  (1:100 default)
     this.MIN_ZOOM = 0.1;
     this.MAX_ZOOM = 20;
@@ -47,6 +48,8 @@ export class SiteSketcher {
     this.previewPt     = null;         // current cursor world pos
     this.shiftDown     = false;
     this.spaceDown     = false;
+    this.ctrlDown      = false;
+    this.selectedShapes = [];          // multi-select support
 
     // ── typography ──
     this.globalFontSizeBase = 10;
@@ -72,6 +75,10 @@ export class SiteSketcher {
     this.onZoomChange      = null;
 
     this.isLocked = false;
+
+    // ── AutoCAD-style input ──
+    this.inputBuffer = '';
+    this.showInputHUD = false;
 
     this._initEvents();
     this.draw();
@@ -229,9 +236,34 @@ export class SiteSketcher {
             if (h) { this.selectedHandle = h; return; }
           }
           const hit = this._hitTest(raw);
-          this.selectedShape = hit;
+          
+          if (this.ctrlDown || e.ctrlKey || e.metaKey) {
+            // Multi-select toggle
+            if (hit) {
+              const idx = this.selectedShapes.findIndex(s => s.id === hit.id);
+              if (idx > -1) {
+                this.selectedShapes.splice(idx, 1);
+              } else {
+                this.selectedShapes.push(hit);
+              }
+              this.selectedShape = this.selectedShapes[this.selectedShapes.length-1] || null;
+            }
+          } else {
+            // Single select
+            if (hit) {
+              const isAlreadySelected = this.selectedShapes.some(s => s.id === hit.id);
+              if (!isAlreadySelected) {
+                this.selectedShapes = [hit];
+                this.selectedShape = hit;
+              }
+            } else {
+              this.selectedShapes = [];
+              this.selectedShape = null;
+            }
+          }
+
           if (hit) this.shapeOffset = { x: raw.x-(hit.x||0), y: raw.y-(hit.y||0) };
-          if (this.onSelectionChange) this.onSelectionChange(hit);
+          if (this.onSelectionChange) this.onSelectionChange(this.selectedShape, this.selectedShapes);
           this.draw(); break;
         }
 
@@ -499,6 +531,31 @@ export class SiteSketcher {
     window.addEventListener('keydown', (e) => {
       if (this.isLocked) return;
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
+
+      // AutoCAD-style numeric input capture
+      const isDrawing = (this.isDown || this.wallChain.length > 0 || this.polyChain.length > 0);
+      if (isDrawing && ((e.key >= '0' && e.key <= '9') || e.key === '.')) {
+        this.inputBuffer += e.key;
+        this.showInputHUD = true;
+        this.draw();
+        return;
+      }
+      if (isDrawing && e.key === 'Backspace' && this.inputBuffer.length > 0) {
+        this.inputBuffer = this.inputBuffer.slice(0, -1);
+        if (this.inputBuffer.length === 0) this.showInputHUD = false;
+        this.draw();
+        return;
+      }
+      if (isDrawing && e.key === 'Enter' && this.inputBuffer.length > 0) {
+        const val = parseFloat(this.inputBuffer);
+        this.inputBuffer = '';
+        this.showInputHUD = false;
+        if (!isNaN(val) && val > 0) {
+          this._applyDirectDimension(val);
+        }
+        return;
+      }
+
       if (e.key==='Shift') this.shiftDown=true;
       if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
       if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); this.undo(); }
@@ -509,7 +566,11 @@ export class SiteSketcher {
         this.selectedShape=null; this.draw();
         if (this.onSelectionChange) this.onSelectionChange(null);
       }
-      if (e.key==='Escape') { this.wallChain=[]; this.polyChain=[]; this.previewPt=null; this.draw(); }
+      if (e.key==='Escape') { 
+        this.wallChain=[]; this.polyChain=[]; this.previewPt=null; 
+        this.inputBuffer = ''; this.showInputHUD = false;
+        this.draw(); 
+      }
       if (e.key==='g'||e.key==='G') { this.snapGrid=!this.snapGrid; this.draw(); }
     });
     window.addEventListener('keyup', (e) => {
@@ -552,7 +613,7 @@ export class SiteSketcher {
       const col=colors[this.shapes.filter(s=>s.type==='room').length%colors.length];
       this.shapes.push({ id:Date.now(), type:'room', points:pts, label:'Room', color:col, areaSqm });
     } else {
-      this.shapes.push({ id:Date.now(), type:'polygon-building', points:pts, label:'Building Block', structureType:'rcc', dimW:'', dimH:'', dimWOffset:-1.5, dimHOffset:-1.5 });
+      this.shapes.push({ id:Date.now(), type:'polygon-building', points:pts, label:'Building Block', structureType:'rcc', dimW:'', dimH:'', dimWOffset:-1.5, dimHOffset:-1.5, areaSqm });
     }
     this.polyChain=[];
     this.previewPt=null;
@@ -613,6 +674,65 @@ export class SiteSketcher {
   _distSeg(p,v,w){const l2=(v.x-w.x)**2+(v.y-w.y)**2;if(!l2)return Math.hypot(p.x-v.x,p.y-v.y);let t=((p.x-v.x)*(w.x-v.x)+(p.y-v.y)*(w.y-v.y))/l2;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-(v.x+t*(w.x-v.x)),p.y-(v.y+t*(w.y-v.y)));}
   _ptInPoly(p,pts){let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;if((yi>p.y)!==(yj>p.y)&&p.x<(xj-xi)*(p.y-yi)/(yj-yi)+xi)inside=!inside;}return inside;}
 
+  _applyDirectDimension(val) {
+    // Determine last point and current cursor direction
+    let last = null;
+    if (this.wallChain.length > 0) last = this.wallChain[this.wallChain.length-1];
+    else if (this.polyChain.length > 0) last = this.polyChain[this.polyChain.length-1];
+    
+    if (!last) return;
+
+    const p = this.previewPt || this.s2w(0,0);
+    const dx = p.x - last.x, dy = p.y - last.y;
+    const angle = Math.atan2(dy, dx);
+    const newPt = { x: last.x + Math.cos(angle) * val, y: last.y + Math.sin(angle) * val };
+
+    // Apply newPt to current drawing state
+    if (this.mode === 'wall') {
+      this.wallChain.push(newPt);
+    } else if (this.mode === 'room' || this.mode === 'polybuilding') {
+      this.polyChain.push(newPt);
+      if (this.onPolyNodeAdded) this.onPolyNodeAdded(this.polyChain.length);
+    } else if (this._isLinearMode()) {
+      // For single-segment types, complete the shape
+      this.pushHistory();
+      const id = Date.now();
+      const p1 = this.wallChain[0];
+      const p2 = newPt;
+      const len = val;
+
+      if (this.mode==='boundary-wall')
+        this.shapes.push({ id, type:'boundary-wall', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'Boundary Wall', dimLabel:`${len.toFixed(2)}m`, dimOffset:-0.8 });
+      else if (this.mode==='gate')
+        this.shapes.push({ id, type:'gate', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE', dimLabel:`${len.toFixed(2)}m`, dimOffset:-0.8 });
+      else if (this.mode==='gate-toran')
+        this.shapes.push({ id, type:'gate-toran', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE WITH TORAN', dimLabel:`${len.toFixed(2)}m`, dimOffset:-0.8 });
+      else if (this.mode==='line')
+        this.shapes.push({ id, type:'line', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, style:'dashed', label:'ROW' });
+      else if (this.mode==='dimension')
+        this.shapes.push({ id, type:'dimension', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, dimOffset:-1, label:`${len.toFixed(2)}m` });
+
+      this.wallChain = [];
+    }
+    this.draw();
+  }
+
+  _drawHUD() {
+    if (!this.showInputHUD || !this.previewPt) return;
+    const sp = this.w2s(this.previewPt.x, this.previewPt.y);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = 'bold 13px sans-serif';
+    const txt = this.inputBuffer;
+    const tw = ctx.measureText(txt).width + 12;
+    ctx.fillStyle = '#2563eb';
+    ctx.fillRect(sp.x + 15, sp.y - 30, tw, 24);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(txt, sp.x + 21, sp.y - 18);
+    ctx.restore();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   //  DRAW
   // ═══════════════════════════════════════════════════════════════════════
@@ -641,6 +761,7 @@ export class SiteSketcher {
     // in-progress preview
     if (!this.isExporting) {
       this._drawPreview();
+      this._drawHUD();
     }
 
     // selection overlay
@@ -779,11 +900,20 @@ export class SiteSketcher {
       const pts=s.points.map(pt=>this.w2s(pt.x,pt.y));
       ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.closePath();ctx.fill();
       ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+
+      // Auto-dimension each side with arrows
+      for(let j=0;j<s.points.length;j++){
+        const n=(j+1)%s.points.length, p1=s.points[j], p2=s.points[n];
+        const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
+        if(len > 0.05) {
+          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, `${len.toFixed(2)}m`, 0.8);
+        }
+      }
+
       let cx=0,cy=0;s.points.forEach(pt=>{cx+=pt.x;cy+=pt.y;});cx/=s.points.length;cy/=s.points.length;
       const csp2=this.w2s(cx,cy);
       ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.1 * z))}px ${this.globalFontFamily}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(s.label||'Building',csp2.x,csp2.y);
-
     } else if (s.type==='road') {
       const sy1=this.w2s(0,s.y).y, sy2=this.w2s(0,s.y+s.h).y, rh=sy2-sy1;
       ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,sy1,this.W,rh);
@@ -821,7 +951,7 @@ export class SiteSketcher {
       ctx.beginPath();ctx.moveTo(s1.x+nx*bOff,s1.y+ny*bOff);ctx.lineTo(s2.x+nx*bOff,s2.y+ny*bOff);ctx.moveTo(s1.x-nx*bOff,s1.y-ny*bOff);ctx.lineTo(s2.x-nx*bOff,s2.y-ny*bOff);ctx.stroke();
       ctx.lineWidth=1;
       for(let k=0;k<=Math.floor(len/12);k++){const t=k*12,hx=s1.x+ux*t,hy=s1.y+uy*t;ctx.beginPath();ctx.moveTo(hx+nx*5,hy+ny*5);ctx.lineTo(hx-nx*5,hy-ny*5);ctx.stroke();}
-      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1));
+      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8));
 
     } else if (s.type==='gate') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -832,7 +962,7 @@ export class SiteSketcher {
       ctx.moveTo(s2.x,s2.y);ctx.lineTo(s2.x+Math.cos(gA+Math.PI-Math.PI/4)*gLen/2,s2.y+Math.sin(gA+Math.PI-Math.PI/4)*gLen/2);ctx.stroke();
       ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 0.9 * z))}px ${this.globalFontFamily}`;ctx.fillStyle='#d97706';ctx.textAlign='center';
       ctx.fillText(s.label||'GATE',(s1.x+s2.x)/2,(s1.y+s2.y)/2-10);
-      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1));
+      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8));
 
     } else if (s.type==='gate-toran') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -864,7 +994,16 @@ export class SiteSketcher {
       const pts=s.points.map(pt=>this.w2s(pt.x,pt.y));
       ctx.fillStyle='rgba(13,148,136,0.08)';ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.closePath();ctx.fill();
       ctx.strokeStyle='#0d9488';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.closePath();ctx.stroke();
-      for(let j=0;j<s.points.length;j++){const n=(j+1)%s.points.length,p1=s.points[j],p2=s.points[n];if(p1.sideLength)this._drawBoxDim(p1.x,p1.y,p2.x,p2.y,`${p1.sideLength.toFixed(2)}m`,0.8);}
+      
+      // Auto-dimension each side with arrows
+      for(let j=0;j<s.points.length;j++){
+        const n=(j+1)%s.points.length, p1=s.points[j], p2=s.points[n];
+        const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
+        if(len > 0.05) {
+          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, `${len.toFixed(2)}m`, 0.8);
+        }
+      }
+
       let pcx=0,pcy=0;s.points.forEach(pt=>{pcx+=pt.x;pcy+=pt.y;});pcx/=s.points.length;pcy/=s.points.length;
       const csp3=this.w2s(pcx,pcy);
       ctx.fillStyle='#0f766e';ctx.font=`bold ${Math.max(8, Math.round(this.globalFontSizeBase * 1.2 * z))}px ${this.globalFontFamily}`;ctx.textAlign='center';ctx.fillText(s.label||'Plot',csp3.x,csp3.y-8);
@@ -878,7 +1017,7 @@ export class SiteSketcher {
   _drawBoxDim(wx1,wy1,wx2,wy2,label,worldOff) {
     const s1=this.w2s(wx1,wy1),s2=this.w2s(wx2,wy2);
     const dx=s2.x-s1.x,dy=s2.y-s1.y,len=Math.hypot(dx,dy);
-    if(!label||len<10){return;}
+    if(!label||len<4){return;}
     const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
     const pxOff=worldOff*this.ppm;
     const ctx=this.ctx;
@@ -975,6 +1114,12 @@ export class SiteSketcher {
       const pts=[...this.polyChain,p].map(pt=>this.w2s(pt.x,pt.y));
       ctx.strokeStyle='#64748b';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
       ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.stroke();ctx.setLineDash([]);
+      
+      // live length of current segment
+      const last=this.polyChain[this.polyChain.length-1];
+      const len=Math.hypot(p.x-last.x,p.y-last.y);
+      if(len>0.02){const sp2=this.w2s((last.x+p.x)/2,(last.y+p.y)/2);this._drawLiveLen(`${len.toFixed(2)}m`,sp2);}
+      
       this.polyChain.forEach(pt=>{const s=this.w2s(pt.x,pt.y);ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.fillStyle='#475569';ctx.fill();});
     }
 

@@ -51,7 +51,6 @@ const navBtns = {
   dashboard: document.getElementById('nav-projects-btn'),
   newProject: document.getElementById('nav-new-project-btn'),
   settings: document.getElementById('nav-settings-btn'),
-  pdfTemplate: document.getElementById('nav-pdf-template-btn'),
   profile: document.getElementById('nav-profile-btn')
 };
 
@@ -425,8 +424,8 @@ function loadProjects() {
 }
 
 function saveProjects() {
-  // Bypassed localStorage to avoid conflicts, always saving directly to Firestore.
-  // The local file backup remains active for server-side backup snapshots.
+  // Silent local backup trigger for active project.
+  // Cloud sync happens via saveUserProject/saveProjectEntry.
   if (activeProject) {
     triggerLocalBackup(activeProject);
   }
@@ -1725,6 +1724,8 @@ function setupEditor() {
   const inputBlockStyle = document.getElementById('prop-input-block-style');
   const inputTextSize   = document.getElementById('prop-input-text-size');
   const inputFontFamily = document.getElementById('prop-input-font-family');
+  const inputFloors     = document.getElementById('prop-input-floors');
+  const inputWallLenAbove = document.getElementById('prop-input-wall-len-above');
 
   const updateSelectedShape = () => {
     if (!sketcher || !sketcher.selectedShape) return;
@@ -1738,7 +1739,7 @@ function setupEditor() {
 
     if (s.type === 'building' || s.type === 'polygon-building') {
       s.structureType = inputStructType.value;
-      if (s.structureType === 'rcc')           s.label = 'RCC Building';
+      if (s.structureType === 'rcc')           s.label = 'RCC Structure';
       else if (s.structureType === 'assam')    s.label = 'Assam Type Building';
       else if (s.structureType === 'temp-building') s.label = 'Temporary Building';
       else if (s.structureType === 'temp-shed') s.label = 'Temp Shed';
@@ -1749,6 +1750,7 @@ function setupEditor() {
       const hVal = parseM(inputHeight.value);
       if (wVal !== null) { s.w = wVal; s.dimW = `${wVal.toFixed(2)}m`; } else { s.dimW = inputWidth.value; }
       if (hVal !== null) { s.h = hVal; s.dimH = `${hVal.toFixed(2)}m`; } else { s.dimH = inputHeight.value; }
+      s.floors = parseInt(inputFloors.value) || 1;
     } else if (s.type === 'custom-block') {
       s.blockStyle = inputBlockStyle.value;
       s.label = inputLabel.value;
@@ -1767,6 +1769,7 @@ function setupEditor() {
     } else if (s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'wall') {
       s.label = inputLabel.value;
       s.dimLabel = inputDimLabel.value;
+      s.height = parseM(inputHeight.value);
     } else if (s.type === 'dimension') {
       s.manualLabel = inputDimLabel.value;
       s.label = s.manualLabel || s.label;
@@ -1810,63 +1813,133 @@ function setupEditor() {
       if (!sketcher || !sketcher.selectedShape) return;
       const s = sketcher.selectedShape;
       
-      let qty = 0;
-      let unit = '';
-      let title = s.label || s.type;
+      const itemsToAdd = [];
 
-      if (s.type === 'room' || s.type === 'polygon' || s.type === 'polybuilding') {
-        qty = s.areaSqm || 0;
-        unit = 'sqm';
-        title = `Area of ${s.label || s.type}`;
+      if (s.type === 'room' || s.type === 'polygon' || s.type === 'polygon-building' || s.type === 'building' || s.type === 'custom-block') {
+        const floors = parseInt(s.floors) || 1;
+        
+        for (let i = 0; i < floors; i++) {
+          let qty = 0;
+          let unit = 'sqm';
+          let title = s.label || 'Building Block';
+          let rate = 0;
+          let description = 'Plinth area for building';
+          let l = '';
+          let b = '';
+          let h = '';
+
+          // Format floor name
+          let floorName = "Ground Floor";
+          if (i === 1) floorName = "1st Floor";
+          else if (i === 2) floorName = "2nd Floor";
+          else if (i === 3) floorName = "3rd Floor";
+          else if (i > 3) floorName = `${i}th Floor`;
+
+          const fullTitle = `${title} (${floorName})`;
+
+          if (s.type === 'building' || s.type === 'custom-block') {
+            qty = (s.w || 0) * (s.h || 0);
+            l = s.w;
+            b = s.h;
+          } else {
+            qty = s.areaSqm || 0;
+          }
+
+          // Auto-assign rates based on predefined types
+          if (title === 'RCC Structure') {
+            rate = 20685.00;
+          } else if (title === 'Assam Type Building') {
+            rate = 15867.00;
+          } else if (title === 'Temporary Building' || title === 'Temp Shed') {
+            rate = 205.00;
+            unit = 'sqf';
+            qty = qty * 10.76391;
+            if (l) l = l * 3.28084;
+            if (b) b = b * 3.28084;
+          }
+
+          itemsToAdd.push({
+            qty, unit, title: fullTitle, rate, description, l, b, h, nos: 1, 
+            measurementDesc: `${title} - ${floorName}`
+          });
+        }
       } else if (s.type === 'wall' || s.type === 'boundary-wall' || s.type === 'line' || s.type === 'gate') {
         let len = 0;
         if (s.points && s.points.length >= 2) {
           for (let i = 0; i < s.points.length - 1; i++) {
             len += Math.hypot(s.points[i+1].x - s.points[i].x, s.points[i+1].y - s.points[i].y);
           }
+        } else if (s.x1 !== undefined && s.x2 !== undefined) {
+          len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
         }
-        qty = len;
-        unit = 'Rm';
-        title = `Length of ${s.label || s.type}`;
-      } else {
+        
+        let h = s.height || 0;
+        let l = len;
+
+        // 1. Always add the "Upto Tie Beam" (Running Meter) item
+        itemsToAdd.push({
+          qty: len, 
+          unit: 'Rm', 
+          title: s.label || 'Boundary Wall (Upto Tie Beam)', 
+          rate: 1850.00, 
+          description: 'Length', 
+          l: len, b: '', h: '', nos: 1,
+          measurementDesc: `${s.label || 'Boundary Wall'} - Upto Tie Beam`
+        });
+
+        // 2. If height provided, add the "Above Tie Beam" (sqm) item
+        if (h > 0) {
+          itemsToAdd.push({
+            qty: len * h, 
+            unit: 'sqm', 
+            title: s.label || 'Boundary Wall (Above Tie Beam)', 
+            rate: 1450.00, 
+            description: 'Area for sqm', 
+            l: len, b: '', h: h, nos: 1,
+            measurementDesc: `${s.label || 'Boundary Wall'} - Above Tie Beam`
+          });
+        }
+      }
+
+      if (itemsToAdd.length === 0) {
         alert("Selected shape does not have a measurable area or length.");
         return;
       }
 
-      if (qty <= 0) {
-        alert("Calculated quantity is zero. Make sure the shape is drawn correctly.");
-        return;
-      }
+      itemsToAdd.forEach((itemData, index) => {
+        const newItem = {
+          id: 'ITEM_' + Date.now() + '_' + index,
+          itemNo: (activeEntry.items.length + 1).toString(),
+          type: 'quantity-rate',
+          title: itemData.title,
+          description: itemData.description,
+          quantity: itemData.qty,
+          unit: itemData.unit,
+          rate: itemData.rate,
+          totalCost: itemData.qty * itemData.rate,
+          includeInValuation: true,
+          excludeFromDepreciation: false,
+          customDepreciation: false,
+          customDepreciationPct: 2.0,
+          customDepreciationAge: 10,
+          deductionPct: 0,
+          deductionLabel: '',
+          deductionAmount: 0,
+          measurements: [{
+            id: 'M_' + Date.now() + '_' + index,
+            description: itemData.measurementDesc,
+            nos: itemData.nos,
+            l: itemData.l !== '' ? parseFloat(itemData.l).toFixed(2) : '',
+            b: itemData.b !== '' ? parseFloat(itemData.b).toFixed(2) : '',
+            h: itemData.h !== '' ? parseFloat(itemData.h).toFixed(2) : '',
+            subQty: itemData.qty
+          }]
+        };
 
-      const newItem = {
-        id: 'ITEM_' + Date.now(),
-        itemNo: (activeEntry.items.length + 1).toString(),
-        type: 'quantity-rate',
-        title: title,
-        description: 'Autogenerated from Sketcher selection',
-        quantity: qty,
-        unit: unit,
-        rate: 0,
-        totalCost: 0,
-        includeInValuation: true,
-        excludeFromDepreciation: false,
-        customDepreciation: false,
-        customDepreciationPct: 2.0,
-        customDepreciationAge: 10,
-        deductionPct: 0,
-        deductionLabel: '',
-        deductionAmount: 0,
-        measurements: [{
-          id: 'M_' + Date.now(),
-          description: `From Sketcher: ${s.label || s.type}`,
-          nos: 1,
-          l: '', b: '', h: '',
-          subQty: qty
-        }]
-      };
+        activeEntry.items.push(newItem);
+        renderItemRow(newItem);
+      });
 
-      activeEntry.items.push(newItem);
-      renderItemRow(newItem);
       calculateAndRenderTotals();
 
       const tabBtns = document.querySelectorAll('.tab-btn');
@@ -2078,6 +2151,8 @@ function loadEntryToEditor() {
     const fieldStructType = document.getElementById('prop-field-structure-type');
     const fieldTextSize   = document.getElementById('prop-field-text-size');
     const fieldFontFamily = document.getElementById('prop-field-font-family');
+    const fieldFloors     = document.getElementById('prop-field-floors');
+    const fieldWallLenAbove = document.getElementById('prop-field-wall-len-above');
 
     const inputLabel      = document.getElementById('prop-input-label');
     const inputWidth      = document.getElementById('prop-input-width');
@@ -2087,11 +2162,12 @@ function loadEntryToEditor() {
     const inputDimLabel   = document.getElementById('prop-input-dim-label');
     const inputBlockStyle = document.getElementById('prop-input-block-style');
     const inputStructType = document.getElementById('prop-input-structure-type');
+    const inputFloors     = document.getElementById('prop-input-floors');
     const fieldMerge      = document.getElementById('prop-field-merge');
     const fieldPushEstimate = document.getElementById('prop-field-push-estimate');
 
     // Reset all optional fields hidden; label always shown
-    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldTextSize, fieldFontFamily].forEach(f => {
+    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldTextSize, fieldFontFamily, fieldFloors].forEach(f => {
       if (f) f.style.display = 'none';
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
@@ -2104,11 +2180,14 @@ function loadEntryToEditor() {
       fieldStructType.style.display = 'flex';
       fieldWidth.style.display = 'flex';
       fieldHeight.style.display = 'flex';
+      fieldFloors.style.display = 'flex';
       inputStructType.value = shape.structureType || '';
       inputLabel.value = shape.label || '';
       inputWidth.value = shape.dimW || '';
       inputHeight.value = shape.dimH || '';
+      inputFloors.value = shape.floors || 1;
     } else if (shape.type === 'custom-block') {
+      if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       fieldBlockStyle.style.display = 'flex';
       fieldWidth.style.display = 'flex';
       fieldHeight.style.display = 'flex';
@@ -2136,8 +2215,12 @@ function loadEntryToEditor() {
     } else if (shape.type === 'boundary-wall' || shape.type === 'gate' || shape.type === 'gate-toran' || shape.type === 'wall') {
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       fieldDimLabel.style.display = 'flex';
+      fieldHeight.style.display = 'flex';
+      if (shape.type === 'boundary-wall' && fieldWallLenAbove) fieldWallLenAbove.style.display = 'flex';
       inputLabel.value = shape.label || '';
       inputDimLabel.value = shape.dimLabel || '';
+      inputHeight.value = shape.height || '';
+      if (shape.type === 'boundary-wall' && inputWallLenAbove) inputWallLenAbove.value = shape.wallLenAbove || '';
     } else if (shape.type === 'dimension') {
       fieldDimLabel.style.display = 'flex';
       inputLabel.value = shape.manualLabel || shape.label || '';
@@ -2154,7 +2237,133 @@ function loadEntryToEditor() {
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       inputLabel.value = shape.label || '';
     }
+
+    if (allSelected && allSelected.length > 1) {
+      // Hide properties for multi-select, just show batch Add to Estimate
+      const allFields = [
+        'prop-field-label', 'prop-field-width', 'prop-field-height', 'prop-field-road',
+        'prop-field-structure-type', 'prop-field-dim-label', 'prop-field-block-style',
+        'prop-field-merge', 'prop-field-text-size', 'prop-field-font-family',
+        'prop-field-room-color', 'prop-field-floors', 'prop-field-wall-len-above'
+      ];
+      allFields.forEach(id => {
+        const f = document.getElementById(id);
+        if (f) f.style.display = 'none';
+      });
+      if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
+      if (pushEstimateBtn) pushEstimateBtn.innerText = `Add ${allSelected.length} to Estimate`;
+    } else {
+      if (pushEstimateBtn) pushEstimateBtn.innerText = 'Add to Estimate';
+    }
   };
+
+  // Keyboard shortcuts for tools
+  window.addEventListener('keydown', (e) => {
+    if (!sketcher || sketcher.isLocked) return;
+    if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
+    
+    const key = e.key.toLowerCase();
+    const tools = {
+      's': 'tool-select',
+      'w': 'tool-wall',
+      'l': 'tool-line',
+      'b': 'tool-building',
+      'r': 'tool-room',
+      't': 'tool-text',
+      'p': 'tool-polybuilding',
+      'd': 'tool-dimension',
+      'e': 'tool-erase'
+    };
+
+    if (tools[key]) {
+      const btn = document.getElementById(tools[key]);
+      if (btn) btn.click();
+    }
+  });
+
+  const pushEstimateBtn = document.getElementById('prop-btn-push-estimate');
+  if (pushEstimateBtn) {
+    const newBtn = pushEstimateBtn.cloneNode(true);
+    pushEstimateBtn.parentNode.replaceChild(newBtn, pushEstimateBtn);
+    newBtn.addEventListener('click', () => {
+      const selectedShapes = (sketcher.selectedShapes && sketcher.selectedShapes.length > 0) ? sketcher.selectedShapes : [sketcher.selectedShape];
+      
+      selectedShapes.forEach(s => {
+        if (!s) return;
+        
+        const itemsToAdd = [];
+
+        if (s.type === 'room' || s.type === 'polygon' || s.type === 'polygon-building' || s.type === 'building' || s.type === 'custom-block') {
+          const floors = parseInt(s.floors) || 1;
+          
+          for (let i = 0; i < floors; i++) {
+            let qty = 0, unit = 'sqm', title = s.label || 'Building Block', rate = 0, description = 'Plinth area for building', l = '', b = '', h = '';
+
+            let floorName = "Ground Floor";
+            if (i === 1) floorName = "1st Floor";
+            else if (i === 2) floorName = "2nd Floor";
+            else if (i === 3) floorName = "3rd Floor";
+            else if (i > 3) floorName = `${i}th Floor`;
+
+            const fullTitle = `${title} (${floorName})`;
+            if (s.type === 'building' || s.type === 'custom-block') { qty = (s.w || 0) * (s.h || 0); l = s.w; b = s.h; }
+            else { qty = s.areaSqm || 0; }
+
+            if (title === 'RCC Structure') rate = 20685.00;
+            else if (title === 'Assam Type Building') rate = 15867.00;
+            else if (title === 'Temporary Building' || title === 'Temp Shed') { rate = 205.00; unit = 'sqf'; qty *= 10.76391; if (l) l *= 3.28084; if (b) b *= 3.28084; }
+
+            itemsToAdd.push({ qty, unit, title: fullTitle, rate, description, l, b, h, nos: 1, measurementDesc: `${title} - ${floorName}` });
+          }
+        } else if (s.type === 'wall' || s.type === 'boundary-wall' || s.type === 'line' || s.type === 'gate') {
+          let len = 0;
+          if (s.points && s.points.length >= 2) { for (let i = 0; i < s.points.length - 1; i++) len += Math.hypot(s.points[i+1].x - s.points[i].x, s.points[i+1].y - s.points[i].y); }
+          else if (s.x1 !== undefined && s.x2 !== undefined) len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+          
+          let h = s.height || 0, l = len;
+          itemsToAdd.push({ qty: len, unit: 'Rm', title: s.label || 'Boundary Wall (Upto Tie Beam)', rate: 1850.00, description: 'Length', l: len, b: '', h: '', nos: 1, measurementDesc: `${s.label || 'Boundary Wall'} - Upto Tie Beam` });
+          if (h > 0) itemsToAdd.push({ qty: len * h, unit: 'sqm', title: s.label || 'Boundary Wall (Above Tie Beam)', rate: 1450.00, description: 'Area for sqm', l: len, b: '', h: h, nos: 1, measurementDesc: `${s.label || 'Boundary Wall'} - Above Tie Beam` });
+        }
+
+        itemsToAdd.forEach((itemData, index) => {
+          const newItem = {
+            id: 'ITEM_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 5),
+            itemNo: (activeEntry.items.length + 1).toString(),
+            type: 'quantity-rate',
+            title: itemData.title,
+            description: itemData.description,
+            quantity: itemData.qty,
+            unit: itemData.unit,
+            rate: itemData.rate,
+            totalCost: itemData.qty * itemData.rate,
+            includeInValuation: true,
+            excludeFromDepreciation: false,
+            customDepreciation: false,
+            customDepreciationPct: 2.0,
+            customDepreciationAge: 10,
+            deductionPct: 0,
+            deductionLabel: '',
+            deductionAmount: 0,
+            measurements: [{
+              id: 'M_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 5),
+              description: itemData.measurementDesc,
+              nos: itemData.nos,
+              l: itemData.l !== '' ? parseFloat(itemData.l).toFixed(2) : '',
+              b: itemData.b !== '' ? parseFloat(itemData.b).toFixed(2) : '',
+              h: itemData.h !== '' ? parseFloat(itemData.h).toFixed(2) : '',
+              subQty: itemData.qty
+            }]
+          };
+          activeEntry.items.push(newItem);
+          renderItemRow(newItem);
+        });
+      });
+      calculateAndRenderTotals();
+      newBtn.innerText = 'Add to Estimate';
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      tabBtns.forEach(b => { if (b.dataset.tab === 'tab-estimate') b.click(); });
+    });
+  }
 
   // Wire history change callback for undo/redo button opacity
   sketcher.onHistoryChange = (histLen, futLen) => {
@@ -2999,8 +3208,19 @@ function setupDsrAutocomplete(input, item, tr) {
     item.description = dsr.description || '';
     item.unit = dsr.unit || '';
     item.rate = dsr.rate;
-    item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
-    item.quantity = 1;
+    
+    // Preserve existing measurements but recalculate total quantity
+    if (!item.measurements || item.measurements.length === 0) {
+      item.measurements = [{ id: 'M_' + Date.now(), description: '', nos: 1, l: '', b: '', h: '', subQty: 1 }];
+      item.quantity = 1;
+    } else {
+      // Recalculate quantity based on preserved measurements
+      let total = 0;
+      item.measurements.forEach(m => {
+        total += (parseFloat(m.subQty) || 0);
+      });
+      item.quantity = total;
+    }
     
     input.value = item.title;
     tr.querySelector('.item-desc-input').value = item.description;
@@ -3289,6 +3509,7 @@ function calculateAndRenderTotals() {
   activeEntry.depreciationPct = parseFloat(document.getElementById('depreciation-pct').value) || 2.0;
   activeEntry.residualLife = parseInt(document.getElementById('residual-life').value) || '';
   activeEntry.constructionClass = document.getElementById('construction-class').value;
+  activeEntry.enableDepreciation = document.getElementById('enable-depreciation').checked;
 
   activeEntry.addElectrification = document.getElementById('toggle-electrification').checked;
   activeEntry.electrificationCost = parseFloat(document.getElementById('electrification-cost').value) || 0;
@@ -3306,7 +3527,9 @@ function calculateAndRenderTotals() {
   const totalA = Math.round(mainDepreciatedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
   activeEntry.totalA = totalA;
 
-  const contractorDeduction = Math.round(totalA * 0.15);
+  const tplSettings = getPdfTemplateSettings();
+  const contractorPct = tplSettings.contractorPct || 15;
+  const contractorDeduction = Math.round(totalA * (contractorPct / 100));
   activeEntry.contractorDeduction = contractorDeduction;
 
   const totalB = totalA - contractorDeduction;
@@ -3315,10 +3538,10 @@ function calculateAndRenderTotals() {
   const age = Math.max(0, activeEntry.valuationYear - activeEntry.constructionYear);
   activeEntry.structureAge = age;
   
-  const totalDepPct = activeEntry.depreciationPct * age;
+  const totalDepPct = activeEntry.enableDepreciation ? (activeEntry.depreciationPct * age) : 0;
   activeEntry.totalDepreciationPct = totalDepPct;
 
-  const depAmount = Math.round(totalB * (totalDepPct / 100));
+  const depAmount = activeEntry.enableDepreciation ? Math.round(totalB * (totalDepPct / 100)) : 0;
   activeEntry.depreciationAmount = depAmount;
 
   const mainAfterDep = Math.max(0, totalB - depAmount);
@@ -3329,9 +3552,9 @@ function calculateAndRenderTotals() {
   
   customDepreciatedItems.forEach(item => {
     const rawCost = item.totalCost;
-    // Deduct 15% contractor profit if applicable (to match main building standard rules)
-    const costAfterProfit = Math.round(rawCost * 0.85); 
-    const itemDepPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+    // Deduct contractor profit if applicable (to match main building standard rules)
+    const costAfterProfit = Math.round(rawCost * (1 - (contractorPct / 100))); 
+    const itemDepPct = activeEntry.enableDepreciation ? ((item.customDepreciationPct || 0) * (item.customDepreciationAge || 0)) : 0;
     const itemDepAmount = Math.round(costAfterProfit * (itemDepPct / 100));
     
     totalCustomCostBeforeDep += costAfterProfit;
@@ -5050,7 +5273,7 @@ export function getPdfTemplateSettings() {
     fontFamily: 'Arial, Helvetica, sans-serif',
     fontSize: 10.5,
     imgQuality: 0.98,
-    linePlanHeight: '170mm',
+    linePlanHeight: '160mm',
     nbDefault: '',
     depRate: 1,
     contractorPct: 15,
@@ -5126,7 +5349,7 @@ function setupPdfTemplate() {
       out.fontFamily     = fields.fontFamily?.value                 || 'Arial, Helvetica, sans-serif';
       out.fontSize       = parseFloat(fields.fontSize?.value)       || 10.5;
       out.imgQuality     = parseFloat(fields.imgQuality?.value)     || 0.98;
-      out.linePlanHeight = fields.linePlanHeight?.value             || '170mm';
+      out.linePlanHeight = fields.linePlanHeight?.value             || '160mm';
       out.nbDefault      = fields.nbDefault?.innerText.trim()       || '';
       out.depRate        = parseFloat(fields.depRate?.value)        || 1;
       out.contractorPct  = parseFloat(fields.contractorPct?.value)  || 15;
@@ -5359,7 +5582,7 @@ function triggerLocalBackup(project) {
   // No-op here to keep save flow clean; full backup is on timer / manual button
 }
 
-async function downloadAllBackup() {
+async function downloadAllBackup(isAutomatic = false) {
   const payload = {
     exportedAt: new Date().toISOString(),
     appVersion: 'Personal-Valuation-App-v2',
@@ -5383,6 +5606,10 @@ async function downloadAllBackup() {
     }
     throw new Error('API route returned not ok');
   } catch (err) {
+    if (isAutomatic) {
+      console.log('[Backup] Local API unavailable, skipping automatic browser download.');
+      return;
+    }
     // 2. Fallback for deployed version: trigger standard browser download
     console.log('[Backup] Local API unavailable, falling back to browser download.');
     const json = JSON.stringify(payload, null, 2);
@@ -5528,7 +5755,7 @@ function startAutoBackup() {
     const isEnabled = toggle ? toggle.checked : true;
     if (!isEnabled) return;
     
-    downloadAllBackup();
+    downloadAllBackup(true);
   }, 5 * 60 * 1000); // every 5 minutes
 }
 
@@ -5576,6 +5803,11 @@ function setupProfileSettings() {
   const eeAddrInput = document.getElementById('profile-ee-address');
   const sealsFontSizeSelect = document.getElementById('profile-seals-font-size');
 
+  // Site plan seal visibility
+  const siteJeCheck = document.getElementById('profile-siteplan-je');
+  const siteAeeCheck = document.getElementById('profile-siteplan-aee');
+  const siteEeCheck = document.getElementById('profile-siteplan-ee');
+
   if (!nameInput) return;
 
   const saved = localStorage.getItem('valuroad_user_profile');
@@ -5591,7 +5823,10 @@ function setupProfileSettings() {
     aeeDesignation: 'Asstt. Executive Engineer, PW(B&NH)D ,',
     aeeAddress: 'Bokakhat & Dergaon Territorial\nBldg Sub-Division, Bokakhat',
     eeDesignation: 'Executive Engineer, PW(B&NH)D ,',
-    eeAddress: 'Golaghat District Territorial\nBldg Division, Golaghat'
+    eeAddress: 'Golaghat District Territorial\nBldg Division, Golaghat',
+    showJeOnSitePlan: true,
+    showAeeOnSitePlan: false,
+    showEeOnSitePlan: false
   };
 
   if (saved) {
@@ -5604,6 +5839,11 @@ function setupProfileSettings() {
   nameInput.value = profile.name || '';
   desigInput.value = profile.designation || '';
   includeCheck.checked = profile.includePdf !== false;
+
+  // Set site plan checks
+  if (siteJeCheck) siteJeCheck.checked = profile.showJeOnSitePlan !== false;
+  if (siteAeeCheck) siteAeeCheck.checked = !!profile.showAeeOnSitePlan;
+  if (siteEeCheck) siteEeCheck.checked = !!profile.showEeOnSitePlan;
   
   // Set 3-column seals inputs
   if (useThreeSealsCheck) {
@@ -5678,6 +5918,11 @@ function setupProfileSettings() {
     if (eeDesigInput) profile.eeDesignation = eeDesigInput.value;
     if (eeAddrInput) profile.eeAddress = eeAddrInput.value;
     if (sealsFontSizeSelect) profile.sealsFontSize = sealsFontSizeSelect.value;
+
+    // Save site plan seal visibility
+    if (siteJeCheck) profile.showJeOnSitePlan = siteJeCheck.checked;
+    if (siteAeeCheck) profile.showAeeOnSitePlan = siteAeeCheck.checked;
+    if (siteEeCheck) profile.showEeOnSitePlan = siteEeCheck.checked;
 
     localStorage.setItem('valuroad_user_profile', JSON.stringify(profile));
     

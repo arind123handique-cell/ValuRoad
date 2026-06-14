@@ -383,7 +383,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       </div>
       
       <div class="pdf-row" style="margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. 15% for Contractors Profit =</div>
+        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. ${tpl.contractorPct}% for Contractors Profit =</div>
         <div style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.contractorDeduction)}</div>
       </div>
       
@@ -396,7 +396,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (B) =</div>
         <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalB)}</div>
       </div>
-      
+
+      ${report.enableDepreciation !== false ? `
       <div class="pdf-row" style="margin-bottom: 2px;">
         <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
           Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
@@ -413,10 +414,16 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       </div>
 
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
+        <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+      </div>
+      ` : `
+      <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
         <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
         <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
       </div>
-    </div>
+      `}
+      </div>
   `;
 
   let serviceItemsHtml = '';
@@ -495,7 +502,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       </div>
     `;
   }
-  let profileHtml = '';
+  let profileHtml = '';
+  let sitePlanProfileHtml = '';
   let prof = {};
   let sealsSize = '8.5pt';
   try {
@@ -522,27 +530,54 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         const eeDesig = (prof.eeDesignation !== undefined ? prof.eeDesignation : 'Executive Engineer, PW(B&NH)D ,').replace(/\n/g, '<br>');
         const eeAddr = (prof.eeAddress !== undefined ? prof.eeAddress : 'Golaghat District Territorial\nBldg Division, Golaghat').replace(/\n/g, '<br>');
 
+        const jeBlock = `
+          <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+            <div style="height: 15mm;"></div>
+            ${jeDesig ? `<div style="font-weight: bold;">${jeDesig}</div>` : ''}
+            ${jeAddr ? `<div>${jeAddr}</div>` : ''}
+          </div>`;
+        
+        const aeeBlock = `
+          <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+            <div style="height: 15mm;"></div>
+            ${aeeDesig ? `<div style="font-weight: bold;">${aeeDesig}</div>` : ''}
+            ${aeeAddr ? `<div>${aeeAddr}</div>` : ''}
+          </div>`;
+
+        const eeBlock = `
+          <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
+            <div style="height: 15mm;"></div>
+            ${eeDesig ? `<div style="font-weight: bold;">${eeDesig}</div>` : ''}
+            ${eeAddr ? `<div>${eeAddr}</div>` : ''}
+          </div>`;
+
         profileHtml = `
           <div class="pdf-seals-text" style="margin-top: 15mm; display: flex; justify-content: space-between; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
-            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
-              <div style="height: 15mm;"></div>
-              ${jeDesig ? `<div style="font-weight: bold;">${jeDesig}</div>` : ''}
-              ${jeAddr ? `<div>${jeAddr}</div>` : ''}
-            </div>
-            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
-              <div style="height: 15mm;"></div>
-              ${aeeDesig ? `<div style="font-weight: bold;">${aeeDesig}</div>` : ''}
-              ${aeeAddr ? `<div>${aeeAddr}</div>` : ''}
-            </div>
-            <div style="text-align: center; width: 32%; font-family: Arial, Helvetica, sans-serif; font-size: ${sealsSize}; line-height: 1.45; color: #000000;">
-              <div style="height: 15mm;"></div>
-              ${eeDesig ? `<div style="font-weight: bold;">${eeDesig}</div>` : ''}
-              ${eeAddr ? `<div>${eeAddr}</div>` : ''}
-            </div>
+            ${jeBlock}
+            ${aeeBlock}
+            ${eeBlock}
           </div>
         `;
+
+        // Site Plan Page Profile HTML (Page 2)
+        const showJe = prof.showJeOnSitePlan !== false;
+        const showAee = !!prof.showAeeOnSitePlan;
+        const showEe = !!prof.showEeOnSitePlan;
+        
+        // Count visible blocks to set width appropriately
+        const visibleCount = (showJe ? 1 : 0) + (showAee ? 1 : 0) + (showEe ? 1 : 0);
+        const blockWidth = visibleCount > 1 ? (98 / visibleCount) + '%' : '65mm';
+
+        sitePlanProfileHtml = `
+          <div class="pdf-seals-text" style="margin-top: 5mm; display: flex; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
+            ${showJe ? jeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
+            ${showAee ? aeeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
+            ${showEe ? eeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
+          </div>
+        `;
+
       } else if (prof.name || prof.designation || prof.signatureBase64) {
-        profileHtml = `
+        const standardProfile = `
           <div style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
             <div style="text-align: center; width: 65mm; font-family: Arial, Helvetica, sans-serif;">
               ${prof.signatureBase64 ? `<img src="${prof.signatureBase64}" style="max-height: 25mm; max-width: 60mm; margin-bottom: 2px;">` : '<div style="height: 15mm;"></div>'}
@@ -551,11 +586,16 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
             </div>
           </div>
         `;
+        profileHtml = standardProfile;
+        sitePlanProfileHtml = standardProfile;
       }
     }
   } catch(e) {
     console.error('Error loading profile for PDF', e);
   }
+
+  // Define sitePlanProfileHtml if not defined
+  if (typeof sitePlanProfileHtml === 'undefined') sitePlanProfileHtml = profileHtml;
 
   // ── PAGE 1: VALUATION ESTIMATE SHEET ────────────────────────────────────────
   const orgBlock = tpl.orgName ? `
@@ -653,18 +693,19 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-    <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 250mm;">
-      ${headerHtml}
-      <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 10mm; margin-bottom: 10mm;">
-        ${sketcherImage
-          ? `<img src="${sketcherImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />`
-          : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
-      </div>
-      <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; margin-top: auto; padding-bottom: 10mm;">
-        LINE PLAN<br>
-        (Not to Scale)
-      </div>
-    </div>
+   <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 270mm;">
+     ${headerHtml}
+     <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px;">
+       ${sketcherImage
+         ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: ${tpl.linePlanHeight || '160mm'}; object-fit: contain;" />`
+         : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
+     </div>
+     <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; margin-top: auto; padding-bottom: 5mm;">
+       LINE PLAN / SITE LAYOUT<br>
+       (Not to Scale)
+     </div>
+     ${sitePlanProfileHtml}
+   </div>
   `;
 
   // ── PAGE 3: SITE PHOTO EVIDENCE ──────────────────────────────────────────────
