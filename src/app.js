@@ -1737,6 +1737,13 @@ function setupEditor() {
       return isFinite(n) && n > 0.05 ? n : null;
     };
 
+    if (s.type === 'building' || s.type === 'polygon-building' || s.type === 'text' || s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'room') {
+      const fontSizeIn = document.getElementById('prop-input-font-size');
+      const fontFamilyIn = document.getElementById('prop-input-font-family');
+      if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || 10;
+      if (fontFamilyIn) s.fontFamily = fontFamilyIn.value || 'sans-serif';
+    }
+
     if (s.type === 'building' || s.type === 'polygon-building') {
       s.structureType = inputStructType.value;
       if (s.structureType === 'rcc')           s.label = 'RCC Structure';
@@ -2165,14 +2172,24 @@ function loadEntryToEditor() {
     const inputFloors     = document.getElementById('prop-input-floors');
     const fieldMerge      = document.getElementById('prop-field-merge');
     const fieldPushEstimate = document.getElementById('prop-field-push-estimate');
+    const fieldFont       = document.getElementById('prop-field-font');
+    const inputFontSize   = document.getElementById('prop-input-font-size');
+    const inputFontFamily = document.getElementById('prop-input-font-family');
 
     // Reset all optional fields hidden; label always shown
-    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldTextSize, fieldFontFamily, fieldFloors].forEach(f => {
+    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldTextSize, fieldFontFamily, fieldFloors, fieldFont].forEach(f => {
       if (f) f.style.display = 'none';
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
     if (fieldRoomColor) fieldRoomColor.style.display = 'none';
     fieldLabel.style.display = 'flex';
+
+    // Show font settings for most object types
+    if (['building', 'polygon-building', 'text', 'dimension', 'boundary-wall', 'gate', 'gate-toran', 'room'].includes(shape.type)) {
+      if (fieldFont) fieldFont.style.display = 'flex';
+      if (inputFontSize) inputFontSize.value = shape.fontSize || sketcher.globalFontSizeBase || 10;
+      if (inputFontFamily) inputFontFamily.value = shape.fontFamily || sketcher.globalFontFamily || 'sans-serif';
+    }
 
     if (shape.type === 'building' || shape.type === 'polygon-building') {
       if (fieldMerge) fieldMerge.style.display = 'flex';
