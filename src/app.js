@@ -32,6 +32,9 @@ let customDsrCatalog = [];
  let globalDsrCatalog = [];  // Community-shared items from all users
 let gpsTraceNodes = [];
 let sketcher = null;
+let sketcherToolbarSetupDone = false;
+let pdfTemplateSetupDone = false;
+let statusBarSetupDone = false;
 let isNewEntryMode = false;
 let autoSyncInterval = null;
 
@@ -1848,28 +1851,28 @@ function setupEditor() {
   const inputStructType = document.getElementById('prop-input-structure-type');
   const inputDimLabel   = document.getElementById('prop-input-dim-label');
   const inputBlockStyle = document.getElementById('prop-input-block-style');
-  const inputTextSize   = document.getElementById('prop-input-text-size');
   const inputFontFamily = document.getElementById('prop-input-font-family');
   const inputFloors     = document.getElementById('prop-input-floors');
   const inputWallLenAbove = document.getElementById('prop-input-wall-len-above');
-
+  const inputRoadWidth  = document.getElementById('prop-input-road-width');
+ 
   const updateSelectedShape = () => {
     if (!sketcher || !sketcher.selectedShape) return;
     const s = sketcher.selectedShape;
-
+ 
     // Helper: parse "12.5m", "12.5", "12 m" → 12.5 (metres)
     const parseM = (str) => {
       const n = parseFloat(String(str).replace(/[^0-9.\-]/g, ''));
       return isFinite(n) && n > 0.05 ? n : null;
     };
-
-    if (s.type === 'building' || s.type === 'polygon-building' || s.type === 'text' || s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'room') {
+ 
+    if (s.type === 'building' || s.type === 'polygon-building' || s.type === 'text' || s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'room' || s.type === 'road') {
       const fontSizeIn = document.getElementById('prop-input-font-size');
       const fontFamilyIn = document.getElementById('prop-input-font-family');
-      if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || 10;
+      if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || (s.type === 'text' ? 13 : 10);
       if (fontFamilyIn) s.fontFamily = fontFamilyIn.value || 'sans-serif';
     }
-
+ 
     if (s.type === 'building' || s.type === 'polygon-building') {
       s.structureType = inputStructType.value;
       s.label = inputLabel.value;
@@ -1890,10 +1893,16 @@ function setupEditor() {
       s.label = inputLabel.value;
       s.leftLabel = inputLeft.value;
       s.rightLabel = inputRight.value;
+      if (inputRoadWidth) {
+        const wVal = parseM(inputRoadWidth.value);
+        if (wVal !== null) s.h = wVal;
+      }
     } else if (s.type === 'text') {
       s.text = inputLabel.value;
-      if (inputTextSize) s.fontSize = parseInt(inputTextSize.value) || 13;
-      if (inputFontFamily) s.fontFamily = inputFontFamily.value || 'sans-serif';
+      const fontSizeIn = document.getElementById('prop-input-font-size');
+      const fontFamilyIn = document.getElementById('prop-input-font-family');
+      if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || 13;
+      if (fontFamilyIn) s.fontFamily = fontFamilyIn.value || 'sans-serif';
     } else if (s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'wall') {
       s.label = inputLabel.value;
       s.dimLabel = inputDimLabel.value;
@@ -1908,7 +1917,7 @@ function setupEditor() {
     } else if (s.type === 'line' || s.type === 'polygon') {
       s.label = inputLabel.value;
     }
-
+ 
     sketcher.draw();
     showToast('Changes applied');
   };
@@ -2260,16 +2269,42 @@ function loadEntryToEditor() {
     sketcher = new SiteSketcher('sketcher-canvas');
     window.sketcher = sketcher;
   }
+
+  // Wire up grid/snap toggle callbacks
+  sketcher.onGridToggle = () => syncGridAndSnapUI();
+  sketcher.onSnapToggle = () => syncGridAndSnapUI();
+
+  // Set zoom change listener
+  const zoomLabel = document.getElementById('sketcher-zoom-label');
+  const updateZoomLabel = (z) => { if (zoomLabel) zoomLabel.textContent = `${Math.round(z*100)}%`; };
+  sketcher.onZoomChange = updateZoomLabel;
+  updateZoomLabel(sketcher.zoom);
+
+  // Set scale based on current dropdown value
+  const scaleSelect = document.getElementById('sketcher-scale-select');
+  if (scaleSelect) {
+    const scaleVal = parseInt(scaleSelect.value) || 100;
+    sketcher.setScale(scaleVal);
+  }
+
+  // Set grid size based on current dropdown value
+  const gridSel = document.getElementById('sketch-grid-size');
+  if (gridSel) {
+    sketcher.gridSize = parseFloat(gridSel.value) || 0.5;
+  }
+
+  // Synchronize all other toolbar button states (Lock, A4, Grid, Snap)
+  syncSketcherUIState();
   
-  sketcher.onSelectionChange = (shape) => {
+  sketcher.onSelectionChange = (shape, allSelected) => {
     const panel = document.getElementById('sketcher-properties-panel');
     if (!shape) {
       panel.style.display = 'none';
       return;
     }
-
+ 
     panel.style.display = 'flex';
-
+ 
     // Grab all field containers and inputs
     const fieldLabel      = document.getElementById('prop-field-label');
     const fieldWidth      = document.getElementById('prop-field-width');
@@ -2278,11 +2313,10 @@ function loadEntryToEditor() {
     const fieldDimLabel   = document.getElementById('prop-field-dim-label');
     const fieldBlockStyle = document.getElementById('prop-field-block-style');
     const fieldStructType = document.getElementById('prop-field-structure-type');
-    const fieldTextSize   = document.getElementById('prop-field-text-size');
-    const fieldFontFamily = document.getElementById('prop-field-font-family');
     const fieldFloors     = document.getElementById('prop-field-floors');
     const fieldWallLenAbove = document.getElementById('prop-field-wall-len-above');
-
+    const fieldRoadWidth  = document.getElementById('prop-field-road-width');
+ 
     const inputLabel      = document.getElementById('prop-input-label');
     const inputWidth      = document.getElementById('prop-input-width');
     const inputHeight     = document.getElementById('prop-input-height');
@@ -2297,22 +2331,24 @@ function loadEntryToEditor() {
     const fieldFont       = document.getElementById('prop-field-font');
     const inputFontSize   = document.getElementById('prop-input-font-size');
     const inputFontFamily = document.getElementById('prop-input-font-family');
-
+    const inputRoadWidth  = document.getElementById('prop-input-road-width');
+ 
     // Reset all optional fields hidden; label always shown
-    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldTextSize, fieldFontFamily, fieldFloors, fieldFont].forEach(f => {
+    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldFloors, fieldFont, fieldRoadWidth].forEach(f => {
       if (f) f.style.display = 'none';
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
     if (fieldRoomColor) fieldRoomColor.style.display = 'none';
     fieldLabel.style.display = 'flex';
-
+ 
     // Show font settings for most object types
-    if (['building', 'polygon-building', 'text', 'dimension', 'boundary-wall', 'gate', 'gate-toran', 'room'].includes(shape.type)) {
+    if (['building', 'polygon-building', 'text', 'dimension', 'boundary-wall', 'gate', 'gate-toran', 'room', 'road'].includes(shape.type)) {
       if (fieldFont) fieldFont.style.display = 'flex';
-      if (inputFontSize) inputFontSize.value = shape.fontSize || sketcher.globalFontSizeBase || 10;
-      if (inputFontFamily) inputFontFamily.value = shape.fontFamily || sketcher.globalFontFamily || 'sans-serif';
+      const defaultSize = (shape.type === 'text') ? 13 : 10;
+      if (inputFontSize) inputFontSize.value = shape.fontSize || defaultSize;
+      if (inputFontFamily) inputFontFamily.value = shape.fontFamily || 'sans-serif';
     }
-
+ 
     if (shape.type === 'building' || shape.type === 'polygon-building') {
       if (fieldMerge) fieldMerge.style.display = 'flex';
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
@@ -2336,21 +2372,13 @@ function loadEntryToEditor() {
       inputHeight.value = shape.dimH || '';
     } else if (shape.type === 'road') {
       fieldRoad.style.display = 'flex';
+      if (fieldRoadWidth) fieldRoadWidth.style.display = 'flex';
       inputLabel.value = shape.label || '';
       inputLeft.value = shape.leftLabel || '';
       inputRight.value = shape.rightLabel || '';
+      if (inputRoadWidth) inputRoadWidth.value = `${(shape.h || 3.0).toFixed(2)}m`;
     } else if (shape.type === 'text') {
       inputLabel.value = shape.text || '';
-      if (fieldTextSize) {
-        fieldTextSize.style.display = 'flex';
-        const inputTextSize = document.getElementById('prop-input-text-size');
-        if (inputTextSize) inputTextSize.value = shape.fontSize || '13';
-      }
-      if (fieldFontFamily) {
-        fieldFontFamily.style.display = 'flex';
-        const inputFontFamily = document.getElementById('prop-input-font-family');
-        if (inputFontFamily) inputFontFamily.value = shape.fontFamily || 'sans-serif';
-      }
     } else if (shape.type === 'boundary-wall' || shape.type === 'gate' || shape.type === 'gate-toran' || shape.type === 'wall') {
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       fieldDimLabel.style.display = 'flex';
@@ -2376,14 +2404,14 @@ function loadEntryToEditor() {
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       inputLabel.value = shape.label || '';
     }
-
+ 
     if (allSelected && allSelected.length > 1) {
       // Hide properties for multi-select, just show batch Add to Estimate
       const allFields = [
         'prop-field-label', 'prop-field-width', 'prop-field-height', 'prop-field-road',
         'prop-field-structure-type', 'prop-field-dim-label', 'prop-field-block-style',
-        'prop-field-merge', 'prop-field-text-size', 'prop-field-font-family',
-        'prop-field-room-color', 'prop-field-floors', 'prop-field-wall-len-above'
+        'prop-field-merge', 'prop-field-room-color', 'prop-field-floors', 'prop-field-wall-len-above',
+        'prop-field-road-width', 'prop-field-font'
       ];
       allFields.forEach(id => {
         const f = document.getElementById(id);
@@ -4237,8 +4265,93 @@ window.getActiveProjectRoute = () => {
   };
 };
 
+export function syncSketcherUIState() {
+  if (!sketcher) return;
+  
+  // 1. Vertical Toolbar Grid/Snap Buttons
+  const vGrid = document.getElementById('vtool-grid');
+  if (vGrid) vGrid.classList.toggle('active', sketcher.showGrid);
+  
+  const vSnap = document.getElementById('vtool-snap');
+  if (vSnap) vSnap.classList.toggle('active', sketcher.snapGrid);
+  
+  // 2. Bottom Status Bar Buttons Grid/Snap
+  const gridBtn = document.getElementById('sketch-grid-toggle');
+  if (gridBtn) {
+    gridBtn.innerHTML = sketcher.showGrid 
+      ? '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON' 
+      : '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID OFF';
+    gridBtn.style.color = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+    gridBtn.style.borderColor = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+  }
+  
+  const snapBtn = document.getElementById('sketch-snap-toggle');
+  if (snapBtn) {
+    snapBtn.innerHTML = sketcher.snapGrid 
+      ? '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON' 
+      : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
+    snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+    snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+  }
+
+  // 3. Lock button state
+  const lockBtn = document.getElementById('sketch-lock-btn');
+  if (lockBtn) {
+    lockBtn.innerHTML = sketcher.isLocked 
+      ? '<i data-lucide="lock" style="width:13px;height:13px;"></i> LOCKED' 
+      : '<i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED';
+    lockBtn.style.color = sketcher.isLocked ? '#ef4444' : '#22c55e';
+    lockBtn.style.borderColor = sketcher.isLocked ? '#ef4444' : '#22c55e';
+  }
+
+  // 4. A4 Frame button & Orientation state
+  const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');
+  const a4Orient   = document.getElementById('sketch-a4-orient');
+  if (a4FrameBtn) {
+    a4FrameBtn.innerHTML = sketcher.showA4Frame 
+      ? '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 ON' 
+      : '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF';
+    a4FrameBtn.style.color = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
+    a4FrameBtn.style.borderColor = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
+    if (a4Orient) {
+      a4Orient.style.display = sketcher.showA4Frame ? 'block' : 'none';
+      a4Orient.value = sketcher.a4Orientation || 'landscape';
+    }
+  }
+
+  // 5. Zoom label
+  const zoomLabel = document.getElementById('sketcher-zoom-label');
+  if (zoomLabel) {
+    zoomLabel.textContent = `${Math.round(sketcher.zoom * 100)}%`;
+  }
+
+  // 6. Scale Selector dropdown
+  const scaleSelect = document.getElementById('sketcher-scale-select');
+  if (scaleSelect) {
+    const ratioN = Math.round(5000 / sketcher.basePPM);
+    scaleSelect.value = ratioN.toString();
+  }
+
+  // 7. Grid Size dropdown
+  const gridSel = document.getElementById('sketch-grid-size');
+  if (gridSel) {
+    gridSel.value = sketcher.gridSize.toString();
+  }
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+export function syncGridAndSnapUI() {
+  syncSketcherUIState();
+}
+
 // Line Sketcher Toolbar Setup
 function setupSketcherToolbar() {
+  if (sketcherToolbarSetupDone) return;
+  sketcherToolbarSetupDone = true;
+
   const tools = ['select', 'building', 'polybuilding', 'room', 'road', 'text', 'line', 'wall', 'boundary-wall', 'gate', 'gate-toran', 'custom-block', 'dimension', 'freehand', 'erase'];
 
   // Vertical Toolbar Buttons mapping
@@ -4324,51 +4437,12 @@ function setupSketcherToolbar() {
   const vGrid = document.getElementById('vtool-grid');
   const vSnap = document.getElementById('vtool-snap');
 
-  const updateVGridBtn = () => {
-    if (vGrid && sketcher) {
-      vGrid.classList.toggle('active', sketcher.showGrid);
-    }
-    const gridBtn = document.getElementById('sketch-grid-toggle');
-    if (gridBtn && sketcher) {
-      gridBtn.innerHTML = sketcher.showGrid 
-        ? '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON' 
-        : '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID OFF';
-      gridBtn.style.color = sketcher.showGrid ? '#22c55e' : '#94a3b8';
-      gridBtn.style.borderColor = sketcher.showGrid ? '#22c55e' : '#94a3b8';
-      lucide.createIcons();
-    }
-  };
-
-  const updateVSnapBtn = () => {
-    if (vSnap && sketcher) {
-      vSnap.classList.toggle('active', sketcher.snapGrid);
-    }
-    const snapBtn = document.getElementById('sketch-snap-toggle');
-    if (snapBtn && sketcher) {
-      snapBtn.innerHTML = sketcher.snapGrid 
-        ? '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON' 
-        : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
-      snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
-      snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
-      lucide.createIcons();
-    }
-  };
-
   if (vGrid) vGrid.addEventListener('click', () => {
-    if (sketcher) {
-      sketcher.showGrid = !sketcher.showGrid;
-      sketcher.draw();
-      updateVGridBtn();
-    }
+    if (sketcher) sketcher.toggleGrid();
   });
 
   if (vSnap) vSnap.addEventListener('click', () => {
-    if (sketcher) {
-      sketcher.snapGrid = !sketcher.snapGrid;
-      sketcher.snapEndpt = sketcher.snapGrid;
-      sketcher.draw();
-      updateVSnapBtn();
-    }
+    if (sketcher) sketcher.toggleSnap();
   });
 
   // ── Draggable Toolbar Logic ──
@@ -4433,19 +4507,13 @@ function setupSketcherToolbar() {
 
   // ── Scale Selector ──
   const scaleSelect = document.getElementById('sketcher-scale-select');
-  if (scaleSelect && sketcher) {
-    scaleSelect.value = '100';
-    sketcher.setScale(100);
+  if (scaleSelect) {
     scaleSelect.addEventListener('change', () => {
       if (sketcher) sketcher.setScale(parseInt(scaleSelect.value));
     });
   }
 
   // ── Zoom buttons ──
-  const zoomLabel = document.getElementById('sketcher-zoom-label');
-  const updateZoomLabel = (z) => { if (zoomLabel) zoomLabel.textContent = `${Math.round(z*100)}%`; };
-  if (sketcher) { sketcher.onZoomChange = updateZoomLabel; updateZoomLabel(sketcher.zoom); }
-
   const skZoomIn  = document.getElementById('sketch-zoom-in-btn');
   const skZoomOut = document.getElementById('sketch-zoom-out-btn');
   const skZoomRst = document.getElementById('sketch-zoom-reset-btn');
@@ -4456,43 +4524,23 @@ function setupSketcherToolbar() {
   // ── Lock Toggle ──
   const lockBtn = document.getElementById('sketch-lock-btn');
   if (lockBtn) {
-    const updateLockBtn = () => {
-      if (!sketcher) return;
-      lockBtn.innerHTML = sketcher.isLocked 
-        ? '<i data-lucide="lock" style="width:13px;height:13px;"></i> LOCKED' 
-        : '<i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED';
-      lockBtn.style.color = sketcher.isLocked ? '#ef4444' : '#22c55e';
-      lockBtn.style.borderColor = sketcher.isLocked ? '#ef4444' : '#22c55e';
-      lucide.createIcons();
-    };
     lockBtn.addEventListener('click', () => {
       if (sketcher) {
         sketcher.setLocked(!sketcher.isLocked);
-        updateLockBtn();
+        syncSketcherUIState();
       }
     });
-    updateLockBtn();
   }
 
   // ── A4 Frame & Orientation ──
   const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');
   const a4Orient   = document.getElementById('sketch-a4-orient');
   if (a4FrameBtn) {
-    const updateA4Btn = () => {
-      if (!sketcher) return;
-      a4FrameBtn.innerHTML = sketcher.showA4Frame 
-        ? '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 ON' 
-        : '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF';
-      a4FrameBtn.style.color = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
-      a4FrameBtn.style.borderColor = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
-      if (a4Orient) a4Orient.style.display = sketcher.showA4Frame ? 'block' : 'none';
-      lucide.createIcons();
-    };
     a4FrameBtn.addEventListener('click', () => {
       if (sketcher) {
         sketcher.showA4Frame = !sketcher.showA4Frame;
         sketcher.draw();
-        updateA4Btn();
+        syncSketcherUIState();
       }
     });
     if (a4Orient) {
@@ -4500,61 +4548,41 @@ function setupSketcherToolbar() {
         if (sketcher) {
           sketcher.a4Orientation = a4Orient.value;
           sketcher.draw();
+          syncSketcherUIState();
         }
       });
     }
-    updateA4Btn();
   }
 
   // ── Grid toggle ──
   const gridBtn = document.getElementById('sketch-grid-toggle');
   if (gridBtn) {
-    const updateGridBtn = () => {
-      if (!sketcher) return;
-      gridBtn.innerHTML = sketcher.showGrid 
-        ? '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON' 
-        : '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID OFF';
-      gridBtn.style.color = sketcher.showGrid ? '#22c55e' : '#94a3b8';
-      gridBtn.style.borderColor = sketcher.showGrid ? '#22c55e' : '#94a3b8';
-      lucide.createIcons();
-    };
     gridBtn.addEventListener('click', () => {
-      if (sketcher) {
-        sketcher.showGrid = !sketcher.showGrid;
-        sketcher.draw();
-        updateGridBtn();
-      }
+      if (sketcher) sketcher.toggleGrid();
     });
-    updateGridBtn();
   }
 
   // ── Snap toggle ──
   const snapBtn = document.getElementById('sketch-snap-toggle');
-  if (snapBtn && sketcher) {
-    const updateSnapBtn = () => {
-      snapBtn.innerHTML = sketcher.snapGrid 
-        ? '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON' 
-        : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
-      snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
-      snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
-      lucide.createIcons();
-    };
+  if (snapBtn) {
     snapBtn.addEventListener('click', () => { 
-      if (sketcher) { 
-        sketcher.snapGrid = !sketcher.snapGrid; 
-        sketcher.snapEndpt = sketcher.snapGrid; 
-        sketcher.draw(); 
-        updateSnapBtn(); 
-      } 
+      if (sketcher) sketcher.toggleSnap();
     });
-    updateSnapBtn();
   }
 
   // ── Grid size ──
   const gridSel = document.getElementById('sketch-grid-size');
-  if (gridSel && sketcher) {
-    gridSel.addEventListener('change', () => { if (sketcher) { sketcher.gridSize = parseFloat(gridSel.value); sketcher.draw(); } });
+  if (gridSel) {
+    gridSel.addEventListener('change', () => {
+      if (sketcher) {
+        sketcher.gridSize = parseFloat(gridSel.value);
+        sketcher.draw();
+      }
+    });
   }
+
+  // Initial UI sync
+  syncSketcherUIState();
 }
 
 // GPS Perimeter Tracing Wizard Modal
@@ -5641,12 +5669,16 @@ function setupPdfTemplate() {
     if (mockDep && fields.depRate) mockDep.textContent = fields.depRate.value;
   }
 
+  updatePreviewStyles(); // Initial render
+
+  if (pdfTemplateSetupDone) return;
+  pdfTemplateSetupDone = true;
+
   // Bind live preview on input
   Object.values(fields).forEach(el => {
     if (el) el.addEventListener('input', updatePreviewStyles);
     if (el) el.addEventListener('change', updatePreviewStyles);
   });
-  updatePreviewStyles(); // Initial render
 
   // Save button
   if (saveBtn) {
@@ -6071,6 +6103,9 @@ function startAutoBackup() {
 
 // Wire the manual Backup Now button and toggle
 function setupStatusBar() {
+  if (statusBarSetupDone) return;
+  statusBarSetupDone = true;
+
   const backupBtn = document.getElementById('manual-backup-btn');
   if (backupBtn) {
     backupBtn.addEventListener('click', () => {

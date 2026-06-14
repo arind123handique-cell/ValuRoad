@@ -77,6 +77,8 @@ export class SiteSketcher {
     this.onHistoryChange   = null;
     this.onPolyNodeAdded   = null;
     this.onZoomChange      = null;
+    this.onGridToggle      = null;
+    this.onSnapToggle      = null;
 
     this.isLocked = false;
 
@@ -588,11 +590,10 @@ export class SiteSketcher {
       }
       if (e.key==='g'||e.key==='G') { 
         if (e.shiftKey) {
-          this.showGrid = !this.showGrid;
+          this.toggleGrid();
         } else {
-          this.snapGrid = !this.snapGrid;
+          this.toggleSnap();
         }
-        this.draw(); 
       }
     });
     window.addEventListener('keyup', (e) => {
@@ -1385,6 +1386,19 @@ export class SiteSketcher {
     this.panY = sy - wp.y * this.ppm;
     if (this.onZoomChange) this.onZoomChange(this.zoom);
     this.draw();
+  }
+
+  toggleGrid(state) {
+    this.showGrid = (state !== undefined) ? state : !this.showGrid;
+    this.draw();
+    if (this.onGridToggle) this.onGridToggle(this.showGrid);
+  }
+
+  toggleSnap(state) {
+    this.snapGrid = (state !== undefined) ? state : !this.snapGrid;
+    this.snapEndpt = this.snapGrid;
+    this.draw();
+    if (this.onSnapToggle) this.onSnapToggle(this.snapGrid);
   }
 
   _drawA4Frame() {
