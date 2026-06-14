@@ -1504,6 +1504,8 @@ function renderProjectDetails() {
   document.getElementById('project-details-work-title').innerText = activeProject.workName || 'Untitled Project';
   document.getElementById('project-details-location').innerText = activeProject.location || 'N/A';
 
+  const isProjectOwner = !activeProject.ownerId || (auth.currentUser && activeProject.ownerId === auth.currentUser.uid);
+
   const tbody = document.getElementById('owner-entries-list-body');
   const emptyState = document.getElementById('owner-entries-empty-state');
   const table = document.getElementById('owner-entries-table');
@@ -1571,7 +1573,8 @@ function renderProjectDetails() {
             <button class="excel-btn" title="Export to Excel" data-id="${e.id}"><i data-lucide="file-spreadsheet"></i></button>
             <button class="pdf-btn" title="Export PDF" data-id="${e.id}"><i data-lucide="file-down"></i></button>
             <button class="print-btn" title="Print Estimate" data-id="${e.id}"><i data-lucide="printer"></i></button>
-            <button class="delete-btn" title="Delete Owner Entry" data-id="${e.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>
+            <button class="duplicate-btn" title="Duplicate Owner Entry" data-id="${e.id}" style="color: var(--accent);"><i data-lucide="copy"></i></button>
+            ${isProjectOwner ? `<button class="delete-btn" title="Delete Owner Entry" data-id="${e.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>` : ''}
           </div>
         </td>
       `;
@@ -1597,6 +1600,10 @@ function renderProjectDetails() {
     tbody.querySelectorAll('.print-btn').forEach(btn => {
       btn.addEventListener('click', () => printSingleEstimate(btn.dataset.id));
     });
+    tbody.querySelectorAll('.duplicate-btn').forEach(btn => {
+      btn.addEventListener('click', () => duplicateOwnerEntry(btn.dataset.id));
+    });
+
     tbody.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', () => deleteOwnerEntry(btn.dataset.id));
     });
@@ -1648,6 +1655,12 @@ function updateProjectMetrics() {
 }
 
 async function deleteOwnerEntry(id) {
+  const isProjectOwner = !activeProject.ownerId || (auth.currentUser && activeProject.ownerId === auth.currentUser.uid);
+  if (!isProjectOwner) {
+    alert('Only the project creator can delete owner entries.');
+    return;
+  }
+
   if (confirm('Are you sure you want to delete this owner entry? This cannot be undone.')) {
     activeProject.entries = (activeProject.entries || []).filter(e => e.id !== id);
     activeProject.entriesCount = activeProject.entries.length;
@@ -1664,6 +1677,46 @@ async function deleteOwnerEntry(id) {
       await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
     }
     renderProjectDetails();
+  }
+}
+
+async function duplicateOwnerEntry(id) {
+  const entry = (activeProject.entries || []).find(e => e.id === id);
+  if (!entry) return;
+
+  // Deep clone the entry
+  const newEntry = JSON.parse(JSON.stringify(entry));
+  newEntry.id = 'OWNER_' + Date.now();
+  newEntry.clientName = (newEntry.clientName || 'Owner') + ' (Copy)';
+  newEntry.createdAt = new Date().toISOString();
+  newEntry.updatedAt = new Date().toISOString();
+  
+  // Reset fields that shouldn't be copied
+  newEntry.printedAt = null;
+  newEntry.printCount = 0;
+  newEntry.isDraft = true; // Set as draft by default for the copy
+
+  activeProject.entries = activeProject.entries || [];
+  activeProject.entries.push(newEntry);
+  activeProject.entriesCount = activeProject.entries.length;
+  activeProject.totalValuation = activeProject.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+
+  const pIdx = projects.findIndex(p => p.id === activeProject.id);
+  if (pIdx > -1) {
+    projects[pIdx] = activeProject;
+  }
+
+  saveProjects();
+  if (auth.currentUser) {
+    await saveProjectEntry(activeProject.id, newEntry).catch(err => console.error("Error saving duplicated entry:", err));
+    await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project:", err));
+  }
+  
+  renderProjectDetails();
+  if (typeof showToast === 'function') {
+    showToast('Owner entry duplicated successfully.');
+  } else {
+    alert('Owner entry duplicated successfully.');
   }
 }
 

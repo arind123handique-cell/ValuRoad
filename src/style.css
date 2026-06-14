@@ -479,6 +479,14 @@ main {
 .action-btns {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.reports-table td:last-child,
+.reports-table th:last-child {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  min-width: 180px;
 }
 
 .action-btns button {
