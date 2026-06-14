@@ -248,6 +248,24 @@ export class SiteSketcher {
         }
 
         case 'select': {
+          if (this.drawnDims) {
+            let hitDim = null;
+            for (let i = this.drawnDims.length - 1; i >= 0; i--) {
+              const dim = this.drawnDims[i];
+              if (sp.x >= dim.x && sp.x <= dim.x + dim.w && sp.y >= dim.y && sp.y <= dim.y + dim.h) {
+                hitDim = dim; break;
+              }
+            }
+            if (hitDim) {
+              this.selectedShape = hitDim.shape;
+              this.selectedShapes = [hitDim.shape];
+              this.selectedHandle = { type: 'dim-label', dim: hitDim };
+              if (this.onSelectionChange) this.onSelectionChange(hitDim.shape);
+              this.draw();
+              return;
+            }
+          }
+
           if (this.selectedShape) {
             const h = this._checkHandle(raw, this.selectedShape);
             if (h) { this.selectedHandle = h; return; }
@@ -454,6 +472,34 @@ export class SiteSketcher {
         const s = this.selectedShape;
         const h = this.selectedHandle;
 
+        if (h && h.type === 'dim-label') {
+          const dim = h.dim;
+          if (dim.edgeKey === 'label') {
+            // Free-move the label in world coordinates
+            s.labelOffsetX = (s.labelOffsetX || 0) + (raw.x - this.dragStart.x);
+            s.labelOffsetY = (s.labelOffsetY || 0) + (raw.y - this.dragStart.y);
+          } else if (s.type === 'polygon-building' || s.type === 'polygon') {
+            const j = dim.edgeKey;
+            const p1 = s.points[j], p2 = s.points[(j+1)%s.points.length];
+            const dx = p2.x - p1.x, dy = p2.y - p1.y, l = Math.hypot(dx,dy) || 1;
+            const nx = -dy/l, ny = dx/l;
+            const proj = (raw.x - this.dragStart.x) * nx + (raw.y - this.dragStart.y) * ny;
+            if (!s.customEdgeOffsets) s.customEdgeOffsets = {};
+            const curOff = (s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
+            s.customEdgeOffsets[j] = curOff + proj;
+          } else if (s.type === 'building' || s.type === 'custom-block') {
+            if (dim.edgeKey === 'w') s.dimWOffset = (s.dimWOffset||(-1.5)) + (raw.y - this.dragStart.y);
+            if (dim.edgeKey === 'h') s.dimHOffset = (s.dimHOffset||(-1.5)) + (raw.x - this.dragStart.x);
+          } else if (s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'wall' || s.type === 'gate-toran') {
+            const dx=s.x2-s.x1,dy=s.y2-s.y1,l=Math.hypot(dx,dy)||1;
+            const nx=-dy/l,ny=dx/l;
+            s.dimOffset = (s.dimOffset||(-1)) + (raw.x-this.dragStart.x)*nx + (raw.y-this.dragStart.y)*ny;
+          }
+          this.dragStart = raw;
+          this.draw();
+          return;
+        }
+
         if (h === 'dim-w') { s.dimWOffset = (s.dimWOffset||(-1.5)) + (raw.y - this.dragStart.y); this.dragStart=raw; this.draw(); return; }
         if (h === 'dim-h') { s.dimHOffset = (s.dimHOffset||(-1.5)) + (raw.x - this.dragStart.x); this.dragStart=raw; this.draw(); return; }
         if (h === 'dim-line') {
@@ -500,7 +546,9 @@ export class SiteSketcher {
       if (this.isPanning) { this.isPanning=false; return; }
       if (!this.isDown) return;
       this.isDown = false;
+      const wasDimDrag = this.selectedHandle && this.selectedHandle.type === 'dim-label';
       this.selectedHandle = null;
+      if (wasDimDrag) { this._saveState(); this.draw(); }
 
       const raw = this.previewPt || this.s2w(...[0,0]);
 
@@ -541,6 +589,45 @@ export class SiteSketcher {
 
     this.canvas.addEventListener('dblclick', (e) => {
       if (this.isLocked) return;
+
+      const r=this.canvas.getBoundingClientRect();
+      const cx=e.clientX-r.left, cy=e.clientY-r.top;
+
+      if (this.drawnDims) {
+        for (let i = this.drawnDims.length - 1; i >= 0; i--) {
+          const dim = this.drawnDims[i];
+          if (cx >= dim.x && cx <= dim.x + dim.w && cy >= dim.y && cy <= dim.y + dim.h) {
+            const newVal = prompt('Edit dimension text (leave blank to revert to auto):', dim.label);
+            if (newVal !== null) {
+              const s = dim.shape;
+              if (s.type === 'polygon-building' || s.type === 'polygon') {
+                if (!s.customEdgeDims) s.customEdgeDims = {};
+                if (newVal.trim() === '') delete s.customEdgeDims[dim.edgeKey];
+                else s.customEdgeDims[dim.edgeKey] = newVal.trim();
+              } else if (s.type === 'building' || s.type === 'custom-block') {
+                if (dim.edgeKey === 'w') {
+                  s.dimW = newVal.trim();
+                  const wIn = document.getElementById('prop-input-width');
+                  if (wIn && this.selectedShape === s) wIn.value = newVal.trim();
+                } else if (dim.edgeKey === 'h') {
+                  s.dimH = newVal.trim();
+                  const hIn = document.getElementById('prop-input-height');
+                  if (hIn && this.selectedShape === s) hIn.value = newVal.trim();
+                }
+              } else if (s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'wall' || s.type === 'dimension') {
+                 s.dimLabel = newVal.trim();
+                 s.manualLabel = newVal.trim();
+                 const dIn = document.getElementById('prop-input-dim-label');
+                 if (dIn && this.selectedShape === s) dIn.value = newVal.trim();
+              }
+              this._saveState();
+              this.draw();
+              return;
+            }
+          }
+        }
+      }
+
       if (this.mode==='wall' && this.wallChain.length >= 2) { this._commitWallChain(false); }
       else if ((this.mode==='room'||this.mode==='polybuilding') && this.polyChain.length >= 3) { this._commitPolyChain(); }
     });
@@ -760,6 +847,7 @@ export class SiteSketcher {
   //  DRAW
   // ═══════════════════════════════════════════════════════════════════════
   draw() {
+    this.drawnDims = [];
     const ctx = this.ctx;
     ctx.clearRect(0,0,this.W,this.H);
 
@@ -918,8 +1006,8 @@ export class SiteSketcher {
       const lbl=s.label||'Block';
       lbl.split('\n').forEach((l,i,a)=>ctx.fillText(l,sp.x+sw/2,sp.y+sh/2-(a.length-1)*7+i*13));
       // dimensions
-      if(s.dimW) this._drawBoxDim(s.x,s.y,s.x+s.w,s.y,s.dimW,s.dimWOffset||(-1.5), s.fontSize, s.fontFamily);
-      if(s.dimH) this._drawBoxDim(s.x,s.y,s.x,s.y+s.h,s.dimH,s.dimHOffset||(-1.5), s.fontSize, s.fontFamily);
+      if(s.dimW) this._drawBoxDim(s.x,s.y,s.x+s.w,s.y,s.dimW,s.dimWOffset||(-1.5), s.fontSize, s.fontFamily, s, 'w');
+      if(s.dimH) this._drawBoxDim(s.x,s.y,s.x,s.y+s.h,s.dimH,s.dimHOffset||(-1.5), s.fontSize, s.fontFamily, s, 'h');
 
     } else if (s.type==='polygon-building') {
       const bm2={rcc:{f:'rgba(59,130,246,0.25)',st:'#1d4ed8'},assam:{f:'rgba(16,185,129,0.25)',st:'#047857'},'temp-building':{f:'rgba(245,158,11,0.25)',st:'#b45309'},'temp-shed':{f:'rgba(120,113,108,0.15)',st:'#78716c',dash:[4,4]}};
@@ -934,16 +1022,25 @@ export class SiteSketcher {
         const n=(j+1)%s.points.length, p1=s.points[j], p2=s.points[n];
         const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
         if(len > 0.05) {
-          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, `${len.toFixed(2)}m`, 0.8, s.fontSize, s.fontFamily);
+          const lbl = (s.customEdgeDims && s.customEdgeDims[j]) ? s.customEdgeDims[j] : `${len.toFixed(2)}m`;
+          const off = (s.customEdgeOffsets && s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
+          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, lbl, off, s.fontSize, s.fontFamily, s, j);
         }
       }
 
       let cx=0,cy=0;s.points.forEach(pt=>{cx+=pt.x;cy+=pt.y;});cx/=s.points.length;cy/=s.points.length;
-      const csp2=this.w2s(cx,cy);
+      const lox = s.labelOffsetX || 0, loy = s.labelOffsetY || 0;
+      const csp2=this.w2s(cx + lox, cy + loy);
       const fs = s.fontSize || this.globalFontSizeBase;
       const ff = s.fontFamily || this.globalFontFamily;
       ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(fs * 1.1 * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(s.label||'Building',csp2.x,csp2.y);
+      const lblText = s.label||'Building';
+      const ltw = ctx.measureText(lblText).width + 8;
+      ctx.fillText(lblText,csp2.x,csp2.y);
+      // Register label rect for dragging
+      if (!this.drawnDims) this.drawnDims = [];
+      this.drawnDims.push({ x: csp2.x - ltw/2, y: csp2.y - 10, w: ltw, h: 20, shape: s, edgeKey: 'label', label: lblText });
+
     } else if (s.type==='road') {
       const sy1=this.w2s(0,s.y).y, sy2=this.w2s(0,s.y+s.h).y, rh=sy2-sy1;
       ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,sy1,this.W,rh);
@@ -988,7 +1085,7 @@ export class SiteSketcher {
       ctx.beginPath();ctx.moveTo(s1.x+nx*bOff,s1.y+ny*bOff);ctx.lineTo(s2.x+nx*bOff,s2.y+ny*bOff);ctx.moveTo(s1.x-nx*bOff,s1.y-ny*bOff);ctx.lineTo(s2.x-nx*bOff,s2.y-ny*bOff);ctx.stroke();
       ctx.lineWidth=1;
       for(let k=0;k<=Math.floor(len/12);k++){const t=k*12,hx=s1.x+ux*t,hy=s1.y+uy*t;ctx.beginPath();ctx.moveTo(hx+nx*5,hy+ny*5);ctx.lineTo(hx-nx*5,hy-ny*5);ctx.stroke();}
-      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8), s.fontSize, s.fontFamily);
+      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8), s.fontSize, s.fontFamily, s, 'dim');
 
     } else if (s.type==='gate') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -1001,7 +1098,7 @@ export class SiteSketcher {
       const ff = s.fontFamily || this.globalFontFamily;
       ctx.font=`bold ${Math.max(8, Math.round(fs * 0.9 * z))}px ${ff}`;ctx.fillStyle='#d97706';ctx.textAlign='center';
       ctx.fillText(s.label||'GATE',(s1.x+s2.x)/2,(s1.y+s2.y)/2-10);
-      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8), s.fontSize, s.fontFamily);
+      if(s.dimLabel) this._drawBoxDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-0.8), s.fontSize, s.fontFamily, s, 'dim');
 
     } else if (s.type==='gate-toran') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -1041,7 +1138,9 @@ export class SiteSketcher {
         const n=(j+1)%s.points.length, p1=s.points[j], p2=s.points[n];
         const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
         if(len > 0.05) {
-          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, `${len.toFixed(2)}m`, 0.8, s.fontSize, s.fontFamily);
+          const lbl = (s.customEdgeDims && s.customEdgeDims[j]) ? s.customEdgeDims[j] : `${len.toFixed(2)}m`;
+          const off = (s.customEdgeOffsets && s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
+          this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, lbl, off, s.fontSize, s.fontFamily, s, j);
         }
       }
 
@@ -1057,7 +1156,7 @@ export class SiteSketcher {
   }
 
   // ── dim helpers ──
-  _drawBoxDim(wx1,wy1,wx2,wy2,label,worldOff, objFS, objFF) {
+  _drawBoxDim(wx1,wy1,wx2,wy2,label,worldOff, objFS, objFF, shape, edgeKey) {
     const s1=this.w2s(wx1,wy1),s2=this.w2s(wx2,wy2);
     const dx=s2.x-s1.x,dy=s2.y-s1.y,len=Math.hypot(dx,dy);
     if(!label||len<4){return;}
@@ -1081,6 +1180,10 @@ export class SiteSketcher {
     ctx.fillStyle='rgba(255,255,255,0.92)';ctx.fillRect(mx-tw/2,my-8,tw,16);
     ctx.fillStyle='#1e293b';ctx.fillText(label,mx,my);
     ctx.restore();
+    if (shape && edgeKey !== undefined) {
+      if (!this.drawnDims) this.drawnDims = [];
+      this.drawnDims.push({ x: mx-tw/2, y: my-8, w: tw, h: 16, shape, edgeKey, label });
+    }
   }
 
   _drawLineDim(wx1,wy1,wx2,wy2,label,worldOff, objFS, objFF) {
