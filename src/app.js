@@ -2361,10 +2361,21 @@ function loadEntryToEditor() {
   };
 
   // Keyboard shortcuts for tools
-  window.addEventListener('keydown', (e) => {
+  window.addEventListener('keydown', async (e) => {
     if (!sketcher || sketcher.isLocked) return;
     if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
     
+    // Quick save shortcut
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      if (activeEntry) {
+        showToast('Saving...');
+        await saveActiveEntry('draft');
+        showToast('Drawing saved');
+      }
+      return;
+    }
+
     const key = e.key.toLowerCase();
     const tools = {
       's': 'tool-select',
@@ -4230,7 +4241,21 @@ function setupSketcherToolbar() {
   // Vertical Utils
   const vUndo = document.getElementById('vtool-undo');
   const vRedo = document.getElementById('vtool-redo');
+  const vSave = document.getElementById('vtool-save');
   const vDel = document.getElementById('vtool-delete');
+
+  if (vSave) vSave.addEventListener('click', async () => {
+    if (activeEntry && sketcher) {
+      const originalText = vSave.innerHTML;
+      vSave.innerHTML = '<i data-lucide="refresh-cw" class="spin"></i>';
+      lucide.createIcons();
+      await saveActiveEntry('draft');
+      vSave.innerHTML = originalText;
+      lucide.createIcons();
+      showToast('Drawing saved to cloud/local');
+    }
+  });
+
   if (vUndo) vUndo.addEventListener('click', () => { if (sketcher) sketcher.undo(); });
   if (vRedo) vRedo.addEventListener('click', () => { if (sketcher) sketcher.redo(); });
   if (vDel) vDel.addEventListener('click', () => { if (sketcher) sketcher.deleteSelected(); });
