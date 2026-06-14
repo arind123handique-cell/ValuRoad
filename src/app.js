@@ -2453,6 +2453,11 @@ function loadEntryToEditor() {
 
           loadEntryToEditor();
           showToast(`Added ${title} to Plinth Area`);
+          
+          // Switch to estimate tab
+          const tabBtns = document.querySelectorAll('.tab-btn');
+          tabBtns.forEach(b => { if (b.dataset.tab === 'tab-estimate') b.click(); });
+          
           return;
         }
 
