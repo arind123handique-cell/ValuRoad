@@ -647,7 +647,7 @@ export class SiteSketcher {
         if (wp.y>=s.y&&wp.y<=s.y+s.h) return s;
       } else if (s.type==='text') {
         if (Math.abs(wp.x-s.x)<3&&Math.abs(wp.y-s.y)<0.6) return s;
-      } else if (this._isLinear(s)||s.type==='wall') {
+      } else if (this._isLinear(s)||s.type==='wall'||s.type==='dimension') {
         if (this._distSeg(wp,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2})<THR) return s;
       } else if (s.type==='freehand') {
         if (s.points.some(p=>Math.hypot(wp.x-p.x,wp.y-p.y)<THR)) return s;
