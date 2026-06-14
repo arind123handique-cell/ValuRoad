@@ -2398,30 +2398,60 @@ function loadEntryToEditor() {
       selectedShapes.forEach(s => {
         if (!s) return;
         
-        const itemsToAdd = [];
-
         if (s.type === 'room' || s.type === 'polygon' || s.type === 'polygon-building' || s.type === 'building' || s.type === 'custom-block') {
+          // Find or create a plinth-area item
+          let plinthItem = activeEntry.items.find(it => it.type === 'plinth-area');
+          if (!plinthItem) {
+            addItem('plinth-area');
+            plinthItem = activeEntry.items[activeEntry.items.length - 1];
+            // Clear default room from addItem
+            plinthItem.rooms = [];
+          }
+
           const floors = parseInt(s.floors) || 1;
+          const title = s.label || 'Building Block';
           
           for (let i = 0; i < floors; i++) {
-            let qty = 0, unit = 'sqm', title = s.label || 'Building Block', rate = 0, description = 'Plinth area for building', l = '', b = '', h = '';
-
             let floorName = "Ground Floor";
             if (i === 1) floorName = "1st Floor";
             else if (i === 2) floorName = "2nd Floor";
             else if (i === 3) floorName = "3rd Floor";
             else if (i > 3) floorName = `${i}th Floor`;
 
-            const fullTitle = `${title} (${floorName})`;
-            if (s.type === 'building' || s.type === 'custom-block') { qty = (s.w || 0) * (s.h || 0); l = s.w; b = s.h; }
-            else { qty = s.areaSqm || 0; }
+            const roomName = `${title} (${floorName})`;
+            let l = 0, w = 0, area = 0;
 
-            if (title === 'RCC Structure') rate = 20685.00;
-            else if (title === 'Assam Type Building') rate = 15867.00;
-            else if (title === 'Temporary Building' || title === 'Temp Shed') { rate = 205.00; unit = 'sqf'; qty *= 10.76391; if (l) l *= 3.28084; if (b) b *= 3.28084; }
+            if (s.type === 'building' || s.type === 'custom-block') {
+              l = s.w || 0;
+              w = s.h || 0;
+              area = l * w;
+            } else {
+              area = s.areaSqm || 0;
+              // Synthetic L/W for the display
+              l = Math.sqrt(area);
+              w = l;
+            }
 
-            itemsToAdd.push({ qty, unit, title: fullTitle, rate, description, l, b, h, nos: 1, measurementDesc: `${title} - ${floorName}` });
+            plinthItem.rooms.push({
+              id: Date.now() + Math.random(),
+              name: roomName,
+              l: parseFloat(l.toFixed(2)),
+              w: parseFloat(w.toFixed(2)),
+              areaSqm: parseFloat(area.toFixed(2))
+            });
           }
+
+          // Trigger UI update for the plinth item
+          const tr = document.querySelector(`.builder-table tr[data-id="${plinthItem.id}"]`);
+          if (tr) {
+            renderPlinthRooms(plinthItem, tr);
+            updatePlinthCalculations(plinthItem, tr);
+          } else {
+            renderEstimateTable();
+          }
+          
+          showToast(`Added ${title} to Plinth Area`);
+
         } else if (s.type === 'wall' || s.type === 'boundary-wall' || s.type === 'line' || s.type === 'gate') {
           let len = 0;
           if (s.points && s.points.length >= 2) { for (let i = 0; i < s.points.length - 1; i++) len += Math.hypot(s.points[i+1].x - s.points[i].x, s.points[i+1].y - s.points[i].y); }
