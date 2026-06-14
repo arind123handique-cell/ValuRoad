@@ -2442,12 +2442,12 @@ function loadEntryToEditor() {
           }
 
           // Trigger UI update for the plinth item
-          const tr = document.querySelector(`.builder-table tr[data-id="${plinthItem.id}"]`);
+          const tr = document.querySelector(`.builder-table tr[data-item-id="${plinthItem.id}"]`);
           if (tr) {
             renderPlinthRooms(plinthItem, tr);
             updatePlinthCalculations(plinthItem, tr);
           } else {
-            renderEstimateTable();
+            loadEntryToEditor();
           }
           
           showToast(`Added ${title} to Plinth Area`);
