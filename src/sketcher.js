@@ -69,6 +69,8 @@ export class SiteSketcher {
     this.showA4Frame = false;
     this.a4Orientation = 'landscape';
     this.showGrid = true;
+    this.snapGrid = true;
+    this.snapEndpt = true;
 
     // ── callbacks (set externally) ──
     this.onSelectionChange = null;
@@ -578,7 +580,14 @@ export class SiteSketcher {
         this.inputBuffer = ''; this.showInputHUD = false;
         this.draw(); 
       }
-      if (e.key==='g'||e.key==='G') { this.snapGrid=!this.snapGrid; this.draw(); }
+      if (e.key==='g'||e.key==='G') { 
+        if (e.shiftKey) {
+          this.showGrid = !this.showGrid;
+        } else {
+          this.snapGrid = !this.snapGrid;
+        }
+        this.draw(); 
+      }
     });
     window.addEventListener('keyup', (e) => {
       if (this.isLocked) return;

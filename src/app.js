@@ -4132,6 +4132,7 @@ function setupSketcherToolbar() {
     'vtool-line': 'line',
     'vtool-dimension': 'dimension',
     'vtool-boundary': 'boundary-wall',
+    'vtool-road': 'road',
     'vtool-text': 'text',
     'vtool-gate': 'gate'
   };
@@ -4170,6 +4171,56 @@ function setupSketcherToolbar() {
   if (vUndo) vUndo.addEventListener('click', () => { if (sketcher) sketcher.undo(); });
   if (vRedo) vRedo.addEventListener('click', () => { if (sketcher) sketcher.redo(); });
   if (vDel) vDel.addEventListener('click', () => { if (sketcher) sketcher.deleteSelected(); });
+
+  const vGrid = document.getElementById('vtool-grid');
+  const vSnap = document.getElementById('vtool-snap');
+
+  const updateVGridBtn = () => {
+    if (vGrid && sketcher) {
+      vGrid.classList.toggle('active', sketcher.showGrid);
+    }
+    const gridBtn = document.getElementById('sketch-grid-toggle');
+    if (gridBtn && sketcher) {
+      gridBtn.innerHTML = sketcher.showGrid 
+        ? '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON' 
+        : '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID OFF';
+      gridBtn.style.color = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+      gridBtn.style.borderColor = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+      lucide.createIcons();
+    }
+  };
+
+  const updateVSnapBtn = () => {
+    if (vSnap && sketcher) {
+      vSnap.classList.toggle('active', sketcher.snapGrid);
+    }
+    const snapBtn = document.getElementById('sketch-snap-toggle');
+    if (snapBtn && sketcher) {
+      snapBtn.innerHTML = sketcher.snapGrid 
+        ? '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON' 
+        : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
+      snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+      snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+      lucide.createIcons();
+    }
+  };
+
+  if (vGrid) vGrid.addEventListener('click', () => {
+    if (sketcher) {
+      sketcher.showGrid = !sketcher.showGrid;
+      sketcher.draw();
+      updateVGridBtn();
+    }
+  });
+
+  if (vSnap) vSnap.addEventListener('click', () => {
+    if (sketcher) {
+      sketcher.snapGrid = !sketcher.snapGrid;
+      sketcher.snapEndpt = sketcher.snapGrid;
+      sketcher.draw();
+      updateVSnapBtn();
+    }
+  });
 
   document.getElementById('tool-close-poly').addEventListener('click', () => {
     if (sketcher) {
