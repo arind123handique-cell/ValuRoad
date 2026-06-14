@@ -604,119 +604,260 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
 
   // ── PREPARE PAGES ────────────────────────────────────────────────────────────
-  let pagesHtml = [];
-  const MAX_ITEMS_PER_PAGE = 20;
-  
-  // Combine all items to be paginated
-  const allValItems = [...depreciatedItems];
-  
-  for (let i = 0; i < allValItems.length; i += MAX_ITEMS_PER_PAGE) {
-    const batch = allValItems.slice(i, i + MAX_ITEMS_PER_PAGE);
-    const isFirst = (i === 0);
-    const isLast = (i + MAX_ITEMS_PER_PAGE >= allValItems.length);
-    
-    let pageContent = '';
-    
-    // Page Header
-    if (isFirst) {
-      pageContent += orgBlock + subBlock;
-    }
-    
-    pageContent += `
-      <div class="pdf-estimate-header pdf-meta" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
-        <div class="pdf-row" style="margin-bottom: 4px;">
-          <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
-          <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
-          <div style="flex-grow: 1; font-weight: bold; text-align: justify; padding-right: 5mm;">${report.workName || 'N/A'}</div>
-        </div>
-        <div class="pdf-row" style="margin-bottom: 4px;">
-          <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Occupier</div>
-          <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-          <div style="flex-grow: 1;">${report.clientName || 'N/A'}</div>
-        </div>
-        <div class="pdf-row" style="margin-bottom: 4px;">
-          <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Village</div>
-          <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-          <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
-        </div>
-        <div class="pdf-row" style="margin-bottom: 4px;">
-          <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Year of Construction</div>
-          <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-          <div style="flex-grow: 1;">
-            <span style="font-weight: bold;">${report.constructionYear || 'N/A'}</span>
-            ${report.constructionYearComment ? `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${report.constructionYearComment}` : ''}
-          </div>
-        </div>
-      </div>
-    `;
+  // Get active page settings from DOM if available (real-time preview sync)
+  let pageSize = 'a4';
+  let pageOrient = 'portrait';
+  let pageMargin = tpl.margin || 8;
 
-    if (isFirst) {
-      pageContent += `
-        <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
-          This estimate is prepared on the basis of ${tpl.basisText}
-        </div>
-      `;
-    } else {
-      pageContent += `
-        <div style="margin-top: 2mm; margin-bottom: 5mm; font-size: 9pt; font-style: italic; color: #475569;">
-          (Continued from previous page...)
-        </div>
-      `;
-    }
+  if (typeof document !== 'undefined') {
+    const sizeEl = document.getElementById('prev-page-size');
+    if (sizeEl) pageSize = sizeEl.value;
 
-    // Items List
-    pageContent += `<div class="pdf-items-list pdf-table-text">`;
-    batch.forEach(item => {
-      pageContent += renderItem(item);
+    const orientEl = document.getElementById('prev-page-orient');
+    if (orientEl) pageOrient = orientEl.value;
+
+    const marginEl = document.getElementById('prev-page-margin');
+    if (marginEl) pageMargin = parseFloat(marginEl.value) || pageMargin;
+  }
+
+  let pageHeight = 297; // Default A4 height
+  if (pageSize === 'letter') pageHeight = 279;
+  else if (pageSize === 'legal') pageHeight = 356;
+  else if (pageSize === 'a3') pageHeight = 420;
+
+  if (pageOrient === 'landscape') {
+    if (pageSize === 'a4') pageHeight = 210;
+    else if (pageSize === 'letter') pageHeight = 216;
+    else if (pageSize === 'legal') pageHeight = 216;
+    else if (pageSize === 'a3') pageHeight = 297;
+  }
+
+  const printableHeight = pageHeight - (2 * pageMargin);
+
+  // Helper to estimate height of an item in mm
+  function estimateItemHeight(item) {
+    let height = 20; // Base header
+    if (item.description) height += 8;
+    
+    if (item.type === 'quantity-rate') {
+      if (item.measurements && item.measurements.length > 0) {
+        height += 8 + item.measurements.length * 6 + 8;
+      } else {
+        height += 8;
+      }
+      height += 8; // Rate line
+      if (item.deductionPct > 0) height += 16;
+    } else if (item.type === 'plinth-area') {
+      height += 6; // Plinth area of building text
+      if (item.rooms && item.rooms.length > 0) {
+        height += item.rooms.length * 6;
+      }
+      height += 6; // Total Plinth Area
+      if (item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) {
+        height += 6; // Total Sqft Area
+      }
+      height += 8; // Rate line
+      if (item.deductionPct > 0) height += 8; // Deduction line
+    } else if (item.type === 'lump-sum') {
+      height += 8; // Rate Line
+      if (item.deductionPct > 0) height += 16;
+    }
+    height += 6; // margin-bottom
+    return height;
+  }
+
+  // Estimate block heights for footer sections
+  let subtotalHeight = 15;
+  let subtotalLines = 4;
+  if (report.enableDepreciation !== false) subtotalLines += 2;
+  subtotalHeight = subtotalLines * 5 + 10;
+
+  let serviceHeight = 0;
+  if (report.addSanitary || report.addElectrification || (report.customServices && report.customServices.length > 0)) {
+    let serviceLines = 1;
+    if (report.addSanitary) serviceLines += 1;
+    if (report.addElectrification) serviceLines += 1;
+    if (report.customServices) serviceLines += report.customServices.length;
+    serviceHeight = 4 + serviceLines * 5 + 10;
+  }
+
+  const grandTotalHeight = 25;
+
+  let nbHeight = 0;
+  if (cleanNbNote) {
+    nbHeight = 6 + Math.ceil(cleanNbNote.length / 80) * 5 + 10;
+  }
+
+  let profileHeight = 0;
+  if (profileHtml) {
+    let useThreeSeals = true;
+    let includePdf = true;
+    try {
+      const savedProf = localStorage.getItem('valuroad_user_profile');
+      if (savedProf) {
+        const prof = JSON.parse(savedProf);
+        useThreeSeals = prof.useThreeSeals !== false;
+        includePdf = prof.includePdf !== false;
+      }
+    } catch(e) {}
+    if (includePdf) {
+      profileHeight = useThreeSeals ? 50 : 45;
+    }
+  }
+
+  // Build the list of printable blocks
+  const blocks = [];
+  
+  if (depreciatedItems.length > 0) {
+    depreciatedItems.forEach(item => {
+      blocks.push({
+        type: 'item',
+        html: renderItem(item),
+        height: estimateItemHeight(item)
+      });
     });
-    pageContent += `</div>`;
+  } else {
+    blocks.push({
+      type: 'empty-notice',
+      html: `<div style="text-align: center; margin-top: 20mm; color: #64748b;">No items included in this valuation.</div>`,
+      height: 30
+    });
+  }
 
-    // Footer and Totals (only on last valuation page)
-    if (isLast) {
-      pageContent += `
-        <div class="pdf-table-text">
-          ${subtotalsHtml}
+  // Subtotals
+  blocks.push({
+    type: 'subtotals',
+    html: `<div class="pdf-table-text">${subtotalsHtml}</div>`,
+    height: subtotalHeight
+  });
+
+  // Excluded Items
+  excludedItems.forEach(item => {
+    blocks.push({
+      type: 'item',
+      html: renderItem(item),
+      height: estimateItemHeight(item)
+    });
+  });
+
+  // Service items
+  if (report.addSanitary || report.addElectrification || (report.customServices && report.customServices.length > 0)) {
+    blocks.push({
+      type: 'services',
+      html: `<div class="pdf-table-text">${serviceItemsHtml}</div>`,
+      height: serviceHeight
+    });
+  }
+
+  // Grand Total
+  blocks.push({
+    type: 'grandtotal',
+    html: `<div class="pdf-table-text">${grandTotalHtml}</div>`,
+    height: grandTotalHeight
+  });
+
+  // N.B. Note
+  if (cleanNbNote) {
+    blocks.push({
+      type: 'nb',
+      html: nbHtml,
+      height: nbHeight
+    });
+  }
+
+  // Profile
+  if (profileHtml) {
+    blocks.push({
+      type: 'profile',
+      html: profileHtml,
+      height: profileHeight
+    });
+  }
+
+  // Chunk blocks into pages based on available height
+  const firstPageHeaderHeight = (tpl.orgName ? 18 : 0) + (tpl.subtitle ? 18 : 0) + 35 + 15 + 5;
+  const firstPageAvailableHeight = Math.max(50, printableHeight - firstPageHeaderHeight);
+  const subsequentPageAvailableHeight = Math.max(50, printableHeight - 15);
+
+  let pages = [];
+  let currentPageBlocks = [];
+  let currentPageRemainingHeight = firstPageAvailableHeight;
+  let isFirstPage = true;
+
+  blocks.forEach(block => {
+    const blockHeight = block.height;
+    
+    if (currentPageBlocks.length > 0 && currentPageRemainingHeight < blockHeight) {
+      pages.push(currentPageBlocks);
+      currentPageBlocks = [block];
+      isFirstPage = false;
+      currentPageRemainingHeight = subsequentPageAvailableHeight - blockHeight;
+    } else {
+      currentPageBlocks.push(block);
+      currentPageRemainingHeight -= blockHeight;
+    }
+  });
+
+  if (currentPageBlocks.length > 0) {
+    pages.push(currentPageBlocks);
+  }
+
+  // Generate HTML for all pages
+  let estimatePagesHtml = '';
+  const firstPageHeader = orgBlock + subBlock + `
+    <div class="pdf-estimate-header pdf-meta" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
+      <div class="pdf-row" style="margin-bottom: 4px;">
+        <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
+        <div style="width: 5mm; text-align: center; font-weight: bold; flex-shrink: 0;">:</div>
+        <div style="flex-grow: 1; font-weight: bold; text-align: justify; padding-right: 5mm;">${report.workName || 'N/A'}</div>
+      </div>
+      <div class="pdf-row" style="margin-bottom: 4px;">
+        <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Occupier</div>
+        <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+        <div style="flex-grow: 1;">${report.clientName || 'N/A'}</div>
+      </div>
+      <div class="pdf-row" style="margin-bottom: 4px;">
+        <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Village</div>
+        <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+        <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
+      </div>
+      <div class="pdf-row" style="margin-bottom: 4px;">
+        <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Year of Construction</div>
+        <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+        <div style="flex-grow: 1;">
+          <span style="font-weight: bold;">${report.constructionYear || 'N/A'}</span>
+          ${report.constructionYearComment ? `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${report.constructionYearComment}` : ''}
         </div>
-        <div class="pdf-excluded-list pdf-table-text">
-          ${excludedItemsHtml}
+      </div>
+    </div>
+    <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
+      This estimate is prepared on the basis of ${tpl.basisText}
+    </div>
+  `;
+
+  const subsequentPageHeader = '';
+
+  pages.forEach((pageBlocks, pageIdx) => {
+    const isFirst = (pageIdx === 0);
+    const content = pageBlocks.map(b => b.html).join('');
+    
+    if (isFirst) {
+      estimatePagesHtml += `
+        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
+          ${firstPageHeader}
+          ${content}
         </div>
-        <div class="pdf-table-text">
-          ${serviceItemsHtml}
-        </div>
-        <div class="pdf-table-text">
-          ${grandTotalHtml}
-        </div>
-        ${nbHtml}
-        ${profileHtml}
       `;
     } else {
-      pageContent += `
-        <div style="margin-top: auto; text-align: right; font-size: 9pt; font-style: italic; color: #64748b;">
-          Continued on next page...
+      estimatePagesHtml += `
+        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
+          ${content}
         </div>
       `;
     }
+  });
 
-    pagesHtml.push(`
-      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
-        ${pageContent}
-      </div>
-    `);
-  }
-
-  // Handle case with no items
-  if (pagesHtml.length === 0) {
-    pagesHtml.push(`
-      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
-        ${orgBlock} ${subBlock}
-        <div style="text-align: center; margin-top: 20mm; color: #64748b;">No items included in this valuation.</div>
-        ${grandTotalHtml}
-        ${profileHtml}
-      </div>
-    `);
-  }
-
-  let html = pagesHtml.join('');
+  let html = estimatePagesHtml;
 
 
   // ── PAGE 2: LINE PLAN ────────────────────────────────────────────────────────
@@ -749,7 +890,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-   <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 270mm;">
+   <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 270mm;">
      ${headerHtml}
      <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px;">
        ${sketcherImage
@@ -767,7 +908,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // ── PAGE 3: SITE PHOTO EVIDENCE ──────────────────────────────────────────────
   if (report.photos && report.photos.length > 0) {
     html += `
-      <div class="pdf-page" style="page-break-before: always; font-family: Arial, Helvetica, sans-serif; color: #000000;">
+      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000;">
         <h3 class="section-title" style="font-size: 14pt; font-weight: bold; margin-bottom: 15px; border-bottom: 1.5px solid #000000; padding-bottom: 4px;">SITE PHOTO EVIDENCE</h3>
         <div class="pdf-photo-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; margin-top: 5mm;">
     `;

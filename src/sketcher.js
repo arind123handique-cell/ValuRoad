@@ -228,8 +228,8 @@ export class SiteSketcher {
       const sp  = getSP(e);
       const raw = this.s2w(sp.x, sp.y);
 
-      // pan: middle button or Space held
-      if (e.button === 1 || this.spaceDown) {
+      // pan: middle button or Space held or pan mode
+      if (e.button === 1 || this.spaceDown || this.mode === 'pan') {
         this.isPanning = true; this.lastSP = sp; return;
       }
 
@@ -238,6 +238,12 @@ export class SiteSketcher {
       this.dragStart = raw;
 
       switch (this.mode) {
+        case 'zoom': {
+          const factor = e.shiftKey ? 0.8 : 1.25;
+          this.zoomAt(sp.x, sp.y, factor);
+          this.isDown = false;
+          break;
+        }
 
         case 'select': {
           if (this.selectedShape) {
@@ -1369,6 +1375,15 @@ export class SiteSketcher {
   panCanvas(dx, dy) {
     this.panX += dx;
     this.panY += dy;
+    this.draw();
+  }
+
+  zoomAt(sx, sy, factor) {
+    const wp = this.s2w(sx, sy);
+    this.zoom = Math.min(this.MAX_ZOOM, Math.max(this.MIN_ZOOM, this.zoom * factor));
+    this.panX = sx - wp.x * this.ppm;
+    this.panY = sy - wp.y * this.ppm;
+    if (this.onZoomChange) this.onZoomChange(this.zoom);
     this.draw();
   }
 

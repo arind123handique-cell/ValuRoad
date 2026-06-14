@@ -151,7 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         // Fetch projects
-        projects = await fetchUserProjects(user.uid, user.email);
+        const updatedProjects = await fetchUserProjects(user.uid, user.email);
+        updateProjectsList(updatedProjects);
         saveProjects(); // cache locally
         renderProjects();
         updateGlobalMetrics();
@@ -246,6 +247,35 @@ function updateThemeIcon(theme) {
     icon.setAttribute('data-lucide', 'moon');
   }
   lucide.createIcons();
+}
+
+function showToast(message, type = 'success') {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  let iconName = 'check-circle';
+  if (type === 'error') iconName = 'alert-circle';
+  if (type === 'info') iconName = 'info';
+
+  toast.innerHTML = `
+    <i data-lucide="${iconName}"></i>
+    <span>${message}</span>
+  `;
+
+  container.appendChild(toast);
+  if (window.lucide) lucide.createIcons();
+
+  setTimeout(() => {
+    toast.style.animation = 'toast-out 0.3s ease-in forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
 }
 
 // Router Navigation
@@ -449,6 +479,17 @@ function saveProjects() {
   }
 }
 
+function updateProjectsList(updatedProjects) {
+  // Merge updatedProjects with existing projects to preserve entries lists in memory
+  projects = updatedProjects.map(up => {
+    const existing = projects.find(p => p.id === up.id);
+    if (existing && existing.entries) {
+      return { ...up, entries: existing.entries };
+    }
+    return up;
+  });
+}
+
 function loadCustomDsrCatalog() {
   try {
     customDsrCatalog = JSON.parse(localStorage.getItem('customDsrCatalog')) || [];
@@ -482,7 +523,8 @@ function setupDashboard() {
       
       if (auth.currentUser) {
         try {
-          projects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
+          const updatedProjects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
+          updateProjectsList(updatedProjects);
           saveProjects();
           renderProjects();
         } catch (err) {
@@ -1598,17 +1640,6 @@ function updateProjectMetrics() {
 
 async function deleteOwnerEntry(id) {
   if (confirm('Are you sure you want to delete this owner entry? This cannot be undone.')) {
-    if (auth.currentUser) {
-      try {
-        const updated = await fetchProjectById(activeProject.id);
-        if (updated) {
-          activeProject = updated;
-        }
-      } catch (err) {
-        console.warn("Failed to fetch latest state before delete:", err);
-      }
-    }
-
     activeProject.entries = (activeProject.entries || []).filter(e => e.id !== id);
     activeProject.entriesCount = activeProject.entries.length;
     activeProject.totalValuation = activeProject.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
@@ -1676,17 +1707,6 @@ async function saveProject() {
     return;
   }
 
-  if (auth.currentUser) {
-    try {
-      const updated = await fetchProjectById(activeProject.id);
-      if (updated) {
-        activeProject = updated;
-      }
-    } catch (err) {
-      console.warn("Failed to fetch latest state before project save:", err);
-    }
-  }
-
   activeProject.workName = workName;
   activeProject.location = location;
   activeProject.nbNote = nbNote;
@@ -1703,7 +1723,7 @@ async function saveProject() {
   if (auth.currentUser) {
     await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
   }
-  openProjectDetails(activeProject.id);
+  await openProjectDetails(activeProject.id);
 }
 
 // Affected Owner Valuation Editor
@@ -1737,10 +1757,26 @@ function setupEditor() {
   document.getElementById('add-plinth-item-btn').addEventListener('click', () => addItem('plinth-area'));
   document.getElementById('add-lumpsum-item-btn').addEventListener('click', () => addItem('lump-sum'));
 
-  document.getElementById('editor-save-draft-btn').addEventListener('click', () => {
-    saveActiveEntry('draft');
-    alert('Draft saved successfully!');
-    if (activeProject) openProjectDetails(activeProject.id);
+  document.getElementById('editor-save-draft-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('editor-save-draft-btn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="refresh-cw" class="spin" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> Saving...';
+    lucide.createIcons();
+
+    try {
+      await saveActiveEntry('draft');
+      alert('Draft saved successfully!');
+      isNewEntryMode = false;
+      if (activeProject) await openProjectDetails(activeProject.id);
+    } catch (err) {
+      console.error("Save draft failed:", err);
+      alert('Failed to save draft. Please check your connection and try again.');
+    } finally {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      lucide.createIcons();
+    }
   });
 
   document.getElementById('editor-modify-btn').addEventListener('click', () => {
@@ -2369,17 +2405,24 @@ function loadEntryToEditor() {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       if (activeEntry) {
-        showToast('Saving...');
-        await saveActiveEntry('draft');
-        showToast('Drawing saved');
+        showToast('Syncing to cloud...', 'info');
+        try {
+          await saveActiveEntry('draft');
+          showToast('Sync Successful: Drawing saved');
+        } catch (err) {
+          showToast('Sync Failed: Check connection', 'error');
+        }
       }
       return;
     }
 
     const key = e.key.toLowerCase();
     const tools = {
-      's': 'tool-select',
-      'w': 'tool-wall',
+      's': 'vtool-select',
+      'h': 'vtool-pan',
+      'z': 'vtool-zoom',
+      'w': 'vtool-wall',
+
       'l': 'tool-line',
       'b': 'tool-building',
       'r': 'tool-room',
@@ -3950,17 +3993,7 @@ async function saveActiveEntry(status = 'draft') {
     }
   }
 
-  // Fetch the latest state from cloud first to merge rather than overwrite
-  if (auth.currentUser) {
-    try {
-      const updated = await fetchProjectById(activeProject.id);
-      if (updated) {
-        activeProject = updated;
-      }
-    } catch (err) {
-      console.warn("Failed to fetch latest state for merging before save:", err);
-    }
-  }
+  const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Cloud timeout')), ms));
 
   if (!activeProject.entries) activeProject.entries = [];
   const idx = activeProject.entries.findIndex(e => e.id === activeEntry.id);
@@ -3980,16 +4013,29 @@ async function saveActiveEntry(status = 'draft') {
     projects[pIdx] = activeProject;
   }
 
-  saveProjects();
+  saveProjects(); // Local backup
+
   if (auth.currentUser) {
-    await saveProjectEntry(activeProject.id, activeEntry).catch(err => console.error("Error saving entry to subcollection:", err));
-    await saveUserProject(auth.currentUser.uid, activeProject).catch(err => console.error("Error saving project to Firestore:", err));
+    try {
+      // Perform cloud saves with timeout
+      await Promise.race([
+        Promise.all([
+          saveProjectEntry(activeProject.id, activeEntry),
+          saveUserProject(auth.currentUser.uid, activeProject)
+        ]),
+        timeout(10000)
+      ]);
+      return true; // Success
+    } catch (err) {
+      console.error("Cloud sync failed:", err);
+      throw err; // Signal failure to caller
+    }
   }
 
   // Auto-learn DSR rates from this entry's quantity-rate items
   learnDsrRatesFromEntry(activeEntry);
-
   renderProjectDetails();
+  return false; // Not a cloud user but saved locally
 }
 
 // Site Evidence Image Upload
@@ -4198,6 +4244,8 @@ function setupSketcherToolbar() {
   // Vertical Toolbar Buttons mapping
   const vToolsMap = {
     'vtool-select': 'select',
+    'vtool-pan': 'pan',
+    'vtool-zoom': 'zoom',
     'vtool-wall': 'wall',
     'vtool-room': 'room',
     'vtool-building': 'building',
@@ -4230,6 +4278,13 @@ function setupSketcherToolbar() {
           sketcher.hoverPos = null;
           sketcher.wallChain = [];
           sketcher.polyChain = [];
+          
+          // Update cursor
+          sketcher.canvas.className = '';
+          if (mode === 'pan' || mode === 'zoom') {
+            sketcher.canvas.classList.add(`mode-${mode}`);
+          }
+          
           document.getElementById('tool-close-poly').style.display = 'none';
           syncAllToolbars(mode);
           sketcher.draw();
@@ -4249,10 +4304,16 @@ function setupSketcherToolbar() {
       const originalText = vSave.innerHTML;
       vSave.innerHTML = '<i data-lucide="refresh-cw" class="spin"></i>';
       lucide.createIcons();
-      await saveActiveEntry('draft');
-      vSave.innerHTML = originalText;
-      lucide.createIcons();
-      showToast('Drawing saved to cloud/local');
+      try {
+        await saveActiveEntry('draft');
+        showToast('Sync Successful: Drawing saved to cloud');
+      } catch (err) {
+        console.error("Save failed:", err);
+        showToast('Sync Failed: Check internet connection', 'error');
+      } finally {
+        vSave.innerHTML = originalText;
+        lucide.createIcons();
+      }
     }
   });
 
@@ -5432,7 +5493,7 @@ function runPdfExport(entryId) {
 }
 
 function saveActiveEntry_noExport() {
-  if (!activeEntry || !activeProject) return;
+  if (!activeEntry || !activeProject) return Promise.resolve(false);
 
   let sketcherBase64 = '';
   if (sketcher) {
@@ -5440,7 +5501,7 @@ function saveActiveEntry_noExport() {
   }
 
   activeEntry.sketcherImage = sketcherBase64;
-  saveActiveEntry(activeEntry.status);
+  return saveActiveEntry(activeEntry.status);
 }
 
 function saveActiveEntryAndExportPDF() {
@@ -5457,21 +5518,35 @@ function saveActiveEntryAndExportPDF() {
 }
 
 // Save Modifications / Save & Finalize
-document.getElementById('editor-complete-btn').addEventListener('click', () => {
+document.getElementById('editor-complete-btn').addEventListener('click', async () => {
   if (validateEditorForm()) {
-    if (activeEntry.status !== 'completed') {
-      if (confirm('Are you sure you want to finalize this valuation entry? (This will mark it as completed and lock it from accidental edits)')) {
-        activeEntry.status = 'completed';
-        saveActiveEntry_noExport();
-        alert('Valuation entry finalized successfully!');
+    const isFinalizing = activeEntry.status !== 'completed';
+    const confirmMsg = isFinalizing
+      ? 'Are you sure you want to finalize this valuation entry? (This will mark it as completed and lock it from accidental edits)'
+      : 'Save modifications to this valuation report?';
+
+    if (confirm(confirmMsg)) {
+      const btn = document.getElementById('editor-complete-btn');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="spin" style="width:16px; height:16px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> Saving...';
+      lucide.createIcons();
+
+      try {
+        if (isFinalizing) {
+          activeEntry.status = 'completed';
+        }
+        await saveActiveEntry_noExport();
+        alert(isFinalizing ? 'Valuation entry finalized successfully!' : 'Valuation report modifications saved successfully!');
         isNewEntryMode = false;
-        if (activeProject) openProjectDetails(activeProject.id);
-      }
-    } else {
-      if (confirm('Save modifications to this valuation report?')) {
-        saveActiveEntry_noExport();
-        alert('Valuation report modifications saved successfully!');
-        if (activeProject) openProjectDetails(activeProject.id);
+        if (activeProject) await openProjectDetails(activeProject.id);
+      } catch (err) {
+        console.error("Save entry failed:", err);
+        alert('Failed to save. Please check your connection and try again.');
+      } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        lucide.createIcons();
       }
     }
   }
@@ -5939,7 +6014,7 @@ function startAutoSync() {
     try {
       if (views.dashboard.classList.contains('active')) {
         const updatedProjects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
-        projects = updatedProjects;
+        updateProjectsList(updatedProjects);
         renderProjects();
       } else if (views.projectDetails.classList.contains('active') && activeProject) {
         const updated = await fetchProjectById(activeProject.id);
@@ -6477,11 +6552,7 @@ function exportPreviewedDocument(isPrint = false) {
 
     const pageStyle = `padding: ${margin}mm; ${styles};`;
     
-    if (idx === 0) {
-      combinedHtml += `<div class="pdf-page" style="${pageStyle}">${clone.innerHTML}</div>`;
-    } else {
-      combinedHtml += `<div class="pdf-page" style="page-break-before: always; ${pageStyle}">${clone.innerHTML}</div>`;
-    }
+    combinedHtml += `<div class="pdf-page" style="${pageStyle}">${clone.innerHTML}</div>`;
   });
 
   const opt = {
