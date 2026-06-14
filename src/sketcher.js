@@ -67,6 +67,8 @@ export class SiteSketcher {
     this.future  = [];
     this.isExporting = false;
     this.showA4Frame = false;
+    this.a4Orientation = 'landscape';
+    this.showGrid = true;
 
     // ── callbacks (set externally) ──
     this.onSelectionChange = null;
@@ -112,25 +114,30 @@ export class SiteSketcher {
 
   // ─── snap raw world point ───
   _snap(raw, excludeId) {
+    const thrW = this.SNAP_PX / this.zoom / this.basePPM; // world units threshold
     let pt = { ...raw };
+    let snapped = false;
 
-    // grid snap
-    if (this.snapGrid) {
-      const g = this.gridSize;
-      pt.x = Math.round(pt.x / g) * g;
-      pt.y = Math.round(pt.y / g) * g;
-    }
-
-    // endpoint snap (overrides grid if closer) — only when snap is enabled
-    if (this.snapGrid && this.snapEndpt) {
-      const thrW = this.SNAP_PX / this.ppm;
+    // 1. endpoint snap (priority)
+    if (this.snapEndpt) {
       let best = null, bestDist = thrW;
       this._allEndpoints(excludeId).forEach(ep => {
         const d = Math.hypot(raw.x - ep.x, raw.y - ep.y);
         if (d < bestDist) { bestDist = d; best = ep; }
       });
-      if (best) pt = best;
+      if (best) {
+        pt = { ...best };
+        snapped = true;
+      }
     }
+
+    // 2. grid snap (if not snapped to endpoint)
+    if (!snapped && this.snapGrid) {
+      const g = this.gridSize;
+      pt.x = Math.round(pt.x / g) * g;
+      pt.y = Math.round(pt.y / g) * g;
+    }
+
     return pt;
   }
 
@@ -749,7 +756,7 @@ export class SiteSketcher {
     }
 
     // grid
-    if (!this.isExporting) {
+    if (!this.isExporting && this.showGrid) {
       this._drawGrid();
     }
 
@@ -780,21 +787,22 @@ export class SiteSketcher {
 
   _drawGrid() {
     const ctx=this.ctx, p=this.ppm;
-    // choose grid spacing so lines are 25-120px apart
-    const spacings=[0.1,0.25,0.5,1,2,5,10,20,50,100];
-    let g=1; for(const s of spacings){if(s*p>=30){g=s;break;}}
+    // prioritize user grid size
+    let g=this.gridSize; 
     const gPx=g*p;
 
     ctx.save();
     // minor
-    ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5;
+    ctx.strokeStyle='#f1f5f9'; ctx.lineWidth=0.5;
+    if (gPx < 5) ctx.globalAlpha = 0; // hide if too small
     const ox=((this.panX%gPx)+gPx)%gPx, oy=((this.panY%gPx)+gPx)%gPx;
     for(let x=ox;x<this.W;x+=gPx){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,this.H);ctx.stroke();}
     for(let y=oy;y<this.H;y+=gPx){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(this.W,y);ctx.stroke();}
 
     // major (5×)
+    ctx.globalAlpha = 1;
     const mPx=gPx*5, mG=g*5;
-    ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1;
+    ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1;
     const mox=((this.panX%mPx)+mPx)%mPx, moy=((this.panY%mPx)+mPx)%mPx;
     for(let x=mox;x<this.W;x+=mPx){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,this.H);ctx.stroke();}
     for(let y=moy;y<this.H;y+=mPx){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(this.W,y);ctx.stroke();}
@@ -1357,26 +1365,28 @@ export class SiteSketcher {
 
   _drawA4Frame() {
     const ctx = this.ctx;
+    const isPortrait = this.a4Orientation === 'portrait';
+    const w = isPortrait ? 0.210 : 0.297; // A4 metres
+    const h = isPortrait ? 0.297 : 0.210;
+
+    // Center of canvas in world coordinates
+    const center = this.s2w(this.W/2, this.H/2);
+    const x = center.x - w/2;
+    const y = center.y - h/2;
+
+    const sp = this.w2s(x, y);
+    const sw = w * this.ppm;
+    const sh = h * this.ppm;
+
     ctx.save();
-    const w = 593;
-    const h = 560;
-    const x = (this.W - w) / 2;
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
-    ctx.fillRect(0, 0, x, this.H);
-    ctx.fillRect(x + w, 0, this.W - (x + w), this.H);
     ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(x, 0); ctx.lineTo(x, this.H);
-    ctx.moveTo(x + w, 0); ctx.lineTo(x + w, this.H);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#2563eb';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('A4 PRINT BORDER', x + 50, 20);
-    ctx.fillText('A4 PRINT BORDER', x + w - 50, 20);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 5]);
+    ctx.strokeRect(sp.x, sp.y, sw, sh);
+    
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(`A4 Boundary (${this.a4Orientation.toUpperCase()})`, sp.x, sp.y - 10);
     ctx.restore();
   }
 

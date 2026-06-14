@@ -4092,35 +4092,12 @@ function setupSketcherToolbar() {
   };
 
   const syncAllToolbars = (activeMode) => {
-    // Sync Horizontal
-    tools.forEach(x => {
-      const b = document.getElementById(`tool-${x}`);
-      if (b) b.classList.toggle('active', x === activeMode);
-    });
     // Sync Vertical
     Object.entries(vToolsMap).forEach(([vId, mode]) => {
       const b = document.getElementById(vId);
       if (b) b.classList.toggle('active', mode === activeMode);
     });
   };
-
-  tools.forEach(t => {
-    const btn = document.getElementById(`tool-${t}`);
-    if (btn) {
-      btn.addEventListener('click', () => {
-        if (sketcher) {
-          sketcher.mode = t;
-          sketcher.currentPath = [];
-          sketcher.hoverPos = null;
-          sketcher.wallChain = [];
-          sketcher.polyChain = [];
-          document.getElementById('tool-close-poly').style.display = 'none';
-          syncAllToolbars(t);
-          sketcher.draw();
-        }
-      });
-    }
-  });
 
   // Vertical Toolbar Listeners
   Object.entries(vToolsMap).forEach(([vId, mode]) => {
@@ -4151,14 +4128,9 @@ function setupSketcherToolbar() {
 
   document.getElementById('tool-close-poly').addEventListener('click', () => {
     if (sketcher) {
-      sketcher.closePolygonBuilding();
+      sketcher._commitPolyChain();
       document.getElementById('tool-close-poly').style.display = 'none';
-      
-      tools.forEach(x => {
-        const b = document.getElementById(`tool-${x}`);
-        if (b) b.classList.remove('active');
-      });
-      document.getElementById('tool-select').classList.add('active');
+      syncAllToolbars('select');
     }
   });
 
@@ -4168,16 +4140,6 @@ function setupSketcherToolbar() {
       document.getElementById('sketcher-properties-panel').style.display = 'none';
     }
   });
-
-  const undoBtn = document.getElementById('tool-undo');
-  const redoBtn = document.getElementById('tool-redo');
-
-  if (undoBtn) undoBtn.addEventListener('click', () => { if (sketcher) sketcher.undo(); });
-  if (redoBtn) redoBtn.addEventListener('click', () => { if (sketcher) sketcher.redo(); });
-
-  // Initial opacity (no history yet)
-  if (undoBtn) undoBtn.style.opacity = '0.35';
-  if (redoBtn) redoBtn.style.opacity = '0.35';
 
   // ── Scale Selector ──
   const scaleSelect = document.getElementById('sketcher-scale-select');
@@ -4191,36 +4153,49 @@ function setupSketcherToolbar() {
 
   // ── Zoom buttons ──
   const zoomLabel = document.getElementById('sketcher-zoom-label');
-  const updateZoomLabel = (z) => { if (zoomLabel) zoomLabel.textContent = `Zoom: ${Math.round(z*100)}%`; };
+  const updateZoomLabel = (z) => { if (zoomLabel) zoomLabel.textContent = `${Math.round(z*100)}%`; };
   if (sketcher) { sketcher.onZoomChange = updateZoomLabel; updateZoomLabel(sketcher.zoom); }
 
   const skZoomIn  = document.getElementById('sketch-zoom-in-btn');
   const skZoomOut = document.getElementById('sketch-zoom-out-btn');
-  const skZoomFit = document.getElementById('sketch-zoom-fit-btn');
   const skZoomRst = document.getElementById('sketch-zoom-reset-btn');
   if (skZoomIn)  skZoomIn.addEventListener('click',  () => { if (sketcher) sketcher.zoomTo(1.25); });
   if (skZoomOut) skZoomOut.addEventListener('click', () => { if (sketcher) sketcher.zoomTo(0.8); });
-  if (skZoomFit) skZoomFit.addEventListener('click', () => { if (sketcher) sketcher.fitToContent(); });
   if (skZoomRst) skZoomRst.addEventListener('click', () => { if (sketcher) sketcher.resetView(); });
 
-  const skPanLeft = document.getElementById('sketch-pan-left-btn');
-  const skPanRight = document.getElementById('sketch-pan-right-btn');
-  const skPanUp = document.getElementById('sketch-pan-up-btn');
-  const skPanDown = document.getElementById('sketch-pan-down-btn');
-  if (skPanLeft)  skPanLeft.addEventListener('click',  () => { if (sketcher) sketcher.panCanvas(40, 0); });
-  if (skPanRight) skPanRight.addEventListener('click', () => { if (sketcher) sketcher.panCanvas(-40, 0); });
-  if (skPanUp)    skPanUp.addEventListener('click',    () => { if (sketcher) sketcher.panCanvas(0, 40); });
-  if (skPanDown)  skPanDown.addEventListener('click',  () => { if (sketcher) sketcher.panCanvas(0, -40); });
+  // ── Lock Toggle ──
+  const lockBtn = document.getElementById('sketch-lock-btn');
+  if (lockBtn) {
+    const updateLockBtn = () => {
+      if (!sketcher) return;
+      lockBtn.innerHTML = sketcher.isLocked 
+        ? '<i data-lucide="lock" style="width:13px;height:13px;"></i> LOCKED' 
+        : '<i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED';
+      lockBtn.style.color = sketcher.isLocked ? '#ef4444' : '#22c55e';
+      lockBtn.style.borderColor = sketcher.isLocked ? '#ef4444' : '#22c55e';
+      lucide.createIcons();
+    };
+    lockBtn.addEventListener('click', () => {
+      if (sketcher) {
+        sketcher.setLocked(!sketcher.isLocked);
+        updateLockBtn();
+      }
+    });
+    updateLockBtn();
+  }
 
+  // ── A4 Frame & Orientation ──
   const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');
+  const a4Orient   = document.getElementById('sketch-a4-orient');
   if (a4FrameBtn) {
     const updateA4Btn = () => {
       if (!sketcher) return;
       a4FrameBtn.innerHTML = sketcher.showA4Frame 
-        ? '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 FRAME ON' 
-        : '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 FRAME OFF';
+        ? '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 ON' 
+        : '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF';
       a4FrameBtn.style.color = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
       a4FrameBtn.style.borderColor = sketcher.showA4Frame ? '#3b82f6' : '#94a3b8';
+      if (a4Orient) a4Orient.style.display = sketcher.showA4Frame ? 'block' : 'none';
       lucide.createIcons();
     };
     a4FrameBtn.addEventListener('click', () => {
@@ -4230,17 +4205,58 @@ function setupSketcherToolbar() {
         updateA4Btn();
       }
     });
+    if (a4Orient) {
+      a4Orient.addEventListener('change', () => {
+        if (sketcher) {
+          sketcher.a4Orientation = a4Orient.value;
+          sketcher.draw();
+        }
+      });
+    }
+    updateA4Btn();
+  }
+
+  // ── Grid toggle ──
+  const gridBtn = document.getElementById('sketch-grid-toggle');
+  if (gridBtn) {
+    const updateGridBtn = () => {
+      if (!sketcher) return;
+      gridBtn.innerHTML = sketcher.showGrid 
+        ? '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON' 
+        : '<i data-lucide="grid" style="width:13px;height:13px;"></i> GRID OFF';
+      gridBtn.style.color = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+      gridBtn.style.borderColor = sketcher.showGrid ? '#22c55e' : '#94a3b8';
+      lucide.createIcons();
+    };
+    gridBtn.addEventListener('click', () => {
+      if (sketcher) {
+        sketcher.showGrid = !sketcher.showGrid;
+        sketcher.draw();
+        updateGridBtn();
+      }
+    });
+    updateGridBtn();
   }
 
   // ── Snap toggle ──
   const snapBtn = document.getElementById('sketch-snap-toggle');
   if (snapBtn && sketcher) {
     const updateSnapBtn = () => {
-      snapBtn.textContent = sketcher.snapGrid ? '⊞ SNAP ON' : '⊡ SNAP OFF';
+      snapBtn.innerHTML = sketcher.snapGrid 
+        ? '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON' 
+        : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
       snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
       snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+      lucide.createIcons();
     };
-    snapBtn.addEventListener('click', () => { if (sketcher) { sketcher.snapGrid = !sketcher.snapGrid; sketcher.draw(); updateSnapBtn(); } });
+    snapBtn.addEventListener('click', () => { 
+      if (sketcher) { 
+        sketcher.snapGrid = !sketcher.snapGrid; 
+        sketcher.snapEndpt = sketcher.snapGrid; 
+        sketcher.draw(); 
+        updateSnapBtn(); 
+      } 
+    });
     updateSnapBtn();
   }
 
@@ -4249,142 +4265,6 @@ function setupSketcherToolbar() {
   if (gridSel && sketcher) {
     gridSel.addEventListener('change', () => { if (sketcher) { sketcher.gridSize = parseFloat(gridSel.value); sketcher.draw(); } });
   }
-
-  // ── Sketcher Typography ──
-  const sketchFontFamily = document.getElementById('sketch-font-family');
-  if (sketchFontFamily) {
-    sketchFontFamily.addEventListener('change', () => {
-      if (sketcher) {
-        sketcher.setFontFamily(sketchFontFamily.value);
-        if (activeEntry) {
-          activeEntry.sketcherFontFamily = sketcher.globalFontFamily;
-        }
-      }
-    });
-  }
-
-  const sketchFontSizeDec = document.getElementById('sketch-font-size-dec');
-  const sketchFontSizeInc = document.getElementById('sketch-font-size-inc');
-  const sketchFontSizeVal = document.getElementById('sketch-font-size-val');
-  if (sketchFontSizeDec && sketchFontSizeInc) {
-    const changeFontSize = (delta) => {
-      if (sketcher) {
-        let newSize = sketcher.globalFontSizeBase + delta;
-        newSize = Math.max(6, Math.min(30, newSize));
-        sketcher.setFontSize(newSize);
-        if (sketchFontSizeVal) sketchFontSizeVal.innerText = newSize + 'px';
-        if (activeEntry) {
-          activeEntry.sketcherFontSize = sketcher.globalFontSizeBase;
-        }
-      }
-    };
-    sketchFontSizeDec.addEventListener('click', () => changeFontSize(-1));
-    sketchFontSizeInc.addEventListener('click', () => changeFontSize(1));
-  }
-
-
-
-  // Map Background Controls
-  const mapSearchInput = document.getElementById('map-search-input');
-  const mapTypeSelect = document.getElementById('map-type-select');
-  const mapLoadBtn = document.getElementById('map-load-btn');
-  const mapClearBtn = document.getElementById('map-clear-btn');
-  const mapZoomInBtn = document.getElementById('map-zoom-in-btn');
-  const mapZoomOutBtn = document.getElementById('map-zoom-out-btn');
-
-  mapLoadBtn.addEventListener('click', async () => {
-    const query = mapSearchInput.value.trim();
-    if (!query) {
-      alert('Please enter an address or GPS coordinates.');
-      return;
-    }
-
-    mapLoadBtn.disabled = true;
-    mapLoadBtn.innerText = 'Loading...';
-
-    try {
-      let lat, lon;
-      const coordMatch = query.match(/([-+]?\d+\.\d+)\s*,\s*([-+]?\d+\.\d+)/);
-      if (coordMatch) {
-        lat = parseFloat(coordMatch[1]);
-        lon = parseFloat(coordMatch[2]);
-      } else {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'ValuRoad-App' } });
-        const data = await res.json();
-        if (data && data.length > 0) {
-          lat = parseFloat(data[0].lat);
-          lon = parseFloat(data[0].lon);
-          mapSearchInput.value = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-        } else {
-          alert('Could not find location. Please check the address or enter Lat,Lon coordinates.');
-          mapLoadBtn.disabled = false;
-          mapLoadBtn.innerText = 'Load Map';
-          return;
-        }
-      }
-
-      const zoom = sketcher ? sketcher.mapZoom : 17;
-      const type = mapTypeSelect.value;
-
-      if (sketcher) {
-        sketcher.loadMapBackground(lat, lon, zoom, type);
-        activeEntry.mapLat = lat;
-        activeEntry.mapLon = lon;
-        activeEntry.mapZoom = zoom;
-        activeEntry.mapType = type;
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error loading map background.');
-    } finally {
-      mapLoadBtn.disabled = false;
-      mapLoadBtn.innerText = 'Load Map';
-    }
-  });
-
-  mapClearBtn.addEventListener('click', () => {
-    if (sketcher) {
-      sketcher.clearMapBackground();
-      activeEntry.mapLat = null;
-      activeEntry.mapLon = null;
-      activeEntry.mapZoom = null;
-      activeEntry.mapType = null;
-    }
-  });
-
-  mapZoomInBtn.addEventListener('click', () => {
-    if (sketcher && sketcher.mapBgImageLoaded) {
-      if (sketcher.mapZoom < 20) {
-        sketcher.mapZoom++;
-        sketcher.loadMapBackground(sketcher.mapLat, sketcher.mapLon, sketcher.mapZoom, sketcher.mapType);
-        activeEntry.mapZoom = sketcher.mapZoom;
-      }
-    }
-  });
-
-  mapZoomOutBtn.addEventListener('click', () => {
-    if (sketcher && sketcher.mapBgImageLoaded) {
-      if (sketcher.mapZoom > 5) {
-        sketcher.mapZoom--;
-        sketcher.loadMapBackground(sketcher.mapLat, sketcher.mapLon, sketcher.mapZoom, sketcher.mapType);
-        activeEntry.mapZoom = sketcher.mapZoom;
-      }
-    }
-  });
-
-  document.getElementById('map-pan-left-btn').addEventListener('click', () => {
-    if (sketcher) sketcher.panMap(-80, 0);
-  });
-  document.getElementById('map-pan-right-btn').addEventListener('click', () => {
-    if (sketcher) sketcher.panMap(80, 0);
-  });
-  document.getElementById('map-pan-up-btn').addEventListener('click', () => {
-    if (sketcher) sketcher.panMap(0, -60);
-  });
-  document.getElementById('map-pan-down-btn').addEventListener('click', () => {
-    if (sketcher) sketcher.panMap(0, 60);
-  });
 }
 
 // GPS Perimeter Tracing Wizard Modal

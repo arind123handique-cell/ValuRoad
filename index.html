@@ -589,145 +589,74 @@
           </div>
 
           <div class="sketcher-container">
-            <!-- ── TOOLBAR ROW 1: Tools ── -->
-            <div class="sketcher-toolbar" style="flex-wrap:wrap;gap:0.3rem;padding:0.4rem;">
+           <!-- ── UTILITY TOOLBAR ── -->
+           <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;flex-wrap:wrap;background:var(--bg-secondary);padding:0.4rem 0.6rem;border-radius:0.75rem;border:1px solid var(--border-color);">
+             <!-- Scale & Zoom -->
+             <div style="display:flex;align-items:center;gap:0.4rem;">
+               <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);"><i data-lucide="ruler" style="width:13px;height:13px;"></i> Scale:</label>
+               <select id="sketcher-scale-select" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+                 <option value="50">1:50</option>
+                 <option value="100" selected>1:100</option>
+                 <option value="200">1:200</option>
+                 <option value="500">1:500</option>
+                 <option value="1000">1:1000</option>
+               </select>
+             </div>
 
-              <!-- Group: Select / Erase -->
-              <button type="button" id="tool-select" class="active" title="Select & Move"><i data-lucide="pointer"></i> Select</button>
-              <button type="button" id="tool-erase" style="color:var(--danger);" title="Click a shape to delete it"><i data-lucide="eraser"></i> Erase</button>
+             <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
 
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+             <div style="display:flex;align-items:center;gap:0.25rem;">
+               <button type="button" id="sketch-zoom-out-btn" title="Zoom Out" style="padding:0.22rem 0.4rem;height:auto;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);"><i data-lucide="zoom-out" style="width:13px;height:13px;"></i></button>
+               <span id="sketcher-zoom-label" style="font-size:0.78rem;color:var(--text-secondary);min-width:45px;text-align:center;">100%</span>
+               <button type="button" id="sketch-zoom-in-btn"  title="Zoom In"  style="padding:0.22rem 0.4rem;height:auto;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);"><i data-lucide="zoom-in" style="width:13px;height:13px;"></i></button>
+               <button type="button" id="sketch-zoom-reset-btn" title="Reset (1:1)" style="padding:0.22rem 0.4rem;height:auto;font-size:0.72rem;font-weight:600;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">1:1</button>
+             </div>
 
-              <!-- Group: Draw / Lines -->
-              <button type="button" id="tool-wall" title="Draw walls (click points, double-click or ✓ to close)"><i data-lucide="pencil-ruler"></i> Wall</button>
-              <button type="button" id="tool-freehand" title="Freehand pen"><i data-lucide="brush"></i> Pen</button>
-              <button type="button" id="tool-line" title="ROW / Reference line (dashed)"><i data-lucide="minus"></i> ROW Line</button>
-              <button type="button" id="tool-dimension" style="color:#2563eb;border-color:#2563eb;" title="Dimension annotation (auto-calculates in metres)"><i data-lucide="ruler"></i> Dimension</button>
+             <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
 
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+             <!-- Status Toggles -->
+             <button type="button" id="sketch-lock-btn" title="Lock Sketch" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border:1px solid #22c55e;display:inline-flex;align-items:center;gap:0.25rem;border-radius:0.4rem;background:transparent;">
+               <i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED
+             </button>
 
-              <!-- Group: Shapes / Structures -->
-              <button type="button" id="tool-room" style="color:#0891b2;border-color:#0891b2;" title="Draw a room (polygon fill with label)"><i data-lucide="layers"></i> Room / Fill</button>
-              <button type="button" id="tool-building" title="Place rectangular building block"><i data-lucide="square"></i> Rect Building</button>
-              <button type="button" id="tool-polybuilding" title="Draw polygon building"><i data-lucide="hexagon"></i> Polygon Bldg</button>
-              <button type="button" id="tool-close-poly" style="display:none;background-color:var(--accent);color:white;" title="Close the current polygon / wall chain"><i data-lucide="check"></i> Close Shape</button>
+             <div style="display:flex;align-items:center;gap:0.3rem;">
+               <button type="button" id="sketch-a4-frame-btn" title="Toggle A4 Guide" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border:1px solid #94a3b8;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
+                 <i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF
+               </button>
+               <select id="sketch-a4-orient" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);display:none;">
+                 <option value="portrait">Portrait</option>
+                 <option value="landscape" selected>Landscape</option>
+               </select>
+             </div>
 
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.2rem;"></span>
+             <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
 
-              <!-- Group: Site Features -->
-              <button type="button" id="tool-road" title="Place horizontal road strip"><i data-lucide="split"></i> Road</button>
-              <button type="button" id="tool-boundary-wall" title="Boundary wall with hatching"><i data-lucide="grip-horizontal"></i> Boundary Wall</button>
-              <button type="button" id="tool-gate" title="Gate (drag to set width)"><i data-lucide="door-closed"></i> Gate</button>
-              <button type="button" id="tool-gate-toran" title="Gate with Toran arch"><i data-lucide="crown"></i> Gate+Toran</button>
-              <button type="button" id="tool-custom-block" style="color:#7c3aed;border-color:#7c3aed;" title="Custom misc block (well, tank, etc.)"><i data-lucide="box"></i> Custom Block</button>
-              <button type="button" id="tool-text" title="Add text label"><i data-lucide="type"></i> Text</button>
+             <!-- Grid & Snap -->
+             <div style="display:flex;align-items:center;gap:0.3rem;">
+               <button type="button" id="sketch-grid-toggle" title="Toggle Grid Visibility" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border:1px solid #22c55e;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
+                 <i data-lucide="grid" style="width:13px;height:13px;"></i> GRID ON
+               </button>
+               <button type="button" id="sketch-snap-toggle" title="Toggle Snap-to-Grid" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border:1px solid #22c55e;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
+                 <i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON
+               </button>
+               <select id="sketch-grid-size" title="Grid spacing" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);">
+                 <option value="0.1">0.1m</option>
+                 <option value="0.25">0.25m</option>
+                 <option value="0.5" selected>0.5m</option>
+                 <option value="1">1m</option>
+               </select>
+             </div>
 
-              <span style="flex-grow:1;"></span>
+             <span style="flex-grow:1;"></span>
 
-              <!-- Undo / Redo / Clear -->
-              <button type="button" id="tool-undo" title="Undo (Ctrl+Z)" style="padding:0.3rem 0.5rem;height:auto;"><i data-lucide="undo-2"></i></button>
-              <button type="button" id="tool-redo" title="Redo (Ctrl+Y)" style="padding:0.3rem 0.5rem;height:auto;"><i data-lucide="redo-2"></i></button>
-              <button type="button" id="tool-clear" style="color:var(--danger);border-color:var(--danger);" title="Clear entire drawing"><i data-lucide="refresh-cw"></i> Clear</button>
-            </div>
+             <button type="button" id="tool-close-poly" style="display:none;background-color:var(--accent);color:white;padding:0.25rem 0.6rem;height:auto;font-size:0.75rem;border-radius:0.4rem;border:none;" title="Close the current polygon / wall chain">
+               <i data-lucide="check" style="width:14px;height:14px;"></i> DONE
+             </button>
 
-            <!-- ── TOOLBAR ROW 2: Scale + Zoom + Snap ── -->
-            <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:center;flex-wrap:wrap;background:var(--bg-secondary);padding:0.35rem 0.6rem;border-radius:0.5rem;border:1px solid var(--border-color);">
-              <i data-lucide="ruler" style="width:13px;height:13px;color:var(--text-secondary);flex-shrink:0;"></i>
-              <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;">Scale:</label>
-              <select id="sketcher-scale-select" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
-                <option value="50">1:50 (1m=100px)</option>
-                <option value="100" selected>1:100 (1m=50px)</option>
-                <option value="200">1:200 (1m=25px)</option>
-                <option value="500">1:500 (1m=10px)</option>
-                <option value="1000">1:1000 (1m=5px)</option>
-              </select>
-
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
-
-              <span id="sketcher-zoom-label" style="font-size:0.78rem;color:var(--text-secondary);min-width:58px;white-space:nowrap;">Zoom: 100%</span>
-              <button type="button" id="sketch-zoom-in-btn"  title="Zoom In"        style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="zoom-in"></i></button>
-              <button type="button" id="sketch-zoom-out-btn" title="Zoom Out"       style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="zoom-out"></i></button>
-              <button type="button" id="sketch-zoom-fit-btn" title="Fit to content" style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="expand"></i></button>
-              <button type="button" id="sketch-zoom-reset-btn" title="Reset view"   style="padding:0.22rem 0.4rem;height:auto;font-size:0.72rem;">1:1</button>
-              <button type="button" id="sketch-lock-btn" title="Lock Sketch" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border-color:#22c55e;display:inline-flex;align-items:center;gap:0.25rem;">
-                <i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED
-              </button>
-
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
-
-              <button type="button" id="sketch-a4-frame-btn" title="Toggle A4 PDF Bounds Guide" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border-color:#94a3b8;">
-                <i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 FRAME OFF
-              </button>
-              <div style="display:flex;gap:0.15rem;margin-left:0.2rem;">
-                <button type="button" id="sketch-pan-left-btn"  title="Pan Left"  style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-left"></i></button>
-                <button type="button" id="sketch-pan-up-btn"    title="Pan Up"    style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-up"></i></button>
-                <button type="button" id="sketch-pan-down-btn"  title="Pan Down"  style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-down"></i></button>
-                <button type="button" id="sketch-pan-right-btn" title="Pan Right" style="padding:0.22rem 0.4rem;height:auto;"><i data-lucide="arrow-right"></i></button>
-              </div>
-
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
-
-              <button type="button" id="sketch-snap-toggle" title="Toggle grid snap (G)" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border-color:#22c55e;">
-                <i data-lucide="grid" style="width:13px;height:13px;"></i> SNAP ON
-              </button>
-              <select id="sketch-grid-size" title="Grid size" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
-                <option value="0.1">0.1m grid</option>
-                <option value="0.25">0.25m grid</option>
-                <option value="0.5" selected>0.5m grid</option>
-                <option value="1">1m grid</option>
-                <option value="2">2m grid</option>
-              </select>
-
-              <span style="font-size:0.72rem;color:var(--text-secondary);margin-left:auto;flex-shrink:0;">
-                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Shift</kbd> = 90° snap ·
-                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Space</kbd>+drag or
-                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">↕ scroll</kbd> = pan/zoom ·
-                <kbd style="background:var(--border-color);padding:1px 3px;border-radius:3px;">Del</kbd> = delete ·
-                Wall: click→click→dbl-click to end
-              </span>
-            </div>
-
-            <!-- ── TOOLBAR ROW 3: Sketcher Typography ── -->
-            <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:center;flex-wrap:wrap;background:var(--bg-secondary);padding:0.35rem 0.6rem;border-radius:0.5rem;border:1px solid var(--border-color);">
-              <i data-lucide="type" style="width:13px;height:13px;color:var(--text-secondary);flex-shrink:0;"></i>
-              <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;">Labels & Dimensions Font:</label>
-              
-              <select id="sketch-font-family" style="padding:0.22rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
-                <option value="sans-serif" selected>Sans-Serif (Standard)</option>
-                <option value="serif">Serif (Formal)</option>
-                <option value="monospace">Monospace (Technical)</option>
-                <option value="Arial">Arial</option>
-                <option value="Times New Roman">Times New Roman</option>
-                <option value="Courier New">Courier New</option>
-              </select>
-
-              <span style="width:1px;background:var(--border-color);align-self:stretch;margin:0 0.1rem;"></span>
-
-              <label style="font-size:0.78rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;">Base Text Size:</label>
-              <button type="button" id="sketch-font-size-dec" title="Decrease Text Size" style="padding:0.22rem 0.4rem;height:auto;font-weight:bold;">A-</button>
-              <span id="sketch-font-size-val" style="font-size:0.78rem;color:var(--text-secondary);min-width:30px;text-align:center;">10px</span>
-              <button type="button" id="sketch-font-size-inc" title="Increase Text Size" style="padding:0.22rem 0.4rem;height:auto;font-weight:bold;">A+</button>
-            </div>
-
-            <!-- ── Map Background Controls ── -->
-            <div class="sketcher-map-controls" style="display:flex;gap:0.5rem;margin-top:0.4rem;margin-bottom:0.4rem;align-items:center;background-color:var(--bg-secondary);padding:0.45rem 0.6rem;border-radius:0.5rem;border:1px solid var(--border-color);flex-wrap:wrap;">
-              <span style="font-weight:600;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:0.25rem;"><i data-lucide="map"></i> Map:</span>
-              <input type="text" id="map-search-input" placeholder="Address or Lat, Lon (e.g. 26.1234, 92.5678)" style="padding:0.3rem 0.5rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);flex-grow:1;min-width:170px;">
-              <select id="map-type-select" style="padding:0.3rem 0.5rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);">
-                <option value="satellite">Satellite</option>
-                <option value="road">Road Map</option>
-              </select>
-              <button type="button" class="btn-secondary" id="map-zoom-out-btn" style="padding:0.3rem 0.5rem;font-size:0.8rem;height:auto;" title="Map Zoom Out"><i data-lucide="zoom-out"></i></button>
-              <button type="button" class="btn-secondary" id="map-zoom-in-btn"  style="padding:0.3rem 0.5rem;font-size:0.8rem;height:auto;" title="Map Zoom In"><i data-lucide="zoom-in"></i></button>
-              <div style="display:flex;gap:0.15rem;">
-                <button type="button" class="btn-secondary" id="map-pan-left-btn"  style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-left"></i></button>
-                <button type="button" class="btn-secondary" id="map-pan-up-btn"    style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-up"></i></button>
-                <button type="button" class="btn-secondary" id="map-pan-down-btn"  style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-down"></i></button>
-                <button type="button" class="btn-secondary" id="map-pan-right-btn" style="padding:0.3rem 0.45rem;font-size:0.8rem;height:auto;"><i data-lucide="arrow-right"></i></button>
-              </div>
-              <button type="button" class="btn-primary"   id="map-load-btn"  style="padding:0.3rem 0.7rem;font-size:0.8rem;height:auto;">Load Map</button>
-              <button type="button" class="btn-secondary" id="map-clear-btn" style="padding:0.3rem 0.7rem;font-size:0.8rem;height:auto;color:var(--danger);border-color:var(--danger);background:transparent;">Remove</button>
-            </div>
+             <button type="button" id="tool-clear" style="color:var(--danger);border:1px solid var(--danger);background:transparent;padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;border-radius:0.4rem;display:inline-flex;align-items:center;gap:0.25rem;" title="Clear entire drawing">
+               <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> CLEAR ALL
+             </button>
+           </div>
 
             <!-- ── Properties Panel ── -->
             <div id="sketcher-properties-panel" style="display:none;background-color:var(--bg-primary);padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid var(--border-color);margin-top:0.4rem;gap:0.75rem;align-items:center;flex-wrap:wrap;">
