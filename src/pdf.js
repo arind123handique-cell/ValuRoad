@@ -597,16 +597,26 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // Define sitePlanProfileHtml if not defined
   if (typeof sitePlanProfileHtml === 'undefined') sitePlanProfileHtml = profileHtml;
 
-  // ── PAGE 1: VALUATION ESTIMATE SHEET ────────────────────────────────────────
-  const orgBlock = tpl.orgName ? `
-    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${parseFloat(tpl.fontSize)+1}pt;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:8px;">${tpl.orgName}</div>` : '';
-  const subBlock = tpl.subtitle ? `
-    <div class="pdf-title" style="text-align:center;font-weight:bold;font-size:${tpl.fontSize}pt;margin-bottom:10px;letter-spacing:0.5px;">${tpl.subtitle}</div>` : '';
-
-  let html = `
-    <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize};">
-      ${orgBlock}
-      ${subBlock}
+  // ── PREPARE PAGES ────────────────────────────────────────────────────────────
+  let pagesHtml = [];
+  const MAX_ITEMS_PER_PAGE = 20;
+  
+  // Combine all items to be paginated
+  const allValItems = [...depreciatedItems];
+  
+  for (let i = 0; i < allValItems.length; i += MAX_ITEMS_PER_PAGE) {
+    const batch = allValItems.slice(i, i + MAX_ITEMS_PER_PAGE);
+    const isFirst = (i === 0);
+    const isLast = (i + MAX_ITEMS_PER_PAGE >= allValItems.length);
+    
+    let pageContent = '';
+    
+    // Page Header
+    if (isFirst) {
+      pageContent += orgBlock + subBlock;
+    }
+    
+    pageContent += `
       <div class="pdf-estimate-header pdf-meta" style="color: #000000; font-family: Arial, Helvetica, sans-serif; font-size: ${tpl.fontSize}pt; line-height: 1.6; margin-bottom: 6mm;">
         <div class="pdf-row" style="margin-bottom: 4px;">
           <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Name of Work</div>
@@ -632,36 +642,76 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           </div>
         </div>
       </div>
+    `;
 
-      <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
-        This estimate is prepared on the basis of ${tpl.basisText}
+    if (isFirst) {
+      pageContent += `
+        <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
+          This estimate is prepared on the basis of ${tpl.basisText}
+        </div>
+      `;
+    } else {
+      pageContent += `
+        <div style="margin-top: 2mm; margin-bottom: 5mm; font-size: 9pt; font-style: italic; color: #475569;">
+          (Continued from previous page...)
+        </div>
+      `;
+    }
+
+    // Items List
+    pageContent += `<div class="pdf-items-list pdf-table-text">`;
+    batch.forEach(item => {
+      pageContent += renderItem(item);
+    });
+    pageContent += `</div>`;
+
+    // Footer and Totals (only on last valuation page)
+    if (isLast) {
+      pageContent += `
+        <div class="pdf-table-text">
+          ${subtotalsHtml}
+        </div>
+        <div class="pdf-excluded-list pdf-table-text">
+          ${excludedItemsHtml}
+        </div>
+        <div class="pdf-table-text">
+          ${serviceItemsHtml}
+        </div>
+        <div class="pdf-table-text">
+          ${grandTotalHtml}
+        </div>
+        ${nbHtml}
+        ${profileHtml}
+      `;
+    } else {
+      pageContent += `
+        <div style="margin-top: auto; text-align: right; font-size: 9pt; font-style: italic; color: #64748b;">
+          Continued on next page...
+        </div>
+      `;
+    }
+
+    pagesHtml.push(`
+      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
+        ${pageContent}
       </div>
+    `);
+  }
 
-      <div class="pdf-items-list pdf-table-text">
-        ${depreciatedItemsHtml}
-      </div>
-
-      <div class="pdf-table-text">
-        ${subtotalsHtml}
-      </div>
-
-      <div class="pdf-excluded-list pdf-table-text">
-        ${excludedItemsHtml}
-      </div>
-
-      <div class="pdf-table-text">
-        ${serviceItemsHtml}
-      </div>
-
-      <div class="pdf-table-text">
+  // Handle case with no items
+  if (pagesHtml.length === 0) {
+    pagesHtml.push(`
+      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
+        ${orgBlock} ${subBlock}
+        <div style="text-align: center; margin-top: 20mm; color: #64748b;">No items included in this valuation.</div>
         ${grandTotalHtml}
+        ${profileHtml}
       </div>
+    `);
+  }
 
-      ${nbHtml}
+  let html = pagesHtml.join('');
 
-      ${profileHtml}
-    </div>
-  `;
 
   // ── PAGE 2: LINE PLAN ────────────────────────────────────────────────────────
   const headerHtml = `
