@@ -114,8 +114,16 @@
       </button>
     </nav>
 
+    <!-- Estimator AI Trigger -->
+    <div id="sidebar-ai-chat-trigger" style="margin-top: auto; padding-top: 0.5rem; display: none; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border-color); margin-bottom: 0.5rem;">
+      <button type="button" id="open-ai-chat-btn" style="width: 100%; display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); background: var(--bg-secondary); border-radius: 0.5rem; cursor: pointer; color: var(--text-primary); transition: all 0.2s; font-size: 0.85rem; font-weight: 500; text-align: left;">
+        <i data-lucide="bot" style="color: #22c55e; width: 16px; height: 16px;"></i>
+        <span>Estimator AI</span>
+      </button>
+    </div>
+
     <!-- User Profile Section -->
-    <div class="user-profile-section" id="sidebar-user-profile" style="margin-top: auto; margin-bottom: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: none; flex-direction: column; gap: 0.5rem;">
+    <div class="user-profile-section" id="sidebar-user-profile" style="padding-top: 0.5rem; border-top: none; display: none; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
       <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
         <i data-lucide="user" style="color: var(--accent); flex-shrink: 0; width: 16px; height: 16px;"></i>
         <span id="user-email-display" style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">user@example.com</span>
@@ -1606,6 +1614,45 @@ Item No. 16.1 Precast RCC posts nos @ Rs. 3648.00"></textarea>
 
   <!-- Hidden anchor for triggering file downloads -->
   <a id="download-anchor" style="display:none;"></a>
+
+  <!-- Estimator AI Chatbox -->
+  <div id="estimator-ai-chatbox" class="ai-chat-window">
+    <div class="ai-chat-header" id="ai-chatbox-header">
+      <div class="ai-chat-title-area">
+        <i data-lucide="bot" style="color: #22c55e; width: 18px; height: 18px;"></i>
+        <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Estimator AI</span>
+        <div class="ai-status-dot"></div>
+      </div>
+      <div class="ai-chat-controls">
+        <button type="button" class="ai-chat-control-btn" id="ai-chatbox-minimize-btn" title="Minimize">
+          <i data-lucide="minus" style="width: 14px; height: 14px;"></i>
+        </button>
+        <button type="button" class="ai-chat-control-btn" id="ai-chatbox-close-btn" title="Close">
+          <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+        </button>
+      </div>
+    </div>
+    
+    <div class="ai-chat-messages" id="ai-chatbox-messages">
+      <div class="ai-msg-bubble bot">
+        Hello! I am Estimator AI, your valuation assistant. How can I help you today?
+      </div>
+    </div>
+    
+    <div class="ai-chat-suggestions">
+      <div class="ai-suggestion-chip" data-query="What is the CPWD depreciation rate?">Depreciation Rate</div>
+      <div class="ai-suggestion-chip" data-query="How do I calculate road valuation?">Road Valuation</div>
+      <div class="ai-suggestion-chip" data-query="How to add a new owner entry?">Owner Entry</div>
+      <div class="ai-suggestion-chip" data-query="Explain RCC vs Assam Type structures.">Assam vs RCC</div>
+    </div>
+    
+    <div class="ai-chat-input-area">
+      <input type="text" id="ai-chatbox-input" class="ai-chat-input" placeholder="Type a message..." autocomplete="off">
+      <button type="button" id="ai-chatbox-send-btn" class="ai-chat-send-btn">
+        <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+      </button>
+    </div>
+  </div>
 
   <!-- Entry Script -->
   <script type="module" src="/src/app.js"></script>

@@ -178,6 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setupStatusBar();
         setupSketcherToolbar();
         startAutoBackup();
+        const aiTrigger = document.getElementById('sidebar-ai-chat-trigger');
+        if (aiTrigger) aiTrigger.style.display = 'flex';
         setSyncStatus('ok', `Signed in · ${user.email}`);
       } catch (e) {
         setSyncStatus('error', 'Sync error');
@@ -196,6 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
       setSyncStatus('idle', 'Not signed in');
       authOverlay.style.display = 'flex';
       sidebarProfile.style.display = 'none';
+      const aiTrigger = document.getElementById('sidebar-ai-chat-trigger');
+      if (aiTrigger) aiTrigger.style.display = 'none';
+      const chatbox = document.getElementById('estimator-ai-chatbox');
+      if (chatbox) chatbox.classList.remove('active');
       
       // Clear app state
       projects = [];
@@ -6283,6 +6289,7 @@ function setupProfileSettings() {
   });
 
   setupBackupRestore();
+  setupAiChatbox();
 }
 
 function setupBackupRestore() {
@@ -6878,4 +6885,216 @@ function initParticles() {
       detectRetina: true
     });
   }
+}
+
+// ── Estimator AI Chatbox Implementation ──────────────────────────────────
+let aiChatHistory = [];
+
+function setupAiChatbox() {
+  const openChatBtn = document.getElementById('open-ai-chat-btn');
+  const chatbox = document.getElementById('estimator-ai-chatbox');
+  const chatHeader = document.getElementById('ai-chatbox-header');
+  const minimizeBtn = document.getElementById('ai-chatbox-minimize-btn');
+  const closeBtn = document.getElementById('ai-chatbox-close-btn');
+  const sendBtn = document.getElementById('ai-chatbox-send-btn');
+  const chatInput = document.getElementById('ai-chatbox-input');
+  const chatMessages = document.getElementById('ai-chatbox-messages');
+  const suggestionChips = document.querySelectorAll('.ai-suggestion-chip');
+
+  if (!openChatBtn || !chatbox) return;
+
+  // Toggle chat window when clicking Estimator AI button
+  openChatBtn.addEventListener('click', () => {
+    chatbox.classList.add('active');
+    chatbox.classList.remove('minimized');
+    if (window.lucide) lucide.createIcons();
+    // Scroll messages to bottom
+    setTimeout(() => {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 100);
+  });
+
+  // Toggle minimize when clicking the header
+  chatHeader.addEventListener('click', (e) => {
+    // Prevent minimize if clicking control buttons
+    if (e.target.closest('.ai-chat-control-btn')) return;
+    chatbox.classList.toggle('minimized');
+  });
+
+  // Minimize button click
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chatbox.classList.toggle('minimized');
+    });
+  }
+
+  // Close button click
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chatbox.classList.remove('active');
+    });
+  }
+
+  // Suggestion chips
+  suggestionChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const query = chip.getAttribute('data-query');
+      if (query) {
+        handleSendUserMessage(query);
+      }
+    });
+  });
+
+  // Send message on button click
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+      const text = chatInput.value.trim();
+      if (text) {
+        chatInput.value = '';
+        handleSendUserMessage(text);
+      }
+    });
+  }
+
+  // Send message on Enter keypress
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const text = chatInput.value.trim();
+        if (text) {
+          chatInput.value = '';
+          handleSendUserMessage(text);
+        }
+      }
+    });
+  }
+
+  async function handleSendUserMessage(text) {
+    // 1. Append user bubble
+    appendMessageBubble('user', text);
+
+    // 2. Add to local conversation history
+    aiChatHistory.push({ role: 'user', content: text });
+    if (aiChatHistory.length > 20) {
+      aiChatHistory.shift(); // Keep last 20 messages to manage context size
+    }
+
+    // 3. Show typing indicator
+    const typingIndicator = appendTypingIndicator();
+
+    try {
+      // 4. Call OpenRouter API
+      const responseText = await callOpenRouterCompletions(aiChatHistory);
+
+      // 5. Remove typing indicator
+      typingIndicator.remove();
+
+      // 6. Append bot bubble
+      appendMessageBubble('bot', responseText);
+
+      // 7. Add bot response to history
+      aiChatHistory.push({ role: 'assistant', content: responseText });
+      if (aiChatHistory.length > 20) {
+        aiChatHistory.shift();
+      }
+    } catch (error) {
+      console.error('Estimator AI Error:', error);
+      typingIndicator.remove();
+      appendMessageBubble('bot', 'Sorry, I encountered an issue connecting to my brain. Please try again in a moment.');
+    }
+  }
+
+  function appendMessageBubble(sender, text) {
+    const bubble = document.createElement('div');
+    bubble.className = `ai-msg-bubble ${sender}`;
+    if (sender === 'bot') {
+      bubble.innerHTML = formatAiMarkdown(text);
+    } else {
+      bubble.textContent = text;
+    }
+    chatMessages.appendChild(bubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function appendTypingIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'ai-msg-bubble bot';
+    indicator.innerHTML = `
+      <div class="ai-typing-dots">
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+      </div>
+    `;
+    chatMessages.appendChild(indicator);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return indicator;
+  }
+}
+
+async function callOpenRouterCompletions(history) {
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  const model = 'nex-agi/nex-n2-pro:free';
+  const systemPrompt = "You are Estimator AI, a helpful AI assistant built into ValuRoad, a professional real estate and road valuation application. You assist users with calculating structural depreciation, using the CPWD DSR catalog, doing road acquisitions, estimating construction classes (RCC, Assam Type, Temporary sheds), and using the application. Keep your responses helpful, precise, and professional. Format outputs nicely using Markdown if needed.";
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history
+  ];
+
+  const response = await fetch('https://openrouter.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://valuroad.app',
+      'X-Title': 'ValuRoad App'
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: messages,
+      temperature: 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter Error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (data.choices && data.choices[0] && data.choices[0].message) {
+    return data.choices[0].message.content;
+  }
+
+  throw new Error('Invalid response format from OpenRouter');
+}
+
+function formatAiMarkdown(text) {
+  // Simple markdown parsing helper
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Code blocks: ```code```
+  html = html.replace(/```([\s\S]+?)```/g, (match, p1) => {
+    return `<pre><code>${p1.trim()}</code></pre>`;
+  });
+
+  // Inline code: `code`
+  html = html.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
+
+  // Bold: **text**
+  html = html.replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italics: *text*
+  html = html.replace(/\*([\s\S]+?)\*/g, '<em>$1</em>');
+
+  // Newlines to br
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
 }
