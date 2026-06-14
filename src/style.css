@@ -68,6 +68,64 @@ aside {
   height: 100%;
   padding: 1.5rem;
   z-index: 10;
+  transition: width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+  position: relative;
+}
+
+aside.collapsed {
+  width: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  border-right: none;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: -15px;
+  width: 30px;
+  height: 30px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  color: var(--text-secondary);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.collapsed-toggle-btn {
+  position: fixed;
+  top: 1.5rem;
+  left: 1.5rem;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 90;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+aside.collapsed + .collapsed-toggle-btn {
+  display: flex;
 }
 
 aside .brand {

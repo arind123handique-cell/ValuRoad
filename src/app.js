@@ -76,6 +76,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeMenuBtn = document.getElementById('mobile-menu-close-btn');
   const asideElement = document.querySelector('aside');
 
+  // Desktop Sidebar Toggle
+  const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+  const sidebarExpandBtn = document.getElementById('sidebar-expand-btn');
+
+  if (sidebarCollapseBtn && asideElement) {
+    sidebarCollapseBtn.addEventListener('click', () => {
+      asideElement.classList.add('collapsed');
+    });
+  }
+  if (sidebarExpandBtn && asideElement) {
+    sidebarExpandBtn.addEventListener('click', () => {
+      asideElement.classList.remove('collapsed');
+    });
+  }
+
   if (openMenuBtn && asideElement) {
     openMenuBtn.addEventListener('click', () => {
       asideElement.classList.add('active');
