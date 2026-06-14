@@ -952,12 +952,11 @@ main {
 /* ── Vertical Sketcher Toolbar ── */
 .sketcher-vertical-toolbar {
   position: absolute;
-  top: 0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: grid;
-  grid-template-rows: repeat(2, 36px);
-  grid-auto-flow: column;
+  grid-template-columns: repeat(2, 36px);
   gap: 0.4rem;
   background: var(--bg-glass);
   backdrop-filter: var(--glass-blur);
@@ -965,8 +964,15 @@ main {
   border-radius: 1rem;
   border: 1px solid var(--border-glass);
   box-shadow: var(--shadow-lg);
-  z-index: 50;
+  z-index: 100;
   width: auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.sketcher-vertical-toolbar:active {
+  cursor: grabbing;
 }
 
 .vtool-btn {

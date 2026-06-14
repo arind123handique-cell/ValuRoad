@@ -4222,6 +4222,51 @@ function setupSketcherToolbar() {
     }
   });
 
+  // ── Draggable Toolbar Logic ──
+  const vToolbar = document.querySelector('.sketcher-vertical-toolbar');
+  if (vToolbar) {
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    vToolbar.addEventListener('mousedown', (e) => {
+      // Don't drag if a button inside was clicked
+      if (e.target.closest('.vtool-btn')) return;
+      
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      
+      const rect = vToolbar.getBoundingClientRect();
+      const parentRect = vToolbar.parentElement.getBoundingClientRect();
+      
+      initialLeft = rect.left - parentRect.left;
+      initialTop = rect.top - parentRect.top;
+      
+      vToolbar.style.cursor = 'grabbing';
+      // Disable translateY if it's being used for centering
+      vToolbar.style.transform = 'none';
+      vToolbar.style.left = `${initialLeft}px`;
+      vToolbar.style.top = `${initialTop}px`;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      
+      vToolbar.style.left = `${initialLeft + dx}px`;
+      vToolbar.style.top = `${initialTop + dy}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        vToolbar.style.cursor = 'grab';
+      }
+    });
+  }
+
   document.getElementById('tool-close-poly').addEventListener('click', () => {
     if (sketcher) {
       sketcher._commitPolyChain();
