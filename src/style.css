@@ -2500,7 +2500,7 @@ body:has(#view-pdf-template.active) main {
 }
 
 /* Page Break Divider in Editor */
-.preview-page-break {
+.preview-paper .preview-page-break {
   width: 100%;
   border-top: 2px dashed #3b82f6;
   margin: 25px 0;
@@ -2508,11 +2508,10 @@ body:has(#view-pdf-template.active) main {
   height: 0;
   cursor: pointer;
   user-select: none;
-  page-break-before: always;
-  break-before: page;
+  display: block;
 }
 
-.preview-page-break::after {
+.preview-paper .preview-page-break::after {
   content: "✂ PAGE BREAK (Click to delete)";
   position: absolute;
   top: -11px;
@@ -2528,11 +2527,28 @@ body:has(#view-pdf-template.active) main {
   transition: all 0.2s;
 }
 
-.preview-page-break:hover::after {
+.preview-paper .preview-page-break:hover::after {
   background: #ef4444;
   color: #ffffff;
   border-color: #ef4444;
   content: "🗑 REMOVE PAGE BREAK";
+}
+
+/* Page Break in Print/PDF */
+.preview-page-break,
+.pdf-page .preview-page-break {
+  border: none !important;
+  margin: 0 !important;
+  height: 0 !important;
+  display: block !important;
+  page-break-before: always !important;
+  break-before: page !important;
+}
+
+.pdf-page .preview-page-break::after,
+.preview-page-break::after {
+  display: none !important;
+  content: "" !important;
 }
 /* -- Toast Notifications -- */
 .toast-container {

@@ -774,33 +774,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     });
   }
 
-  // Chunk blocks into pages based on available height
-  const firstPageHeaderHeight = (tpl.orgName ? 18 : 0) + (tpl.subtitle ? 18 : 0) + 35 + 15 + 5;
-  const firstPageAvailableHeight = Math.max(50, printableHeight - firstPageHeaderHeight);
-  const subsequentPageAvailableHeight = Math.max(50, printableHeight - 15);
-
-  let pages = [];
-  let currentPageBlocks = [];
-  let currentPageRemainingHeight = firstPageAvailableHeight;
-  let isFirstPage = true;
-
-  blocks.forEach(block => {
-    const blockHeight = block.height;
-    
-    if (currentPageBlocks.length > 0 && currentPageRemainingHeight < blockHeight) {
-      pages.push(currentPageBlocks);
-      currentPageBlocks = [block];
-      isFirstPage = false;
-      currentPageRemainingHeight = subsequentPageAvailableHeight - blockHeight;
-    } else {
-      currentPageBlocks.push(block);
-      currentPageRemainingHeight -= blockHeight;
-    }
-  });
-
-  if (currentPageBlocks.length > 0) {
-    pages.push(currentPageBlocks);
-  }
+  // Put all blocks on a single continuous page to let the browser/PDF engine break pages naturally.
+  let pages = [blocks];
 
   // Generate HTML for all pages
   let estimatePagesHtml = '';
@@ -843,14 +818,14 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     
     if (isFirst) {
       estimatePagesHtml += `
-        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
+        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
           ${firstPageHeader}
           ${content}
         </div>
       `;
     } else {
       estimatePagesHtml += `
-        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm; display: flex; flex-direction: column;">
+        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
           ${content}
         </div>
       `;
