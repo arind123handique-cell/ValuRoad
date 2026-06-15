@@ -6703,6 +6703,103 @@ function renderPreviewRuler() {
   // Removed ruler per user request
 }
 
+function paginateContent(childrenArray, pageSize, pageOrient, pageMargin, styles) {
+  // Create a temporary container to measure heights
+  const tempCanvas = document.createElement('div');
+  tempCanvas.style.position = 'absolute';
+  tempCanvas.style.visibility = 'hidden';
+  tempCanvas.style.top = '-9999px';
+  tempCanvas.style.left = '-9999px';
+  tempCanvas.style.width = '1000px'; // prevent artificial wrapping during measurement
+  document.body.appendChild(tempCanvas);
+
+  // Create a temporary paper to get the target page height in pixels
+  const tempPaper = document.createElement('div');
+  tempPaper.className = `preview-paper size-${pageSize}`;
+  if (pageOrient === 'landscape') tempPaper.classList.add('landscape');
+  tempPaper.style.setProperty('--preview-margin', `${pageMargin}mm`);
+  
+  // Apply font styles to the tempPaper
+  for (const [key, val] of Object.entries(styles)) {
+    tempPaper.style.setProperty(key, val);
+  }
+  
+  tempCanvas.appendChild(tempPaper);
+
+  // Measure the target height of the paper content area
+  const style = window.getComputedStyle(tempPaper);
+  const paddingTop = parseFloat(style.paddingTop) || 0;
+  const paddingBottom = parseFloat(style.paddingBottom) || 0;
+  
+  // Compute height fallback if clientHeight is 0 (due to hidden/no layout state)
+  let defaultHeight = 1120; // A4 portrait ~297mm
+  if (pageSize === 'letter') defaultHeight = 1054; // Letter portrait ~279mm
+  else if (pageSize === 'legal') defaultHeight = 1345; // Legal portrait ~356mm
+  else if (pageSize === 'a3') defaultHeight = 1587; // A3 portrait ~420mm
+
+  if (pageOrient === 'landscape') {
+    if (pageSize === 'a4') defaultHeight = 794;
+    else if (pageSize === 'letter') defaultHeight = 816;
+    else if (pageSize === 'legal') defaultHeight = 816;
+    else if (pageSize === 'a3') defaultHeight = 1120;
+  }
+
+  const targetPageHeight = tempPaper.clientHeight || defaultHeight;
+  const maxContentHeight = targetPageHeight - paddingTop - paddingBottom - 10; // Usable content height
+
+  console.log('Pagination limits:', { targetPageHeight, paddingTop, paddingBottom, maxContentHeight });
+
+  // Create a wrapper div inside tempPaper that holds the content being measured
+  const contentWrapper = document.createElement('div');
+  contentWrapper.style.width = '100%';
+  tempPaper.appendChild(contentWrapper);
+
+  const pagesData = [];
+  let currentPageHtml = '';
+
+  // We loop through the child nodes of the estimate container
+  for (let i = 0; i < childrenArray.length; i++) {
+    const child = childrenArray[i];
+    
+    // Skip comments or empty text nodes
+    if (child.nodeType === Node.COMMENT_NODE) {
+      continue;
+    }
+    if (child.nodeType === Node.TEXT_NODE && !child.textContent.trim()) {
+      continue;
+    }
+
+    // Append child clone to contentWrapper to measure its height
+    const clone = child.cloneNode(true);
+    contentWrapper.appendChild(clone);
+    
+    const currentContentHeight = contentWrapper.offsetHeight;
+    const isManualPageBreak = clone.classList && (clone.classList.contains('preview-page-break') || clone.querySelector('.preview-page-break'));
+
+    if (currentContentHeight > maxContentHeight || isManualPageBreak) {
+      if (currentPageHtml !== '') {
+        pagesData.push(currentPageHtml);
+        currentPageHtml = '';
+        contentWrapper.innerHTML = '';
+        
+        // Re-append the clone to the new empty page wrapper
+        contentWrapper.appendChild(clone);
+      }
+    }
+
+    currentPageHtml += child.outerHTML || child.textContent;
+  }
+
+  if (currentPageHtml.trim() !== '') {
+    pagesData.push(currentPageHtml);
+  }
+
+  // Clean up
+  document.body.removeChild(tempCanvas);
+
+  return pagesData;
+}
+
 function renderPreviewPages() {
   const canvas = document.getElementById('print-preview-pages-canvas');
   if (!canvas || !currentPreviewEntry) return;
@@ -6722,14 +6819,48 @@ function renderPreviewPages() {
     return;
   }
 
-  pages.forEach((page, idx) => {
+  // Get options for pagination
+  const sizeEl = document.getElementById('prev-page-size');
+  const pageSize = sizeEl ? sizeEl.value : 'a4';
+
+  const orientEl = document.getElementById('prev-page-orient');
+  const pageOrient = orientEl ? orientEl.value : 'portrait';
+
+  const marginEl = document.getElementById('prev-page-margin');
+  const pageMargin = marginEl ? parseFloat(marginEl.value) || 10 : 10;
+
+  const styles = {
+    '--preview-whole-font-family': previewStyles.whole.family,
+    '--preview-whole-font-size': `${previewStyles.whole.size}pt`,
+    '--preview-title-font-family': previewStyles.title.family,
+    '--preview-title-font-size': `${previewStyles.title.size}pt`,
+    '--preview-meta-font-family': previewStyles.meta.family,
+    '--preview-meta-font-size': `${previewStyles.meta.size}pt`,
+    '--preview-tables-font-family': previewStyles.tables.family,
+    '--preview-tables-font-size': `${previewStyles.tables.size}pt`,
+    '--preview-seals-font-family': previewStyles.seals.family,
+    '--preview-seals-font-size': `${previewStyles.seals.size}pt`
+  };
+
+  // The first page contains the estimate blocks, which we paginate dynamically
+  const estimatePage = pages[0];
+  const childrenArray = Array.from(estimatePage.childNodes);
+  const paginatedEstimateHtmls = paginateContent(childrenArray, pageSize, pageOrient, pageMargin, styles);
+
+  // Now append all pages (paginated estimate pages, followed by other pages like Line Plan and Photos)
+  const allPageHtmls = [...paginatedEstimateHtmls];
+  for (let i = 1; i < pages.length; i++) {
+    allPageHtmls.push(pages[i].innerHTML);
+  }
+
+  allPageHtmls.forEach((pageHtml, idx) => {
     const paper = document.createElement('div');
     paper.className = 'preview-paper';
     paper.setAttribute('contenteditable', 'true');
     paper.setAttribute('spellcheck', 'false');
     
     // Inject the raw page inner contents
-    paper.innerHTML = page.innerHTML;
+    paper.innerHTML = pageHtml;
     
     canvas.appendChild(paper);
   });
