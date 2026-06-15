@@ -1803,15 +1803,7 @@ function setupEditor() {
 
   setupEditorTabs();
 
-  const lockBtn = document.getElementById('sketch-lock-btn');
-  if (lockBtn) {
-    lockBtn.addEventListener('click', () => {
-      if (sketcher) {
-        sketcher.setLocked(!sketcher.isLocked);
-        updateSketcherLockUI();
-      }
-    });
-  }
+
 
   document.getElementById('gps-tag-btn').addEventListener('click', captureGPS);
 
@@ -4354,14 +4346,7 @@ export function syncSketcherUIState() {
   }
 
   // 3. Lock button state
-  const lockBtn = document.getElementById('sketch-lock-btn');
-  if (lockBtn) {
-    lockBtn.innerHTML = sketcher.isLocked 
-      ? '<i data-lucide="lock" style="width:13px;height:13px;"></i> LOCKED' 
-      : '<i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED';
-    lockBtn.style.color = sketcher.isLocked ? '#ef4444' : '#22c55e';
-    lockBtn.style.borderColor = sketcher.isLocked ? '#ef4444' : '#22c55e';
-  }
+  updateSketcherLockUI();
 
   // 4. A4 Frame button & Orientation state
   const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');

@@ -212,7 +212,6 @@ export class SiteSketcher {
     // ── wheel zoom ──
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      if (this.isLocked) return;
       const sp = getSP(e);
       const wp = this.s2w(sp.x, sp.y);
       const f  = e.deltaY < 0 ? 1.12 : 1/1.12;
@@ -225,7 +224,6 @@ export class SiteSketcher {
 
     // ── mouse down ──
     const onDown = (e) => {
-      if (this.isLocked) return;
       if (e.button === 2) return; // ignore right click
       const sp  = getSP(e);
       const raw = this.s2w(sp.x, sp.y);
@@ -233,6 +231,15 @@ export class SiteSketcher {
       // pan: middle button or Space held or pan mode
       if (e.button === 1 || this.spaceDown || this.mode === 'pan') {
         this.isPanning = true; this.lastSP = sp; return;
+      }
+
+      if (this.isLocked) {
+        // If locked, we only allow panning and zoom mode, not drawing or selecting
+        if (this.mode === 'zoom') {
+          const factor = e.shiftKey ? 0.8 : 1.25;
+          this.zoomAt(sp.x, sp.y, factor);
+        }
+        return;
       }
 
       e.preventDefault();
@@ -447,7 +454,6 @@ export class SiteSketcher {
 
     // ── mouse move ──
     const onMove = (e) => {
-      if (this.isLocked) return;
       const sp  = getSP(e);
 
       // pan
@@ -457,6 +463,8 @@ export class SiteSketcher {
         this.lastSP = sp;
         this.draw(); return;
       }
+
+      if (this.isLocked) return;
 
       const raw = this.s2w(sp.x, sp.y);
       let pt = this._snap(raw, this.selectedShape?.id);
@@ -542,8 +550,8 @@ export class SiteSketcher {
 
     // ── mouse up ──
     const onUp = (e) => {
-      if (this.isLocked) return;
       if (this.isPanning) { this.isPanning=false; return; }
+      if (this.isLocked) return;
       if (!this.isDown) return;
       this.isDown = false;
       const wasDimDrag = this.selectedHandle && this.selectedHandle.type === 'dim-label';
@@ -633,8 +641,12 @@ export class SiteSketcher {
     });
 
     window.addEventListener('keydown', (e) => {
-      if (this.isLocked) return;
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
+
+      if (e.key==='Shift') this.shiftDown=true;
+      if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
+
+      if (this.isLocked) return;
 
       // AutoCAD-style numeric input capture
       const isDrawing = (this.isDown || this.wallChain.length > 0 || this.polyChain.length > 0);
@@ -660,8 +672,6 @@ export class SiteSketcher {
         return;
       }
 
-      if (e.key==='Shift') this.shiftDown=true;
-      if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
       if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); this.undo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))) { e.preventDefault(); this.redo(); }
       if ((e.key==='Delete'||e.key==='Backspace')&&this.selectedShape) {
@@ -684,10 +694,11 @@ export class SiteSketcher {
       }
     });
     window.addEventListener('keyup', (e) => {
-      if (this.isLocked) return;
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=false;
       if (e.key===' ')     this.spaceDown=false;
+
+      if (this.isLocked) return;
     });
   }
 
