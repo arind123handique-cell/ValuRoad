@@ -920,10 +920,12 @@ function exportSingleEstimateToExcel(entryId) {
     <td class="meta-label">Village/Location:</td>
     <td colspan="5">${entry.location || 'N/A'}</td>
   </tr>
+  ${entry.enableDepreciation !== false ? `
   <tr>
     <td class="meta-label">Year of Construction:</td>
     <td colspan="5">${entry.constructionYear || 'N/A'} ${entry.constructionYearComment ? `(${entry.constructionYearComment})` : ''}</td>
   </tr>
+  ` : ''}
   <tr>
     <td class="meta-label">Basis:</td>
     <td colspan="5">This estimate is prepared on the basis of ${tpl.basisText}</td>
@@ -1883,6 +1885,7 @@ function setupEditor() {
   document.getElementById('road-width').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('residual-life').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('construction-class').addEventListener('change', calculateAndRenderTotals);
+  document.getElementById('enable-depreciation').addEventListener('change', calculateAndRenderTotals);
 
   // Checkboxes
   const infraCheckboxes = ['infra-electricity', 'infra-water', 'infra-sewer', 'infra-drainage', 'infra-lighting'];
@@ -2162,6 +2165,7 @@ function initNewOwnerEntry() {
     depreciationPct: 2.0,
     residualLife: '',
     constructionClass: 'First Class',
+    enableDepreciation: true,
     items: [],
     addElectrification: false,
     electrificationCost: 135000,
@@ -2292,6 +2296,7 @@ function loadEntryToEditor() {
   document.getElementById('depreciation-pct').value = activeEntry.depreciationPct;
   document.getElementById('residual-life').value = activeEntry.residualLife;
   document.getElementById('construction-class').value = activeEntry.constructionClass;
+  document.getElementById('enable-depreciation').checked = activeEntry.enableDepreciation !== false;
 
   document.getElementById('toggle-electrification').checked = activeEntry.addElectrification;
   document.getElementById('toggle-sanitary').checked = activeEntry.addSanitary;
@@ -3908,6 +3913,7 @@ function calculateAndRenderTotals() {
       <td class="text-right bold" id="calc-total-b">Rs. 0.00</td>
       <td></td>
     </tr>
+    ${activeEntry.enableDepreciation !== false ? `
     <tr>
       <td colspan="4" class="text-right" id="calc-dep-label">Depreciation @ 2% per year =</td>
       <td class="text-right" id="calc-dep-amount" style="color: #b91c1c;">Rs. -0.00</td>
@@ -3918,6 +3924,7 @@ function calculateAndRenderTotals() {
       <td class="text-right bold" id="calc-after-dep">Rs. 0.00</td>
       <td></td>
     </tr>
+    ` : ''}
     ${totalExcludedCost > 0 ? `
     <tr>
       <td colspan="4" class="text-right">TOTAL EXCLUDED ITEMS (Direct Add) =</td>
@@ -3936,9 +3943,11 @@ function calculateAndRenderTotals() {
   document.getElementById('calc-deduct-profit').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.contractorDeduction);
   document.getElementById('calc-total-b').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalB);
   
-  document.getElementById('calc-dep-label').innerHTML = `Depreciation @ ${activeEntry.depreciationPct}% per year for ${age} years (${activeEntry.totalDepreciationPct}%) =`;
-  document.getElementById('calc-dep-amount').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.depreciationAmount);
-  document.getElementById('calc-after-dep').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalAfterDepreciation);
+  if (activeEntry.enableDepreciation !== false) {
+    document.getElementById('calc-dep-label').innerHTML = `Depreciation @ ${activeEntry.depreciationPct}% per year for ${age} years (${activeEntry.totalDepreciationPct}%) =`;
+    document.getElementById('calc-dep-amount').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.depreciationAmount);
+    document.getElementById('calc-after-dep').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalAfterDepreciation);
+  }
   if (totalExcludedCost > 0) {
     document.getElementById('calc-total-excluded').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalExcludedCost);
   }

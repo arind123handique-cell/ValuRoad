@@ -796,6 +796,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
       </div>
+      ${report.enableDepreciation !== false ? `
       <div class="pdf-row" style="margin-bottom: 4px;">
         <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Year of Construction</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
@@ -804,6 +805,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           ${report.constructionYearComment ? `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${report.constructionYearComment}` : ''}
         </div>
       </div>
+      ` : ''}
     </div>
     <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
       This estimate is prepared on the basis of ${tpl.basisText}
@@ -853,6 +855,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
       </div>
+      ${report.enableDepreciation !== false ? `
       <div class="pdf-row" style="margin-bottom: 4px;">
         <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">Year of Construction</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
@@ -861,6 +864,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           ${report.constructionYearComment ? `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${report.constructionYearComment}` : ''}
         </div>
       </div>
+      ` : ''}
     </div>
   `;
 
