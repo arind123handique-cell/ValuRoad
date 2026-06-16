@@ -2147,10 +2147,9 @@ function setupEditor() {
   const inputFloors     = document.getElementById('prop-input-floors');
   const inputWallLenAbove = document.getElementById('prop-input-wall-len-above');
   const inputRoadWidth  = document.getElementById('prop-input-road-width');
- 
-  const updateSelectedShape = () => {
-    if (!sketcher || !sketcher.selectedShape) return;
-    const s = sketcher.selectedShape;
+   const updateSelectedShape = () => {
+    if (!sketcher) return;
+    const allSelected = sketcher.selectedShapes || [];
  
     // Helper: parse "12.5m", "12.5", "12 m" → 12.5 (metres)
     const parseM = (str) => {
@@ -2158,9 +2157,29 @@ function setupEditor() {
       return isFinite(n) && n > 0.05 ? n : null;
     };
  
+    const fontSizeIn = document.getElementById('prop-input-font-size');
+    const fontFamilyIn = document.getElementById('prop-input-font-family');
+
+    if (allSelected.length > 1) {
+      sketcher.pushHistory();
+      allSelected.forEach(s => {
+        if (fontSizeIn && fontSizeIn.value) {
+          s.fontSize = parseFloat(fontSizeIn.value) || (s.type === 'text' ? 13 : 10);
+        }
+        if (fontFamilyIn && fontFamilyIn.value) {
+          s.fontFamily = fontFamilyIn.value;
+        }
+      });
+      sketcher.draw();
+      showToast(`Applied font settings to ${allSelected.length} objects`);
+      return;
+    }
+
+    if (!sketcher.selectedShape) return;
+    const s = sketcher.selectedShape;
+    sketcher.pushHistory();
+ 
     if (s.type === 'building' || s.type === 'polygon-building' || s.type === 'text' || s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'room' || s.type === 'road') {
-      const fontSizeIn = document.getElementById('prop-input-font-size');
-      const fontFamilyIn = document.getElementById('prop-input-font-family');
       if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || (s.type === 'text' ? 13 : 10);
       if (fontFamilyIn) s.fontFamily = fontFamilyIn.value || 'sans-serif';
     }
@@ -2191,8 +2210,6 @@ function setupEditor() {
       }
     } else if (s.type === 'text') {
       s.text = inputLabel.value;
-      const fontSizeIn = document.getElementById('prop-input-font-size');
-      const fontFamilyIn = document.getElementById('prop-input-font-family');
       if (fontSizeIn) s.fontSize = parseFloat(fontSizeIn.value) || 13;
       if (fontFamilyIn) s.fontFamily = fontFamilyIn.value || 'sans-serif';
     } else if (s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'gate-toran' || s.type === 'wall') {
@@ -2209,7 +2226,6 @@ function setupEditor() {
     } else if (s.type === 'line' || s.type === 'polygon') {
       s.label = inputLabel.value;
     }
- 
     sketcher.draw();
     showToast('Changes applied');
   };
@@ -2841,17 +2857,23 @@ function loadEntryToEditor() {
     }
  
     if (allSelected && allSelected.length > 1) {
-      // Hide properties for multi-select, just show batch Add to Estimate
+      // Hide properties for multi-select, but keep Font settings and Push to Estimate
       const allFields = [
         'prop-field-label', 'prop-field-width', 'prop-field-height', 'prop-field-road',
         'prop-field-structure-type', 'prop-field-dim-label', 'prop-field-block-style',
         'prop-field-merge', 'prop-field-room-color', 'prop-field-floors', 'prop-field-wall-len-above',
-        'prop-field-road-width', 'prop-field-font'
+        'prop-field-road-width'
       ];
       allFields.forEach(id => {
         const f = document.getElementById(id);
         if (f) f.style.display = 'none';
       });
+      if (fieldFont) {
+        fieldFont.style.display = 'flex';
+        const defaultSize = (shape.type === 'text') ? 13 : 10;
+        if (inputFontSize) inputFontSize.value = shape.fontSize || defaultSize;
+        if (inputFontFamily) inputFontFamily.value = shape.fontFamily || 'sans-serif';
+      }
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       if (pushEstimateBtn) pushEstimateBtn.innerText = `Add ${allSelected.length} to Estimate`;
     } else {
@@ -7980,7 +8002,7 @@ async function callOpenRouterCompletions(history) {
     throw new Error('API key is missing. Please ensure VITE_OPENROUTER_API_KEY is set in your .env file and restart/reload the application.');
   }
 
-  const model = 'nex-agi/nex-n2-pro:free';
+  const model = import.meta.env.VITE_OPENROUTER_MODEL || 'openrouter/free';
   const systemPrompt = "You are Estimator AI, a helpful AI assistant built into ValuRoad, a professional real estate and road valuation application. You assist users with calculating structural depreciation, using the CPWD DSR catalog, doing road acquisitions, estimating construction classes (RCC, Assam Type, Temporary sheds), and using the application. Keep your responses helpful, precise, and professional. Format outputs nicely using Markdown if needed.";
 
   const messages = [

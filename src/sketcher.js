@@ -294,7 +294,7 @@ export class SiteSketcher {
             // Single select
             if (hit) {
               const isAlreadySelected = this.selectedShapes.some(s => s.id === hit.id);
-              if (!isAlreadySelected) {
+              if (!isAlreadySelected || this.selectedShapes.length > 1) {
                 this.selectedShapes = [hit];
                 this.selectedShape = hit;
               }
@@ -532,10 +532,14 @@ export class SiteSketcher {
 
         if (!h) {
           const dx=raw.x-this.dragStart.x, dy=raw.y-this.dragStart.y;
-          if (s.type==='building'||s.type==='text'||s.type==='custom-block') { s.x=raw.x-this.shapeOffset.x; s.y=raw.y-this.shapeOffset.y; }
-          else if (s.type==='road') { s.y=raw.y-this.shapeOffset.y; }
-          else if (this._isLinear(s)) { s.x1+=dx;s.y1+=dy;s.x2+=dx;s.y2+=dy; this.dragStart=raw; }
-          else if (s.points) { s.points.forEach(p=>{p.x+=dx;p.y+=dy;}); this.dragStart=raw; }
+          const selectedList = (this.selectedShapes && this.selectedShapes.length > 0) ? this.selectedShapes : [s];
+          selectedList.forEach(item => {
+            if (item.type==='building'||item.type==='text'||item.type==='custom-block') { item.x+=dx; item.y+=dy; }
+            else if (item.type==='road') { item.y+=dy; }
+            else if (this._isLinear(item)) { item.x1+=dx;item.y1+=dy;item.x2+=dx;item.y2+=dy; }
+            else if (item.points) { item.points.forEach(p=>{p.x+=dx;p.y+=dy;}); }
+          });
+          this.dragStart=raw;
           this.draw();
         }
 
@@ -644,6 +648,7 @@ export class SiteSketcher {
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
 
       if (e.key==='Shift') this.shiftDown=true;
+      if (e.key==='Control'||e.key==='Meta') this.ctrlDown=true;
       if (e.key===' ')     { this.spaceDown=true; e.preventDefault(); }
 
       if (this.isLocked) return;
@@ -674,11 +679,14 @@ export class SiteSketcher {
 
       if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); this.undo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='z'))) { e.preventDefault(); this.redo(); }
-      if ((e.key==='Delete'||e.key==='Backspace')&&this.selectedShape) {
+      if ((e.key==='Delete'||e.key==='Backspace')&&(this.selectedShape || (this.selectedShapes && this.selectedShapes.length > 0))) {
         e.preventDefault(); this.pushHistory();
-        this.shapes=this.shapes.filter(s=>s.id!==this.selectedShape.id);
-        this.selectedShape=null; this.draw();
-        if (this.onSelectionChange) this.onSelectionChange(null);
+        const selectIds = (this.selectedShapes && this.selectedShapes.length > 0) ? this.selectedShapes.map(sh => sh.id) : [this.selectedShape.id];
+        this.shapes=this.shapes.filter(s=>!selectIds.includes(s.id));
+        this.selectedShape=null;
+        this.selectedShapes=[];
+        this.draw();
+        if (this.onSelectionChange) this.onSelectionChange(null, []);
       }
       if (e.key==='Escape') { 
         this.wallChain=[]; this.polyChain=[]; this.previewPt=null; 
@@ -696,6 +704,7 @@ export class SiteSketcher {
     window.addEventListener('keyup', (e) => {
       if (e.target?.tagName==='INPUT'||e.target?.tagName==='TEXTAREA') return;
       if (e.key==='Shift') this.shiftDown=false;
+      if (e.key==='Control'||e.key==='Meta') this.ctrlDown=false;
       if (e.key===' ')     this.spaceDown=false;
 
       if (this.isLocked) return;
@@ -887,7 +896,13 @@ export class SiteSketcher {
     }
 
     // selection overlay
-    if (this.mode==='select'&&this.selectedShape && !this.isExporting) this._drawSelection(this.selectedShape);
+    if (this.mode==='select'&& !this.isExporting) {
+      if (this.selectedShapes && this.selectedShapes.length > 0) {
+        this.selectedShapes.forEach(s => this._drawSelection(s));
+      } else if (this.selectedShape) {
+        this._drawSelection(this.selectedShape);
+      }
+    }
 
     // A4 frame guide
     if (this.showA4Frame && !this.isExporting) {
