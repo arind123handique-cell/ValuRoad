@@ -90,6 +90,10 @@ function renderQuantityRateItem(item) {
   const rawCost = item.quantity * item.rate;
   const hasDeduction = item.deductionPct > 0;
 
+  const unit = (item.unit || '').toLowerCase();
+  const isFeet = ['sqf', 'sqft', 'ft', 'rft'].some(u => unit.includes(u));
+  const isMetric = ['sqm', 'cum', 'm', 'rm'].some(u => unit.includes(u));
+
   // Build measurement rows
   let measurementRowsHtml = '';
   const measurements = item.measurements && item.measurements.length > 0 ? item.measurements : [];
@@ -108,22 +112,100 @@ function renderQuantityRateItem(item) {
 
       let dimStr = '';
       if (hasDims) {
-        const parts = [];
-        if (hasL) parts.push(l.toFixed(3) + 'm');
-        if (hasB) parts.push(b.toFixed(3) + 'm');
-        if (hasH) parts.push(h.toFixed(3) + 'm');
-        dimStr = parts.join(' × ');
+        if (isFeet) {
+          const partsFeet = [];
+          const partsMeters = [];
+          if (hasL) { partsFeet.push(l.toFixed(2) + ' ft'); partsMeters.push((l * 0.3048).toFixed(2) + ' m'); }
+          if (hasB) { partsFeet.push(b.toFixed(2) + ' ft'); partsMeters.push((b * 0.3048).toFixed(2) + ' m'); }
+          if (hasH) { partsFeet.push(h.toFixed(2) + ' ft'); partsMeters.push((h * 0.3048).toFixed(2) + ' m'); }
+          dimStr = `${partsFeet.join(' × ')}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${partsMeters.join(' × ')})</span>`;
+        } else if (isMetric) {
+          const partsMeters = [];
+          const partsFeet = [];
+          if (hasL) { partsMeters.push(l.toFixed(2) + ' m'); partsFeet.push((l * 3.28084).toFixed(1) + ' ft'); }
+          if (hasB) { partsMeters.push(b.toFixed(2) + ' m'); partsFeet.push((b * 3.28084).toFixed(1) + ' ft'); }
+          if (hasH) { partsMeters.push(h.toFixed(2) + ' m'); partsFeet.push((h * 3.28084).toFixed(1) + ' ft'); }
+          dimStr = `${partsMeters.join(' × ')}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${partsFeet.join(' × ')})</span>`;
+        } else {
+          const parts = [];
+          if (hasL) parts.push(l.toFixed(2));
+          if (hasB) parts.push(b.toFixed(2));
+          if (hasH) parts.push(h.toFixed(2));
+          dimStr = parts.join(' × ');
+        }
+      }
+
+      let subQtyHtml = '';
+      if (isFeet) {
+        let convertedQty = subQty;
+        let dualUnit = '';
+        if (unit.includes('sqf')) {
+          convertedQty = subQty * 0.092903;
+          dualUnit = 'sqm';
+        } else if (unit.includes('cum')) {
+          convertedQty = subQty;
+        } else {
+          convertedQty = subQty * 0.3048;
+          dualUnit = 'm';
+        }
+        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+      } else if (isMetric) {
+        let convertedQty = subQty;
+        let dualUnit = '';
+        if (unit.includes('sqm')) {
+          convertedQty = subQty * 10.76391;
+          dualUnit = 'sqft';
+        } else if (unit.includes('cum')) {
+          convertedQty = subQty * 35.3147;
+          dualUnit = 'cft';
+        } else {
+          convertedQty = subQty * 3.28084;
+          dualUnit = 'ft';
+        }
+        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+      } else {
+        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}`;
       }
 
       return `
         <tr>
-          <td style="padding: 1px 4px; text-align: left;">${m.description || ''}</td>
-          <td style="padding: 1px 4px; text-align: center; width: 30px;">${nos}</td>
-          <td style="padding: 1px 4px; text-align: left; color: #334155;">${dimStr}</td>
-          <td style="padding: 1px 4px; text-align: right; font-weight: 600; width: 60px;">${(parseFloat(subQty) || 0).toFixed(3)}</td>
+          <td style="padding: 2px 4px; text-align: left; vertical-align: top;">${m.description || ''}</td>
+          <td style="padding: 2px 4px; text-align: center; width: 30px; vertical-align: top;">${nos}</td>
+          <td style="padding: 2px 4px; text-align: left; color: #334155; vertical-align: top; line-height: 1.25;">${dimStr}</td>
+          <td style="padding: 2px 4px; text-align: right; font-weight: 600; width: 90px; vertical-align: top; line-height: 1.25;">${subQtyHtml}</td>
         </tr>
       `;
     }).join('');
+
+    let totalQtyHtml = `${item.quantity.toFixed(2)} ${item.unit}`;
+    if (isFeet) {
+      let convertedQty = item.quantity;
+      let dualUnit = '';
+      if (unit.includes('sqf')) {
+        convertedQty = item.quantity * 0.092903;
+        dualUnit = 'sqm';
+      } else if (unit.includes('cum')) {
+        convertedQty = item.quantity;
+      } else {
+        convertedQty = item.quantity * 0.3048;
+        dualUnit = 'm';
+      }
+      totalQtyHtml += `<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+    } else if (isMetric) {
+      let convertedQty = item.quantity;
+      let dualUnit = '';
+      if (unit.includes('sqm')) {
+        convertedQty = item.quantity * 10.76391;
+        dualUnit = 'sqft';
+      } else if (unit.includes('cum')) {
+        convertedQty = item.quantity * 35.3147;
+        dualUnit = 'cft';
+      } else {
+        convertedQty = item.quantity * 3.28084;
+        dualUnit = 'ft';
+      }
+      totalQtyHtml += `<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+    }
 
     measurementRowsHtml = `
       <div style="margin-left: 20mm; margin-bottom: 3px;">
@@ -133,7 +215,7 @@ function renderQuantityRateItem(item) {
               <th style="padding: 1px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Description</th>
               <th style="padding: 1px 4px; text-align: center; width: 30px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Nos</th>
               <th style="padding: 1px 4px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0;">L × B × H</th>
-              <th style="padding: 1px 4px; text-align: right; width: 60px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Qty</th>
+              <th style="padding: 1px 4px; text-align: right; width: 90px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">Qty</th>
             </tr>
           </thead>
           <tbody>
@@ -141,8 +223,8 @@ function renderQuantityRateItem(item) {
           </tbody>
           <tfoot>
             <tr style="font-weight: 700; border-top: 1px solid #cbd5e1;">
-              <td colspan="3" style="padding: 2px 4px; text-align: right; font-size: 9pt;">Total</td>
-              <td style="padding: 2px 4px; text-align: right;">${item.quantity.toFixed(3)} ${item.unit}</td>
+              <td colspan="3" style="padding: 4px 4px; text-align: right; font-size: 9pt; vertical-align: top;">Total</td>
+              <td style="padding: 4px 4px; text-align: right; vertical-align: top; line-height: 1.25;">${totalQtyHtml}</td>
             </tr>
           </tfoot>
         </table>
@@ -150,25 +232,55 @@ function renderQuantityRateItem(item) {
     `;
   } else {
     // Fallback: no measurements
+    let dualQtyText = '';
+    if (isFeet) {
+      let convertedQty = item.quantity;
+      let dualUnit = '';
+      if (unit.includes('sqf')) {
+        convertedQty = item.quantity * 0.092903;
+        dualUnit = 'sqm';
+      } else if (unit.includes('cum')) {
+        convertedQty = item.quantity;
+      } else {
+        convertedQty = item.quantity * 0.3048;
+        dualUnit = 'm';
+      }
+      dualQtyText = ` (${convertedQty.toFixed(2)} ${dualUnit})`;
+    } else if (isMetric) {
+      let convertedQty = item.quantity;
+      let dualUnit = '';
+      if (unit.includes('sqm')) {
+        convertedQty = item.quantity * 10.76391;
+        dualUnit = 'sqft';
+      } else if (unit.includes('cum')) {
+        convertedQty = item.quantity * 35.3147;
+        dualUnit = 'cft';
+      } else {
+        convertedQty = item.quantity * 3.28084;
+        dualUnit = 'ft';
+      }
+      dualQtyText = ` (${convertedQty.toFixed(2)} ${dualUnit})`;
+    }
+
     measurementRowsHtml = `
       <div class="pdf-row" style="margin-bottom: 1px;">
         <div style="margin-left: 20mm; width: 40mm; flex-shrink: 0;">Quantity</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
           <span style="width: 35mm; text-align: left;">x &nbsp;&nbsp;&nbsp;&nbsp; ${item.quantity.toFixed(2)} ${item.unit} =</span>
-          <span style="width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}</span>
+          <span style="width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}${dualQtyText}</span>
         </div>
       </div>
     `;
   }
 
-    let depInfoHtml = '';
-    if (item.customDepreciation) {
-      const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
-      depInfoHtml = `<span style="font-size: 8.5pt; color: #475569; font-weight: normal; margin-left: 5px;">(Depreciation: ${item.customDepreciationPct}%/yr for ${item.customDepreciationAge} yrs = ${totalPct}%)</span>`;
-    }
+  let depInfoHtml = '';
+  if (item.customDepreciation) {
+    const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
+    depInfoHtml = `<span style="font-size: 8.5pt; color: #475569; font-weight: normal; margin-left: 5px;">(Depreciation: ${item.customDepreciationPct}%/yr for ${item.customDepreciationAge} yrs = ${totalPct}%)</span>`;
+  }
 
-    return `
+  return `
     <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
         <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${item.title}</span> ${depInfoHtml}</div>
@@ -243,16 +355,44 @@ function renderPlinthAreaItem(item) {
         <div style="margin-bottom: 2px;">Plinth area of the building:-</div>
         
         <!-- Room Details -->
-        ${item.rooms.map(r => `
-          <div class="pdf-row" style="margin-bottom: 1px;">
-            <div style="width: 25mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
-            <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-            <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
-              <span style="width: 45mm; text-align: left;">${parseFloat(r.l).toFixed(2)} m x ${parseFloat(r.w).toFixed(2)} m =</span>
-              <span style="width: 25mm; text-align: right;">${parseFloat(r.areaSqm).toFixed(2)} sqm</span>
-            </div>
-          </div>
-        `).join('')}
+        ${item.rooms.map(r => {
+          const l_m = parseFloat(r.l).toFixed(2);
+          const w_m = parseFloat(r.w).toFixed(2);
+          const area_sqm = parseFloat(r.areaSqm).toFixed(2);
+          
+          if (item.unit === 'sqf') {
+            const l_ft = (parseFloat(r.l) * 3.28084).toFixed(1);
+            const w_ft = (parseFloat(r.w) * 3.28084).toFixed(1);
+            const area_sqft = (parseFloat(r.areaSqm) * 10.76391).toFixed(2);
+            return `
+              <div class="pdf-row" style="margin-bottom: 2px;">
+                <div style="width: 25mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
+                <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+                <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end; padding-right: 45mm;">
+                  <div style="display: flex; justify-content: flex-end; width: 100%;">
+                    <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
+                    <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
+                  </div>
+                  <div style="display: flex; justify-content: flex-end; width: 100%; color: #475569; font-size: 9.5pt;">
+                    <span style="width: 45mm; text-align: left;">(${l_ft} ft x ${w_ft} ft) =</span>
+                    <span style="width: 25mm; text-align: right;">(${area_sqft} sqf)</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="pdf-row" style="margin-bottom: 1px;">
+                <div style="width: 25mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
+                <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+                <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
+                  <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
+                  <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
+                </div>
+              </div>
+            `;
+          }
+        }).join('')}
         
         <!-- Total Plinth Area -->
         <div class="pdf-row" style="font-weight: 500; margin-bottom: 1px;">
@@ -371,61 +511,104 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     excludedItemsHtml += renderItem(item);
   });
 
-  let subtotalsHtml = `
-    <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
-      <!-- Line above TOTAL (A) -->
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-        <div style="width: 105mm; border-top: 1px solid #000;"></div>
-      </div>
-      
-      <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (A) =</div>
-        <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
-      </div>
-      
-      <div class="pdf-row" style="margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. ${tpl.contractorPct}% for Contractors Profit =</div>
-        <div style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.contractorDeduction)}</div>
-      </div>
-      
-      <!-- Line above TOTAL (B) -->
-      <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
-        <div style="width: 105mm; border-top: 1px solid #000;"></div>
-      </div>
-      
-      <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (B) =</div>
-        <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalB)}</div>
-      </div>
+  const contractorPct = report.contractorPct !== undefined ? report.contractorPct : (tpl.contractorPct !== undefined ? tpl.contractorPct : 15);
+  const showContractorProfit = contractorPct > 0;
 
-      ${report.enableDepreciation !== false ? `
-      <div class="pdf-row" style="margin-bottom: 2px;">
-        <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
-          Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+  let subtotalsHtml = '';
+  
+  if (showContractorProfit) {
+    subtotalsHtml = `
+      <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
+        <!-- Line above TOTAL (A) -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+          <div style="width: 105mm; border-top: 1px solid #000;"></div>
         </div>
-        <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
-          <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
-          <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+        
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (A) =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
         </div>
-      </div>
+        
+        <div class="pdf-row" style="margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. ${contractorPct}% for Contractors Profit =</div>
+          <div style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.contractorDeduction)}</div>
+        </div>
+        
+        <!-- Line above TOTAL (B) -->
+        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+          <div style="width: 105mm; border-top: 1px solid #000;"></div>
+        </div>
+        
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (B) =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalB)}</div>
+        </div>
 
-      <!-- Line above TOTAL -->
-      <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
-        <div style="width: 105mm; border-top: 1px solid #000;"></div>
-      </div>
+        ${report.enableDepreciation !== false ? `
+        <div class="pdf-row" style="margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
+            Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+          </div>
+          <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
+            <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
+            <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+          </div>
+        </div>
 
-      <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
-        <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+        <!-- Line above TOTAL -->
+        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+          <div style="width: 105mm; border-top: 1px solid #000;"></div>
+        </div>
+
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+        </div>
+        ` : `
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+        </div>
+        `}
       </div>
-      ` : `
-      <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
-        <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
-        <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+    `;
+  } else {
+    subtotalsHtml = `
+      <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
+        <!-- Line above TOTAL -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+          <div style="width: 105mm; border-top: 1px solid #000;"></div>
+        </div>
+        
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
+        </div>
+
+        ${report.enableDepreciation !== false ? `
+        <div class="pdf-row" style="margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
+            Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+          </div>
+          <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
+            <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
+            <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+          </div>
+        </div>
+
+        <!-- Line above TOTAL After Depreciation -->
+        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+          <div style="width: 105mm; border-top: 1px solid #000;"></div>
+        </div>
+
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
+          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+        </div>
+        ` : ''}
       </div>
-      `}
-      </div>
-  `;
+    `;
+  }
 
   let serviceItemsHtml = '';
   const hasCustomServices = report.customServices && report.customServices.length > 0;

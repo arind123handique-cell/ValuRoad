@@ -526,7 +526,7 @@ export class SiteSketcher {
           else if (h==='sw') { const dX=pt.x-s.x; s.x=pt.x; s.w=Math.max(minW,s.w-dX); s.h=Math.max(minH,pt.y-s.y); }
           else if (h==='ne') { const dY=pt.y-s.y; s.y=pt.y; s.w=Math.max(minW,pt.x-s.x); s.h=Math.max(minH,s.h-dY); }
           else if (h==='nw') { const dX=pt.x-s.x,dY=pt.y-s.y; s.x=pt.x;s.y=pt.y; s.w=Math.max(minW,s.w-dX);s.h=Math.max(minH,s.h-dY); }
-          s.dimW=`${s.w.toFixed(2)}m`; s.dimH=`${s.h.toFixed(2)}m`;
+          s.dimW=`${s.w.toFixed(2)}m (${(s.w * 3.28084).toFixed(1)}ft)`; s.dimH=`${s.h.toFixed(2)}m (${(s.h * 3.28084).toFixed(1)}ft)`;
           this.draw(); return;
         }
 

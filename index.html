@@ -47,27 +47,48 @@
     <div class="auth-right">
       <div class="auth-card">
         <div class="auth-card-header">
-          <h2>Welcome back</h2>
-          <p>Please enter your details to sign in.</p>
+          <h2 id="auth-card-title">Welcome back</h2>
+          <p id="auth-card-desc">Please enter your details to sign in.</p>
         </div>
 
         <!-- Tabs -->
-        <div class="auth-tabs">
+        <div class="auth-tabs" id="auth-tabs-container">
           <button type="button" id="auth-tab-login" class="active">Log In</button>
           <button type="button" id="auth-tab-signup">Register</button>
+          <button type="button" id="auth-tab-phone">Phone</button>
         </div>
 
         <!-- Auth Form -->
         <form id="auth-form">
-          <div class="form-group">
+          <div class="form-group" id="auth-email-group">
             <label>Email Address</label>
             <input type="email" id="auth-email" required placeholder="name@company.com">
           </div>
 
-          <div class="form-group">
-            <label>Password</label>
+          <div class="form-group" id="auth-password-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <label style="margin-bottom: 0;">Password</label>
+              <button type="button" id="forgot-password-link" class="forgot-password-link">Forgot password?</button>
+            </div>
             <input type="password" id="auth-password" required placeholder="••••••••" minlength="6">
           </div>
+
+          <div class="form-group" id="signup-confirm-password-group" style="display: none;">
+            <label>Re-enter Password</label>
+            <input type="password" id="auth-re-password" placeholder="••••••••" minlength="6">
+          </div>
+
+          <div class="form-group" id="auth-phone-group" style="display: none;">
+            <label>Phone Number</label>
+            <input type="tel" id="auth-phone" placeholder="+91 99999 99999">
+          </div>
+
+          <div class="form-group" id="auth-otp-group" style="display: none;">
+            <label>Verification Code (OTP)</label>
+            <input type="text" id="auth-otp" placeholder="123456" minlength="6" maxlength="6">
+          </div>
+
+          <div id="recaptcha-container" style="margin-bottom: 1rem;"></div>
 
           <div id="auth-error-msg" class="auth-error" style="display: none;"></div>
 
@@ -75,6 +96,24 @@
             Log In <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>
           </button>
         </form>
+
+        <div class="auth-divider" id="auth-divider">
+          <span>or continue with</span>
+        </div>
+
+        <button type="button" id="google-signin-btn" class="btn-google">
+          <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
+
+        <div id="back-to-login-container" class="back-to-login-container" style="display: none;">
+          <button type="button" id="back-to-login-link" class="back-to-login-link">Back to Log In</button>
+        </div>
       </div>
     </div>
   </div>
@@ -104,6 +143,9 @@
       </button>
       <button id="nav-new-project-btn">
         <i data-lucide="folder-plus"></i> New Project
+      </button>
+      <button id="nav-ai-bulk-estimate-btn">
+        <i data-lucide="sparkles"></i> AI Bulk Estimate
       </button>
       <button id="nav-settings-btn">
         <i data-lucide="database"></i> DSR Catalog / OCR
@@ -299,6 +341,7 @@
           <option value="all">All Statuses</option>
           <option value="completed">Completed</option>
           <option value="draft">Draft</option>
+          <option value="needs-review">Needs Review</option>
         </select>
       </div>
 
@@ -307,9 +350,10 @@
         <table class="reports-table" id="owner-entries-table">
           <thead>
             <tr>
-              <th style="width: 20%">Owner / Occupant</th>
-              <th style="width: 16%">Village / Location</th>
-              <th style="width: 17%">GPS Site Coordinates</th>
+              <th style="width: 7%">Sl. No.</th>
+              <th style="width: 17%">Owner / Occupant</th>
+              <th style="width: 14%">Village / Location</th>
+              <th style="width: 15%">GPS Site Coordinates</th>
               <th style="width: 12%">Valuation (Rs.)</th>
               <th style="width: 10%">Status</th>
               <th style="width: 10%">Printed</th>
@@ -660,7 +704,9 @@
              <button type="button" id="tool-close-poly" style="display:none;background-color:var(--accent);color:white;padding:0.25rem 0.6rem;height:auto;font-size:0.75rem;border-radius:0.4rem;border:none;" title="Close the current polygon / wall chain">
                <i data-lucide="check" style="width:14px;height:14px;"></i> DONE
              </button>
-
+             <button type="button" id="sketch-autodraw-btn" style="color:var(--accent);border:1px solid var(--accent);background:transparent;padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;border-radius:0.4rem;display:inline-flex;align-items:center;gap:0.25rem;margin-right:0.25rem;" title="Auto-draw structures from measurements table">
+               <i data-lucide="sparkles" style="width:13px;height:13px;"></i> AUTO DRAW
+             </button>
              <button type="button" id="tool-clear" style="color:var(--danger);border:1px solid var(--danger);background:transparent;padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;border-radius:0.4rem;display:inline-flex;align-items:center;gap:0.25rem;" title="Clear entire drawing">
                <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> CLEAR ALL
              </button>
@@ -1043,6 +1089,18 @@
             <input type="file" id="ocr-file-input" accept="application/pdf,image/*" style="display: none;">
           </div>
 
+          <!-- AI Model Selection -->
+          <div style="margin-bottom: 1.25rem;">
+            <label for="ocr-ai-model-select" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Select AI Vision Model</label>
+            <select id="ocr-ai-model-select" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); outline: none; font-size: 0.85rem;">
+              <option value="auto">Auto-detect / Fallback Loop (Recommended)</option>
+              <option value="meta-llama/llama-3.2-11b-vision-instruct:free">Llama 3.2 11B Vision (Free)</option>
+              <option value="nvidia/nemotron-nano-12b-v2-vl:free">NVIDIA Nemotron Nano 12B VL (Free)</option>
+              <option value="openrouter/free">OpenRouter Smart Free Router (Free)</option>
+              <option value="google/gemini-2.5-flash:free">Gemini 2.5 Flash (Free / Fallback)</option>
+            </select>
+          </div>
+
           <!-- PDF Page Range Settings -->
           <div id="ocr-pdf-range-container" style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
             <div class="form-group" style="flex: 1;">
@@ -1186,6 +1244,137 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 5: AI BULK SURVEY ESTIMATOR -->
+    <div id="view-ai-bulk-estimate" class="view-container">
+      <div class="dashboard-header">
+        <div>
+          <h2>AI Bulk Survey Estimator</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Upload a Joint Measurement Survey (JMS) PDF to automatically generate valuation estimates for all owners</p>
+        </div>
+      </div>
+
+      <!-- Settings Panel: Project Selection -->
+      <div class="form-panel" style="margin-bottom: 1.5rem; padding: 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem;">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--accent);"><i data-lucide="folder-open"></i> Target Valuation Project</h3>
+        <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+          <div style="flex-grow: 1; min-width: 250px;">
+            <label for="bulk-project-select" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Select Project</label>
+            <select id="bulk-project-select" style="width: 100%; padding: 0.6rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); outline: none;">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div style="flex-grow: 1; min-width: 250px;">
+            <label for="bulk-ai-model-select" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Select AI Vision Model</label>
+            <select id="bulk-ai-model-select" style="width: 100%; padding: 0.6rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); outline: none;">
+              <option value="auto">Auto-detect / Fallback Loop (Recommended)</option>
+              <option value="meta-llama/llama-3.2-11b-vision-instruct:free">Llama 3.2 11B Vision (Free)</option>
+              <option value="nvidia/nemotron-nano-12b-v2-vl:free">NVIDIA Nemotron Nano 12B VL (Free)</option>
+              <option value="openrouter/free">OpenRouter Smart Free Router (Free)</option>
+              <option value="google/gemini-2.5-flash:free">Gemini 2.5 Flash (Free / Fallback)</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <!-- Start/End Page Input -->
+            <div>
+              <label for="bulk-pdf-start-page" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">Start Page</label>
+              <input type="number" id="bulk-pdf-start-page" value="1" min="1" style="width: 80px; padding: 0.6rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: center;">
+            </div>
+            <div>
+              <label for="bulk-pdf-end-page" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">End Page</label>
+              <input type="number" id="bulk-pdf-end-page" placeholder="All" min="1" style="width: 80px; padding: 0.6rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: center;">
+            </div>
+          </div>
+
+          <!-- Enable Depreciation Toggle -->
+          <div style="display: flex; align-items: center;">
+            <label class="check-label" style="justify-content: flex-start; padding: 0.5rem 0.75rem; background: var(--bg-primary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; user-select: none; height: 38px;">
+              <input type="checkbox" id="bulk-enable-depreciation" checked style="width: 15px; height: 15px; margin: 0; cursor: pointer;">
+              <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Enable Depreciation</span>
+            </label>
+          </div>
+
+          <!-- Enable Contractor's Profit Toggle -->
+          <div style="display: flex; align-items: center;">
+            <label class="check-label" style="justify-content: flex-start; padding: 0.5rem 0.75rem; background: var(--bg-primary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; user-select: none; height: 38px;">
+              <input type="checkbox" id="bulk-enable-contractor-profit" checked style="width: 15px; height: 15px; margin: 0; cursor: pointer;">
+              <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Deduct Contractor Profit</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="form-panel" style="padding: 2rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem; margin-bottom: 1.5rem;">
+        <div id="bulk-dropzone" style="border: 2px dashed var(--border-color); border-radius: 0.75rem; padding: 3rem 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';" onmouseout="this.style.borderColor='var(--border-color)';" onclick="document.getElementById('bulk-file-input').click()">
+          <i data-lucide="file-up" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 1rem; margin-left: auto; margin-right: auto; display: block;"></i>
+          <h3 style="margin-bottom: 0.5rem;">Drag & Drop Survey PDF or Photo</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">or click to browse your files (supports JMS PDF tables or scanned images/photos containing multiple owners)</p>
+          <button type="button" class="btn-primary" style="pointer-events: none;">Select Document / Image</button>
+          <input type="file" id="bulk-file-input" accept="application/pdf, image/*" style="display: none;">
+        </div>
+
+        <!-- Progress Panel -->
+        <div id="bulk-progress-container" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span id="bulk-progress-status" style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">Processing PDF...</span>
+            <span id="bulk-progress-percent" style="font-weight: 700; font-size: 0.95rem; color: var(--accent);">0%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background-color: var(--bg-primary); border-radius: 99px; overflow: hidden; margin-bottom: 1rem;">
+            <div id="bulk-progress-bar" style="width: 0%; height: 100%; background-color: var(--accent); transition: width 0.3s ease-out;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Panel -->
+      <div id="bulk-preview-panel" class="form-panel" style="display: none; padding: 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <div>
+            <h3 style="font-size: 1.1rem;">Extracted Owners & Structure Details</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.15rem;" id="bulk-preview-count">0 owners detected. Review and adjust values before generating estimates.</p>
+          </div>
+          <button type="button" class="btn-secondary" id="bulk-add-owner-row-btn" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">
+            <i data-lucide="user-plus"></i> Add Owner
+          </button>
+        </div>
+
+        <div style="overflow-x: auto; margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: 0.5rem;">
+          <table class="reports-table" style="box-shadow: none; margin: 0; min-width: 800px;">
+            <thead>
+              <tr>
+                <th style="width: 40px;"></th>
+                <th style="width: 25%;">Owner Name</th>
+                <th style="width: 15%;">Village</th>
+                <th style="width: 15%;">Mouza</th>
+                <th style="width: 10%;">Structures</th>
+                <th style="width: 20%;">Duplicate Action / Status</th>
+                <th style="width: 10%; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="bulk-preview-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 0.85rem; color: var(--text-secondary);">
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 1.5rem;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block;"></span> Ready
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 1.5rem;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> Needs Review
+            </span>
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span> Duplicate
+            </span>
+          </div>
+          <button type="button" class="btn-primary" id="bulk-generate-estimates-btn" style="padding: 0.75rem 2rem; font-size: 1rem; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);">
+            <i data-lucide="sparkles"></i> Generate Estimates
+          </button>
         </div>
       </div>
     </div>

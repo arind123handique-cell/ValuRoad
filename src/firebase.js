@@ -4,7 +4,12 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendPasswordResetEmail,
+  RecaptchaVerifier,
+  signInWithPhoneNumber
 } from "firebase/auth";
 import { 
   getFirestore, 
@@ -53,7 +58,16 @@ export function logoutUser() {
   return signOut(auth);
 }
 
-export { onAuthStateChanged };
+export function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  return signInWithPopup(auth, provider);
+}
+
+export function sendPasswordReset(email) {
+  return sendPasswordResetEmail(auth, email);
+}
+
+export { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber };
 
 // Firestore Database Sync Helpers
 export async function fetchUserProjects(uid, email = "") {

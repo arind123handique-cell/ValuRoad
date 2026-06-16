@@ -7,6 +7,10 @@ import {
   registerUser, 
   logoutUser, 
   onAuthStateChanged,
+  signInWithGoogle,
+  sendPasswordReset,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
   fetchUserProjects,
   saveUserProject,
   deleteUserProject,
@@ -49,14 +53,16 @@ const views = {
   settings: document.getElementById('view-settings'),
   pdfTemplate: document.getElementById('view-pdf-template'),
   profile: document.getElementById('view-profile'),
-  printPreview: document.getElementById('view-print-preview')
+  printPreview: document.getElementById('view-print-preview'),
+  aiBulkEstimate: document.getElementById('view-ai-bulk-estimate')
 };
 
 const navBtns = {
   dashboard: document.getElementById('nav-projects-btn'),
   newProject: document.getElementById('nav-new-project-btn'),
   settings: document.getElementById('nav-settings-btn'),
-  profile: document.getElementById('nav-profile-btn')
+  profile: document.getElementById('nav-profile-btn'),
+  aiBulkEstimate: document.getElementById('nav-ai-bulk-estimate-btn')
 };
 
 // Initialize App
@@ -68,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupProjectEditor();
   setupEditor();
   setupDsrSettings();
+  setupAiBulkEstimate();
   setupProfileSettings();
   setupGpsTracingModal();
   setupProjectSharingModal();
@@ -332,6 +339,14 @@ function setupNavigation() {
       if (confirmLeaveEditor()) switchView('profile');
     });
   }
+  if (navBtns.aiBulkEstimate) {
+    navBtns.aiBulkEstimate.addEventListener('click', () => {
+      if (confirmLeaveEditor()) {
+        switchView('aiBulkEstimate');
+        if (typeof refreshBulkProjectSelector === 'function') refreshBulkProjectSelector();
+      }
+    });
+  }
 }
 
 function switchView(viewName) {
@@ -383,63 +398,283 @@ function confirmLeaveEditor() {
 }
 
 // Auth UI Setup & Handlers
-let currentAuthTab = 'login'; // 'login' or 'signup'
+let currentAuthTab = 'login'; // 'login', 'signup', 'phone-send', 'phone-verify', or 'forgot-password'
 
 function setupAuthUI() {
   const authTabLogin = document.getElementById('auth-tab-login');
   const authTabSignup = document.getElementById('auth-tab-signup');
+  const authTabPhone = document.getElementById('auth-tab-phone');
   const authForm = document.getElementById('auth-form');
   const authEmailInput = document.getElementById('auth-email');
   const authPasswordInput = document.getElementById('auth-password');
+  const authRePasswordInput = document.getElementById('auth-re-password');
   const authSubmitBtn = document.getElementById('auth-submit-btn');
   const authErrorMsg = document.getElementById('auth-error-msg');
   const logoutBtn = document.getElementById('auth-logout-btn');
 
+  // UI Elements
+  const authCardTitle = document.getElementById('auth-card-title');
+  const authCardDesc = document.getElementById('auth-card-desc');
+  const authTabsContainer = document.getElementById('auth-tabs-container');
+  const authEmailGroup = document.getElementById('auth-email-group');
+  const authPasswordGroup = document.getElementById('auth-password-group');
+  const signupConfirmGroup = document.getElementById('signup-confirm-password-group');
+  const authPhoneGroup = document.getElementById('auth-phone-group');
+  const authOtpGroup = document.getElementById('auth-otp-group');
+  const recaptchaContainer = document.getElementById('recaptcha-container');
+  const forgotPasswordLink = document.getElementById('forgot-password-link');
+  const googleSigninBtn = document.getElementById('google-signin-btn');
+  const authDivider = document.getElementById('auth-divider');
+  const backToLoginContainer = document.getElementById('back-to-login-container');
+  const backToLoginLink = document.getElementById('back-to-login-link');
+
+  let confirmationResult = null;
+  let recaptchaVerifier = null;
+
+  const resetRecaptcha = () => {
+    if (recaptchaVerifier) {
+      try {
+        recaptchaVerifier.clear();
+      } catch (e) {
+        console.warn("Recaptcha clear error:", e);
+      }
+      recaptchaVerifier = null;
+      if (recaptchaContainer) recaptchaContainer.innerHTML = '';
+    }
+  };
+
+  const switchToLogin = () => {
+    currentAuthTab = 'login';
+    resetRecaptcha();
+    if (authTabLogin) authTabLogin.classList.add('active');
+    if (authTabSignup) authTabSignup.classList.remove('active');
+    if (authTabPhone) authTabPhone.classList.remove('active');
+    if (authCardTitle) authCardTitle.innerText = 'Welcome back';
+    if (authCardDesc) authCardDesc.innerText = 'Please enter your details to sign in.';
+    if (authTabsContainer) authTabsContainer.style.display = 'flex';
+    if (authEmailGroup) authEmailGroup.style.display = 'block';
+    if (authPasswordGroup) authPasswordGroup.style.display = 'block';
+    if (signupConfirmGroup) signupConfirmGroup.style.display = 'none';
+    if (authPhoneGroup) authPhoneGroup.style.display = 'none';
+    if (authOtpGroup) authOtpGroup.style.display = 'none';
+    if (authEmailInput) authEmailInput.required = true;
+    if (authPasswordInput) authPasswordInput.required = true;
+    if (authRePasswordInput) authRePasswordInput.required = false;
+    const phoneInput = document.getElementById('auth-phone');
+    const otpInput = document.getElementById('auth-otp');
+    if (phoneInput) phoneInput.required = false;
+    if (otpInput) otpInput.required = false;
+    if (forgotPasswordLink) forgotPasswordLink.style.display = 'inline-block';
+    if (authDivider) authDivider.style.display = 'flex';
+    if (googleSigninBtn) googleSigninBtn.style.display = 'flex';
+    if (backToLoginContainer) backToLoginContainer.style.display = 'none';
+    authSubmitBtn.innerHTML = 'Log In <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+    if (window.lucide) lucide.createIcons();
+    authErrorMsg.style.display = 'none';
+  };
+
+  const switchToSignup = () => {
+    currentAuthTab = 'signup';
+    resetRecaptcha();
+    if (authTabSignup) authTabSignup.classList.add('active');
+    if (authTabLogin) authTabLogin.classList.remove('active');
+    if (authTabPhone) authTabPhone.classList.remove('active');
+    if (authCardTitle) authCardTitle.innerText = 'Create an account';
+    if (authCardDesc) authCardDesc.innerText = 'Fill in the form to get started.';
+    if (authTabsContainer) authTabsContainer.style.display = 'flex';
+    if (authEmailGroup) authEmailGroup.style.display = 'block';
+    if (authPasswordGroup) authPasswordGroup.style.display = 'block';
+    if (signupConfirmGroup) signupConfirmGroup.style.display = 'block';
+    if (authPhoneGroup) authPhoneGroup.style.display = 'none';
+    if (authOtpGroup) authOtpGroup.style.display = 'none';
+    if (authEmailInput) authEmailInput.required = true;
+    if (authPasswordInput) authPasswordInput.required = true;
+    if (authRePasswordInput) authRePasswordInput.required = true;
+    const phoneInput = document.getElementById('auth-phone');
+    const otpInput = document.getElementById('auth-otp');
+    if (phoneInput) phoneInput.required = false;
+    if (otpInput) otpInput.required = false;
+    if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+    if (authDivider) authDivider.style.display = 'flex';
+    if (googleSigninBtn) googleSigninBtn.style.display = 'flex';
+    if (backToLoginContainer) backToLoginContainer.style.display = 'none';
+    authSubmitBtn.innerHTML = 'Create Account <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+    if (window.lucide) lucide.createIcons();
+    authErrorMsg.style.display = 'none';
+  };
+
+  const switchToPhone = () => {
+    currentAuthTab = 'phone-send';
+    confirmationResult = null;
+    resetRecaptcha();
+    if (authTabPhone) authTabPhone.classList.add('active');
+    if (authTabLogin) authTabLogin.classList.remove('active');
+    if (authTabSignup) authTabSignup.classList.remove('active');
+    if (authCardTitle) authCardTitle.innerText = 'Phone Login';
+    if (authCardDesc) authCardDesc.innerText = 'Enter your phone number to receive an OTP.';
+    if (authTabsContainer) authTabsContainer.style.display = 'flex';
+    if (authEmailGroup) authEmailGroup.style.display = 'none';
+    if (authPasswordGroup) authPasswordGroup.style.display = 'none';
+    if (signupConfirmGroup) signupConfirmGroup.style.display = 'none';
+    if (authPhoneGroup) authPhoneGroup.style.display = 'block';
+    if (authOtpGroup) authOtpGroup.style.display = 'none';
+    if (authEmailInput) authEmailInput.required = false;
+    if (authPasswordInput) authPasswordInput.required = false;
+    if (authRePasswordInput) authRePasswordInput.required = false;
+    const phoneInput = document.getElementById('auth-phone');
+    const otpInput = document.getElementById('auth-otp');
+    if (phoneInput) { phoneInput.required = true; phoneInput.value = ''; }
+    if (otpInput) { otpInput.required = false; otpInput.value = ''; }
+    if (authDivider) authDivider.style.display = 'flex';
+    if (googleSigninBtn) googleSigninBtn.style.display = 'flex';
+    if (backToLoginContainer) backToLoginContainer.style.display = 'none';
+    authSubmitBtn.innerHTML = 'Send OTP <i data-lucide="message-square" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+    if (window.lucide) lucide.createIcons();
+    authErrorMsg.style.display = 'none';
+  };
+
+  const switchToForgotPassword = () => {
+    currentAuthTab = 'forgot-password';
+    resetRecaptcha();
+    if (authCardTitle) authCardTitle.innerText = 'Reset Password';
+    if (authCardDesc) authCardDesc.innerText = 'Enter your email to receive a password reset link.';
+    if (authTabsContainer) authTabsContainer.style.display = 'none';
+    if (authEmailGroup) authEmailGroup.style.display = 'block';
+    if (authPasswordGroup) authPasswordGroup.style.display = 'none';
+    if (signupConfirmGroup) signupConfirmGroup.style.display = 'none';
+    if (authPhoneGroup) authPhoneGroup.style.display = 'none';
+    if (authOtpGroup) authOtpGroup.style.display = 'none';
+    if (authEmailInput) authEmailInput.required = true;
+    if (authPasswordInput) authPasswordInput.required = false;
+    if (authRePasswordInput) authRePasswordInput.required = false;
+    const phoneInput = document.getElementById('auth-phone');
+    const otpInput = document.getElementById('auth-otp');
+    if (phoneInput) phoneInput.required = false;
+    if (otpInput) otpInput.required = false;
+    if (authDivider) authDivider.style.display = 'none';
+    if (googleSigninBtn) googleSigninBtn.style.display = 'none';
+    if (backToLoginContainer) backToLoginContainer.style.display = 'block';
+    authSubmitBtn.innerHTML = 'Send Reset Link <i data-lucide="mail" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+    if (window.lucide) lucide.createIcons();
+    authErrorMsg.style.display = 'none';
+  };
+
   if (authTabLogin) {
-    authTabLogin.addEventListener('click', () => {
-      currentAuthTab = 'login';
-      authTabLogin.classList.add('active');
-      authTabSignup.classList.remove('active');
-      authSubmitBtn.innerHTML = 'Log In <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
-      if (window.lucide) lucide.createIcons();
-      authErrorMsg.style.display = 'none';
-    });
+    authTabLogin.addEventListener('click', switchToLogin);
   }
 
   if (authTabSignup) {
-    authTabSignup.addEventListener('click', () => {
-      currentAuthTab = 'signup';
-      authTabSignup.classList.add('active');
-      authTabLogin.classList.remove('active');
-      authSubmitBtn.innerHTML = 'Create Account <i data-lucide="arrow-right" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
-      if (window.lucide) lucide.createIcons();
+    authTabSignup.addEventListener('click', switchToSignup);
+  }
+
+  if (authTabPhone) {
+    authTabPhone.addEventListener('click', switchToPhone);
+  }
+
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', switchToForgotPassword);
+  }
+
+  if (backToLoginLink) {
+    backToLoginLink.addEventListener('click', switchToLogin);
+  }
+
+  if (googleSigninBtn) {
+    googleSigninBtn.addEventListener('click', async () => {
       authErrorMsg.style.display = 'none';
+      const origText = googleSigninBtn.innerHTML;
+      googleSigninBtn.disabled = true;
+      googleSigninBtn.innerHTML = 'Signing in...';
+      try {
+        await signInWithGoogle();
+      } catch (err) {
+        console.error(err);
+        authErrorMsg.textContent = formatAuthError(err.code || err.message);
+        authErrorMsg.style.display = 'block';
+        googleSigninBtn.disabled = false;
+        googleSigninBtn.innerHTML = origText;
+      }
     });
   }
 
   if (authForm) {
     authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value;
-      
       authErrorMsg.style.display = 'none';
+
+      const email = authEmailInput ? authEmailInput.value.trim() : '';
+      const password = authPasswordInput ? authPasswordInput.value : '';
+
+      // Signup Validation
+      if (currentAuthTab === 'signup') {
+        const rePassword = authRePasswordInput.value;
+        if (password !== rePassword) {
+          authErrorMsg.textContent = 'Passwords do not match.';
+          authErrorMsg.style.display = 'block';
+          return;
+        }
+      }
+
       authSubmitBtn.disabled = true;
-      const origText = authSubmitBtn.textContent;
+      const origText = authSubmitBtn.innerHTML;
       authSubmitBtn.textContent = 'Please wait...';
 
       try {
         if (currentAuthTab === 'login') {
           await loginUser(email, password);
-        } else {
+        } else if (currentAuthTab === 'signup') {
           await registerUser(email, password);
+        } else if (currentAuthTab === 'forgot-password') {
+          await sendPasswordReset(email);
+          alert('Password reset email sent! Please check your inbox.');
+          switchToLogin();
+        } else if (currentAuthTab === 'phone-send') {
+          const phoneNumber = document.getElementById('auth-phone').value.trim();
+          if (!phoneNumber) {
+            throw new Error('Please enter a valid phone number.');
+          }
+
+          if (!recaptchaVerifier) {
+            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              'size': 'invisible',
+              'callback': (response) => {
+                // reCAPTCHA solved
+              }
+            });
+          }
+
+          confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+          
+          currentAuthTab = 'phone-verify';
+          if (authCardDesc) authCardDesc.innerText = 'Enter the 6-digit OTP code sent to your phone.';
+          if (authPhoneGroup) authPhoneGroup.style.display = 'none';
+          if (authOtpGroup) authOtpGroup.style.display = 'block';
+          const phoneInput = document.getElementById('auth-phone');
+          const otpInput = document.getElementById('auth-otp');
+          if (phoneInput) phoneInput.required = false;
+          if (otpInput) { otpInput.required = true; otpInput.value = ''; }
+          authSubmitBtn.innerHTML = 'Verify OTP <i data-lucide="check" style="width:16px;height:16px;margin-left:0.5rem;"></i>';
+          if (window.lucide) lucide.createIcons();
+          authSubmitBtn.disabled = false;
+        } else if (currentAuthTab === 'phone-verify') {
+          const code = document.getElementById('auth-otp').value.trim();
+          if (!code) {
+            throw new Error('Please enter verification code.');
+          }
+          await confirmationResult.confirm(code);
+          // Signs in automatically
         }
       } catch (err) {
         console.error(err);
         authErrorMsg.textContent = formatAuthError(err.code || err.message);
         authErrorMsg.style.display = 'block';
         authSubmitBtn.disabled = false;
-        authSubmitBtn.textContent = origText;
+        authSubmitBtn.innerHTML = origText;
+        if (window.lucide) lucide.createIcons();
+        resetRecaptcha();
+        if (currentAuthTab === 'phone-verify') {
+          switchToPhone();
+        }
       }
     });
   }
@@ -782,6 +1017,7 @@ function exportProjectToExcel() {
   }
 
   const headers = [
+    "Sl. No.",
     "Owner / Occupant",
     "Village / Location",
     "GPS Latitude",
@@ -800,7 +1036,8 @@ function exportProjectToExcel() {
     "Grand Total Valuation (Rs.)"
   ];
 
-  const rows = activeProject.entries.map(e => [
+  const rows = activeProject.entries.map((e, idx) => [
+    idx + 1,
     e.clientName || "Unnamed Owner",
     e.location || "N/A",
     e.gpsLat || "",
@@ -1537,7 +1774,7 @@ function renderProjectDetails() {
   if (entries.length === 0) {
     if (activeProject.entries && activeProject.entries.length > 0) {
       // Filtered out all items
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
       emptyState.style.display = 'none';
       table.style.display = 'table';
     } else {
@@ -1548,7 +1785,7 @@ function renderProjectDetails() {
     emptyState.style.display = 'none';
     table.style.display = 'table';
 
-    entries.forEach(e => {
+    entries.forEach((e, idx) => {
       const tr = document.createElement('tr');
       const gpsText = e.gpsLat && e.gpsLon ? `${parseFloat(e.gpsLat).toFixed(4)}, ${parseFloat(e.gpsLon).toFixed(4)}` : 'No GPS';
       const printedDate = e.printedAt ? new Date(e.printedAt) : null;
@@ -1560,13 +1797,14 @@ function renderProjectDetails() {
         : 'This estimate has not been printed/exported as PDF yet';
       
       tr.innerHTML = `
+        <td style="text-align: center; font-weight: 500; color: var(--text-muted);">${idx + 1}</td>
         <td>
           <div style="font-weight: 600; font-size: 0.95rem;">${e.clientName || 'Unnamed Owner'}</div>
         </td>
         <td>${e.location || 'N/A'}</td>
         <td style="font-family: monospace; font-size: 0.85rem;">${gpsText}</td>
         <td style="font-weight: bold; color: var(--accent);">Rs. ${formatIndianCurrency(e.grandTotal || 0)}</td>
-        <td><span class="status-badge ${e.status}">${e.status}</span></td>
+        <td><span class="status-badge ${e.status}">${e.status === 'needs-review' ? 'Needs Review' : (e.status ? e.status.charAt(0).toUpperCase() + e.status.slice(1) : 'Draft')}</span></td>
         <td><span class="print-status-badge ${e.printedAt ? 'printed' : 'not-printed'}" title="${printedTitle}">${printedText}</span></td>
         <td>
           <div class="action-btns" onclick="event.stopPropagation();">
@@ -1933,16 +2171,16 @@ function setupEditor() {
       // Sync width/height → actual shape size
       const wVal = parseM(inputWidth.value);
       const hVal = parseM(inputHeight.value);
-      if (wVal !== null) { s.w = wVal; s.dimW = `${wVal.toFixed(2)}m`; } else { s.dimW = inputWidth.value; }
-      if (hVal !== null) { s.h = hVal; s.dimH = `${hVal.toFixed(2)}m`; } else { s.dimH = inputHeight.value; }
+      if (wVal !== null) { s.w = wVal; s.dimW = `${wVal.toFixed(2)}m (${(wVal * 3.28084).toFixed(1)}ft)`; } else { s.dimW = inputWidth.value; }
+      if (hVal !== null) { s.h = hVal; s.dimH = `${hVal.toFixed(2)}m (${(hVal * 3.28084).toFixed(1)}ft)`; } else { s.dimH = inputHeight.value; }
       s.floors = parseInt(inputFloors.value) || 1;
     } else if (s.type === 'custom-block') {
       s.blockStyle = inputBlockStyle.value;
       s.label = inputLabel.value;
       const wVal = parseM(inputWidth.value);
       const hVal = parseM(inputHeight.value);
-      if (wVal !== null) { s.w = wVal; s.dimW = `${wVal.toFixed(2)}m`; } else { s.dimW = inputWidth.value; }
-      if (hVal !== null) { s.h = hVal; s.dimH = `${hVal.toFixed(2)}m`; } else { s.dimH = inputHeight.value; }
+      if (wVal !== null) { s.w = wVal; s.dimW = `${wVal.toFixed(2)}m (${(wVal * 3.28084).toFixed(1)}ft)`; } else { s.dimW = inputWidth.value; }
+      if (hVal !== null) { s.h = hVal; s.dimH = `${hVal.toFixed(2)}m (${(hVal * 3.28084).toFixed(1)}ft)`; } else { s.dimH = inputHeight.value; }
     } else if (s.type === 'road') {
       s.label = inputLabel.value;
       s.leftLabel = inputLeft.value;
@@ -2224,6 +2462,147 @@ function renderCustomServiceRow(cs) {
   });
   
   lucide.createIcons();
+}
+
+function autoGenerateSketcherShapes(entry) {
+  const shapes = [];
+  if (!entry || !entry.items) return shapes;
+
+  let currentX = 2.0;
+  let currentY = 2.0;
+  let rowMaxHeight = 0;
+  const gap = 2.0; // meters gap
+  const maxRowWidth = 22.0; // meters
+
+  // Helper to map title to structureType
+  const getStructureType = (title) => {
+    const t = (title || '').toLowerCase();
+    if (t.includes('rcc')) return 'rcc';
+    if (t.includes('assam')) return 'assam';
+    if (t.includes('temp shed') || t.includes('temp-shed') || t.includes('shed')) return 'temp-shed';
+    if (t.includes('temporary') || t.includes('temp')) return 'temp-building';
+    return '';
+  };
+
+  entry.items.forEach((item, itemIdx) => {
+    if (item.type === 'plinth-area' && item.rooms) {
+      item.rooms.forEach((room, roomIdx) => {
+        const l = parseFloat(room.l) || 0;
+        const w = parseFloat(room.w) || 0;
+        if (l <= 0 || w <= 0) return;
+
+        let label = room.name || item.title || 'Building';
+        if (item.title && room.name && room.name !== item.title && !room.name.toLowerCase().includes(item.title.toLowerCase())) {
+          label = `${item.title}\n(${room.name})`;
+        }
+
+        const structType = getStructureType(item.title);
+
+        // Position shape (wrap to next row if it exceeds max width)
+        if (currentX + l > maxRowWidth && currentX > 2.0) {
+          currentX = 2.0;
+          currentY += rowMaxHeight + gap;
+          rowMaxHeight = 0;
+        }
+
+        shapes.push({
+          id: Date.now() + Math.floor(Math.random() * 1000) + (itemIdx * 100) + roomIdx,
+          type: 'building',
+          x: parseFloat(currentX.toFixed(3)),
+          y: parseFloat(currentY.toFixed(3)),
+          w: parseFloat(l.toFixed(3)),
+          h: parseFloat(w.toFixed(3)),
+          label: label,
+          structureType: structType,
+          dimW: `${l.toFixed(2)}m (${(l * 3.28084).toFixed(1)}ft)`,
+          dimH: `${w.toFixed(2)}m (${(w * 3.28084).toFixed(1)}ft)`,
+          dimWOffset: -1.5,
+          dimHOffset: -1.5
+        });
+
+        currentX += l + gap;
+        if (w > rowMaxHeight) rowMaxHeight = w;
+      });
+    } else if (item.type === 'quantity-rate' && item.measurements) {
+      // Check if item looks like a building structure
+      const titleLower = (item.title || '').toLowerCase();
+      const isStructure = ['rcc', 'assam', 'building', 'shed', 'structure', 'temporary', 'room', 'house', 'block'].some(kw => titleLower.includes(kw));
+      if (!isStructure) return;
+
+      const isSqft = (item.unit || '').toLowerCase().includes('sqf');
+      const conversion = isSqft ? 0.3048 : 1.0;
+
+      item.measurements.forEach((m, mIdx) => {
+        const lRaw = parseFloat(m.l) || 0;
+        const bRaw = parseFloat(m.b) || 0;
+        if (lRaw <= 0 || bRaw <= 0) return;
+
+        const l = lRaw * conversion;
+        const w = bRaw * conversion;
+
+        let label = m.description || item.title || 'Building';
+        if (item.title && m.description && m.description !== item.title && !m.description.toLowerCase().includes(item.title.toLowerCase())) {
+          label = `${item.title}\n(${m.description})`;
+        }
+
+        const structType = getStructureType(item.title);
+
+        // Position shape
+        if (currentX + l > maxRowWidth && currentX > 2.0) {
+          currentX = 2.0;
+          currentY += rowMaxHeight + gap;
+          rowMaxHeight = 0;
+        }
+
+        shapes.push({
+          id: Date.now() + Math.floor(Math.random() * 1000) + (itemIdx * 1000) + mIdx,
+          type: 'building',
+          x: parseFloat(currentX.toFixed(3)),
+          y: parseFloat(currentY.toFixed(3)),
+          w: parseFloat(l.toFixed(3)),
+          h: parseFloat(w.toFixed(3)),
+          label: label,
+          structureType: structType,
+          dimW: `${l.toFixed(2)}m (${(l * 3.28084).toFixed(1)}ft)`,
+          dimH: `${w.toFixed(2)}m (${(w * 3.28084).toFixed(1)}ft)`,
+          dimWOffset: -1.5,
+          dimHOffset: -1.5
+        });
+
+        currentX += l + gap;
+        if (w > rowMaxHeight) rowMaxHeight = w;
+      });
+    }
+  });
+
+  // Also auto-draw a road if there isn't one already and we have route info or fallbacks
+  const hasRoad = shapes.some(s => s.type === 'road');
+  if (!hasRoad) {
+    let roadLabel = 'NH-37';
+    let leftLabel = 'KALIABAR';
+    let rightLabel = 'NUMALIGARH';
+    
+    if (typeof window !== 'undefined' && window.getActiveProjectRoute) {
+      const route = window.getActiveProjectRoute();
+      if (route && route.road) {
+        roadLabel = route.road;
+        leftLabel = route.left || '';
+        rightLabel = route.right || '';
+      }
+    }
+    
+    shapes.push({
+      id: Date.now() + Math.floor(Math.random() * 1000) + 9999,
+      type: 'road',
+      y: parseFloat((currentY + rowMaxHeight + gap + 1.0).toFixed(3)),
+      h: 3.0,
+      label: roadLabel,
+      leftLabel: leftLabel,
+      rightLabel: rightLabel
+    });
+  }
+
+  return shapes;
 }
 
 function loadEntryToEditor() {
@@ -2705,7 +3084,19 @@ function loadEntryToEditor() {
   const sketchFontSizeValEl = document.getElementById('sketch-font-size-val');
   if (sketchFontSizeValEl) sketchFontSizeValEl.innerText = sketcher.globalFontSizeBase + 'px';
 
-  sketcher.loadData(activeEntry.sketcherData || []);
+  // Auto-generate sketcher shapes if the layout is empty but measurements are present
+  if (!activeEntry.sketcherData || activeEntry.sketcherData.length === 0) {
+    const autoShapes = autoGenerateSketcherShapes(activeEntry);
+    if (autoShapes.length > 0) {
+      activeEntry.sketcherData = autoShapes;
+      sketcher.loadData(autoShapes);
+      activeEntry.sketcherImage = sketcher.exportImage();
+    } else {
+      sketcher.loadData([]);
+    }
+  } else {
+    sketcher.loadData(activeEntry.sketcherData);
+  }
   if (activeEntry.mapLat && activeEntry.mapLon) {
     const mapZoom = activeEntry.mapZoom || 17;
     const mapType = activeEntry.mapType || 'satellite';
@@ -3341,6 +3732,74 @@ function renderMeasurementBook(item, tr) {
   refreshMeasurementTotal(item, tr);
 }
 
+function updateDualDimensions(m, item, mtr) {
+  const lEl = mtr.querySelector('.m-l-dual');
+  const bEl = mtr.querySelector('.m-b-dual');
+  const hEl = mtr.querySelector('.m-h-dual');
+  const qEl = mtr.querySelector('.m-subqty-dual');
+  if (!lEl || !bEl || !hEl || !qEl) return;
+
+  const unit = (item.unit || '').toLowerCase();
+  const isFeet = ['sqf', 'sqft', 'ft', 'rft'].some(u => unit.includes(u));
+  const isMetric = ['sqm', 'cum', 'm', 'rm'].some(u => unit.includes(u));
+
+  if (!isFeet && !isMetric) {
+    lEl.innerText = '';
+    bEl.innerText = '';
+    hEl.innerText = '';
+    qEl.innerText = '';
+    return;
+  }
+
+  const formatDual = (val, toMetric) => {
+    const v = parseFloat(val);
+    if (isNaN(v) || v <= 0) return '-';
+    if (toMetric) {
+      return `${(v * 0.3048).toFixed(2)}m`;
+    } else {
+      return `${(v * 3.28084).toFixed(1)}ft`;
+    }
+  };
+
+  lEl.innerText = formatDual(m.l, isFeet);
+  bEl.innerText = formatDual(m.b, isFeet);
+  hEl.innerText = formatDual(m.h, isFeet);
+
+  const subQty = parseFloat(m.subQty);
+  if (!isNaN(subQty) && subQty > 0) {
+    if (isFeet) {
+      let convertedQty = subQty;
+      let dualUnit = '';
+      if (unit.includes('sqf')) {
+        convertedQty = subQty * 0.092903;
+        dualUnit = 'sqm';
+      } else if (unit.includes('cum')) {
+        convertedQty = subQty;
+      } else {
+        convertedQty = subQty * 0.3048;
+        dualUnit = 'm';
+      }
+      qEl.innerText = `${convertedQty.toFixed(2)} ${dualUnit}`;
+    } else {
+      let convertedQty = subQty;
+      let dualUnit = '';
+      if (unit.includes('sqm')) {
+        convertedQty = subQty * 10.76391;
+        dualUnit = 'sqft';
+      } else if (unit.includes('cum')) {
+        convertedQty = subQty * 35.3147;
+        dualUnit = 'cft';
+      } else {
+        convertedQty = subQty * 3.28084;
+        dualUnit = 'ft';
+      }
+      qEl.innerText = `${convertedQty.toFixed(2)} ${dualUnit}`;
+    }
+  } else {
+    qEl.innerText = '-';
+  }
+}
+
 function renderMeasurementRow(m, item, tr, tbody) {
   const mtr = document.createElement('tr');
   mtr.dataset.mId = m.id;
@@ -3358,15 +3817,19 @@ function renderMeasurementRow(m, item, tr, tbody) {
     </td>
     <td style="padding: 0.12rem 0.1rem;">
       <input type="number" class="m-l" value="${m.l !== undefined ? m.l : ''}" placeholder="L" step="0.001" style="${inputStyle}">
+      <div class="m-l-dual" style="font-size: 0.62rem; color: var(--text-muted); text-align: center; margin-top: 1px; line-height: 1.1;">-</div>
     </td>
     <td style="padding: 0.12rem 0.1rem;">
       <input type="number" class="m-b" value="${m.b !== undefined ? m.b : ''}" placeholder="B" step="0.001" style="${inputStyle}">
+      <div class="m-b-dual" style="font-size: 0.62rem; color: var(--text-muted); text-align: center; margin-top: 1px; line-height: 1.1;">-</div>
     </td>
     <td style="padding: 0.12rem 0.1rem;">
       <input type="number" class="m-h" value="${m.h !== undefined ? m.h : ''}" placeholder="H" step="0.001" style="${inputStyle}">
+      <div class="m-h-dual" style="font-size: 0.62rem; color: var(--text-muted); text-align: center; margin-top: 1px; line-height: 1.1;">-</div>
     </td>
-    <td style="padding: 0.12rem 0.1rem; text-align: right; font-weight: 600; color: var(--accent); white-space: nowrap;" class="m-subqty-display">
-      ${(m.subQty || 0).toFixed(3)}
+    <td style="padding: 0.12rem 0.1rem; text-align: right; font-weight: 600; color: var(--accent); white-space: nowrap;">
+      <span class="m-subqty-display">${(m.subQty || 0).toFixed(3)}</span>
+      <div class="m-subqty-dual" style="font-size: 0.62rem; color: var(--text-muted); text-align: right; margin-top: 1px; font-weight: normal; line-height: 1.1;">-</div>
     </td>
     <td style="padding: 0.12rem 0.1rem; text-align: center;">
       <button type="button" class="delete-mrow-btn" style="background: none; border: none; cursor: pointer; color: var(--danger); padding: 0; line-height: 1; font-size: 0.8rem;" title="Remove row">✕</button>
@@ -3374,6 +3837,7 @@ function renderMeasurementRow(m, item, tr, tbody) {
   `;
 
   tbody.appendChild(mtr);
+  updateDualDimensions(m, item, mtr);
 
   const recalc = () => {
     m.description = mtr.querySelector('.m-desc').value;
@@ -3383,6 +3847,7 @@ function renderMeasurementRow(m, item, tr, tbody) {
     m.h   = mtr.querySelector('.m-h').value.trim();
     m.subQty = calcMeasurementSubQty(m);
     mtr.querySelector('.m-subqty-display').textContent = m.subQty.toFixed(3);
+    updateDualDimensions(m, item, mtr);
     refreshMeasurementTotal(item, tr);
     updateRowTotal(item, tr);
   };
@@ -3430,12 +3895,17 @@ function renderPlinthRooms(item, tr) {
   item.rooms.forEach((room) => {
     const div = document.createElement('div');
     div.className = 'room-row';
+    const l_ft = (room.l * 3.28084).toFixed(1);
+    const w_ft = (room.w * 3.28084).toFixed(1);
+    const areaSqft = (room.areaSqm * 10.76391).toFixed(2);
+
     div.innerHTML = `
       <input type="text" class="room-name" value="${room.name}" style="flex-grow: 2;" placeholder="Room name">
       <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (m)" step="0.01">
       <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
       <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (m)" step="0.01">
-      <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 80px; text-align: right;" class="room-sqm-display">${room.areaSqm.toFixed(2)} sqm</span>
+      <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">(${l_ft}' x ${w_ft}')</span>
+      <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${areaSqft} sqft</span></span>
       <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
     `;
 
@@ -3449,7 +3919,14 @@ function renderPlinthRooms(item, tr) {
       room.l = parseFloat(div.querySelector('.room-l').value) || 0;
       room.w = parseFloat(div.querySelector('.room-w').value) || 0;
       room.areaSqm = room.l * room.w;
-      div.querySelector('.room-sqm-display').innerText = room.areaSqm.toFixed(2) + ' sqm';
+      
+      const lf = (room.l * 3.28084).toFixed(1);
+      const wf = (room.w * 3.28084).toFixed(1);
+      const asf = (room.areaSqm * 10.76391).toFixed(2);
+      
+      div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
+      div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${asf} sqft</span>`;
+      
       updatePlinthCalculations(item, tr);
     };
 
@@ -3839,7 +4316,7 @@ function calculateAndRenderTotals() {
   activeEntry.totalA = totalA;
 
   const tplSettings = getPdfTemplateSettings();
-  const contractorPct = tplSettings.contractorPct || 15;
+  const contractorPct = activeEntry.contractorPct !== undefined ? activeEntry.contractorPct : (tplSettings.contractorPct !== undefined ? tplSettings.contractorPct : 15);
   const contractorDeduction = Math.round(totalA * (contractorPct / 100));
   activeEntry.contractorDeduction = contractorDeduction;
 
@@ -4061,7 +4538,21 @@ async function saveActiveEntry(status = 'draft') {
   if (!activeEntry || !activeProject) return;
   calculateAndRenderTotals();
 
-  activeEntry.status = status;
+  if (status === 'draft') {
+    const hasEmptyStructures = activeEntry.items && activeEntry.items.some(item => 
+      item.type === 'plinth-area' && item.rooms && (item.rooms.length === 0 || item.rooms.some(r => parseFloat(r.l) <= 0 || parseFloat(r.w) <= 0))
+    );
+    const hasNoName = !activeEntry.clientName || activeEntry.clientName === 'Unnamed Owner' || activeEntry.clientName.trim() === '';
+    const hasNoLocation = !activeEntry.location || activeEntry.location === 'N/A' || activeEntry.location.trim() === '';
+    
+    if (hasEmptyStructures || hasNoName || hasNoLocation) {
+      activeEntry.status = 'needs-review';
+    } else {
+      activeEntry.status = 'draft';
+    }
+  } else {
+    activeEntry.status = status;
+  }
   if (sketcher) {
     activeEntry.sketcherData = sketcher.exportData();
     activeEntry.sketcherImage = sketcher.exportImage();
@@ -4550,6 +5041,33 @@ function setupSketcherToolbar() {
       syncAllToolbars('select');
     }
   });
+
+  const autoDrawBtn = document.getElementById('sketch-autodraw-btn');
+  if (autoDrawBtn) {
+    autoDrawBtn.addEventListener('click', () => {
+      if (sketcher) {
+        if (sketcher.isLocked) {
+          showToast('Unlock sketcher first', 'warning');
+          return;
+        }
+        if (sketcher.shapes && sketcher.shapes.length > 0) {
+          if (!confirm('This will replace the current sketch layout. Proceed?')) {
+            return;
+          }
+        }
+        const autoShapes = autoGenerateSketcherShapes(activeEntry);
+        if (autoShapes.length > 0) {
+          sketcher.pushHistory();
+          sketcher.loadData(autoShapes);
+          activeEntry.sketcherData = autoShapes;
+          activeEntry.sketcherImage = sketcher.exportImage();
+          showToast('Auto-drawing generated successfully!');
+        } else {
+          showToast('No buildings/measurements found to draw.', 'warning');
+        }
+      }
+    });
+  }
 
   document.getElementById('tool-clear').addEventListener('click', () => {
     if (sketcher && confirm('Are you sure you want to clear the entire site layout?')) {
@@ -5534,12 +6052,57 @@ function parseOcrDsrText(text) {
   return items.filter(i => i.code && i.description && i.rate > 0);
 }
 
+// Direct call helper for Google Gemini API (AI Studio / Vertex AI)
+async function callGeminiApiDirect(modelName, base64DataUrl, apiKey, systemPrompt, userPrompt) {
+  const base64Data = base64DataUrl.includes(',') ? base64DataUrl.split(',')[1] : base64DataUrl;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [
+          { text: systemPrompt }
+        ]
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: userPrompt },
+            {
+              inlineData: {
+                mimeType: 'image/png',
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini Direct API Error (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return rawContent;
+}
+
 // ── AI Vision BOQ Extractor ─────────────────────────────────────────────────
 // Sends a base64 image to the Nvidia Nemotron vision model via OpenRouter.
 // Returns a structured array of BOQ items: [{ code, description, unit, rate }]
 async function callAiVisionForBoqImage(base64DataUrl, apiKey) {
-  const model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
-
   const systemPrompt = `You are a BOQ/DSR data extraction specialist for Indian construction projects.
 You will receive an image of a Bill of Quantities (BOQ) or Schedule of Rates (DSR) document page.
 Extract ALL line items from the document and return them as a valid JSON array with this exact format:
@@ -5554,89 +6117,149 @@ Rules:
 - If a description spans multiple lines in the image, merge it into one string.
 - Return ONLY the JSON array. No markdown, no explanation, no preamble.`;
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://valuroad.app',
-      'X-Title': 'ValuRoad BOQ Parser'
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
+  const isGeminiKey = apiKey && apiKey.startsWith('AQ.');
+  if (isGeminiKey) {
+    let geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+    const selectedModel = document.getElementById('ocr-ai-model-select')?.value || 'auto';
+    if (selectedModel && selectedModel.includes('gemini')) {
+      const cleanName = selectedModel.replace(':free', '').replace('google/', '');
+      geminiModels = [cleanName, ...geminiModels.filter(m => m !== cleanName)];
+    }
+
+    let geminiError = null;
+    for (const geminiModel of geminiModels) {
+      try {
+        console.log(`[BOQ AI] Attempting Gemini Direct call with model: ${geminiModel}`);
+        const rawContent = await callGeminiApiDirect(geminiModel, base64DataUrl, apiKey, systemPrompt, 'Please extract all BOQ/DSR items from this document image and return them as a JSON array.');
+        
+        console.log(`[BOQ AI] Raw response from Gemini Direct (${geminiModel}):`, rawContent.substring(0, 500));
+        
+        let jsonStr = rawContent.trim();
+        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+          jsonStr = arrayMatch[0];
+        }
+
+        const parsed = JSON.parse(jsonStr);
+        if (!Array.isArray(parsed)) {
+          throw new Error('Response is not a JSON array');
+        }
+
+        const valid = parsed
+          .filter(item => item && item.code && item.description && item.rate > 0)
+          .map(item => ({
+            code: String(item.code).trim(),
+            description: String(item.description).trim(),
+            unit: String(item.unit || 'sqm').toLowerCase().trim(),
+            rate: parseFloat(item.rate) || 0
+          }))
+          .filter(item => item.rate > 0 && item.code.length > 0);
+
+        console.log(`[BOQ AI] Successfully parsed ${valid.length} items from Gemini Direct (${geminiModel}).`);
+        return valid;
+      } catch (err) {
+        console.warn(`[BOQ AI] Gemini Direct model ${geminiModel} failed:`, err.message);
+        geminiError = err;
+      }
+    }
+    console.error('[BOQ AI] All Gemini Direct models failed.', geminiError);
+    return [];
+  }
+
+  const selectedModel = document.getElementById('ocr-ai-model-select')?.value || 'auto';
+  let candidateModels = [
+    'meta-llama/llama-3.2-11b-vision-instruct:free',
+    'nvidia/nemotron-nano-12b-v2-vl:free',
+    'openrouter/free'
+  ];
+  if (selectedModel && selectedModel !== 'auto') {
+    candidateModels = [selectedModel, ...candidateModels.filter(m => m !== selectedModel)];
+  }
+
+  let lastError = null;
+
+  for (const model of candidateModels) {
+    try {
+      console.log(`[BOQ AI] Attempting extraction with model: ${model}`);
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://valuroad.app',
+          'X-Title': 'ValuRoad BOQ Parser'
         },
-        {
-          role: 'user',
-          content: [
+        body: JSON.stringify({
+          model,
+          messages: [
             {
-              type: 'text',
-              text: 'Please extract all BOQ/DSR items from this document image and return them as a JSON array.'
+              role: 'system',
+              content: systemPrompt
             },
             {
-              type: 'image_url',
-              image_url: {
-                url: base64DataUrl,
-                detail: 'high'
-              }
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please extract all BOQ/DSR items from this document image and return them as a JSON array.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64DataUrl,
+                    detail: 'high'
+                  }
+                }
+              ]
             }
-          ]
-        }
-      ],
-      temperature: 0.1, // Very low temp for deterministic extraction
-      max_tokens: 4096
-    })
-  });
+          ],
+          temperature: 0.1,
+          max_tokens: 4096
+        })
+      });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`AI Vision API Error (${response.status}): ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`AI Vision API Error (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      const rawContent = data?.choices?.[0]?.message?.content || '';
+
+      console.log(`[BOQ AI] Raw AI response from ${model}:`, rawContent.substring(0, 500));
+
+      let jsonStr = rawContent.trim();
+      const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        jsonStr = arrayMatch[0];
+      }
+
+      let parsed = JSON.parse(jsonStr);
+      if (!Array.isArray(parsed)) {
+        throw new Error('Response is not a JSON array');
+      }
+
+      const valid = parsed
+        .filter(item => item && item.code && item.description && item.rate > 0)
+        .map(item => ({
+          code: String(item.code).trim(),
+          description: String(item.description).trim(),
+          unit: String(item.unit || 'sqm').toLowerCase().trim(),
+          rate: parseFloat(item.rate) || 0
+        }))
+        .filter(item => item.rate > 0 && item.code.length > 0);
+
+      console.log(`[BOQ AI] Successfully parsed ${valid.length} items from ${model}`);
+      return valid;
+
+    } catch (err) {
+      console.warn(`[BOQ AI] Model ${model} failed:`, err.message);
+      lastError = err;
+    }
   }
 
-  const data = await response.json();
-  const rawContent = data?.choices?.[0]?.message?.content || '';
-
-  console.log('[BOQ AI] Raw AI response:', rawContent.substring(0, 500));
-
-  // Extract JSON array from the response (may have surrounding text from reasoning model)
-  let jsonStr = rawContent.trim();
-
-  // Try to find a JSON array in the response
-  const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    jsonStr = arrayMatch[0];
-  }
-
-  let parsed = [];
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch (parseErr) {
-    console.warn('[BOQ AI] JSON parse failed:', parseErr.message);
-    console.warn('[BOQ AI] Raw content was:', rawContent);
-    // Return empty array rather than throwing — caller handles empty results
-    return [];
-  }
-
-  if (!Array.isArray(parsed)) {
-    console.warn('[BOQ AI] Response was not an array:', parsed);
-    return [];
-  }
-
-  // Sanitize and validate each item
-  const valid = parsed
-    .filter(item => item && item.code && item.description && item.rate > 0)
-    .map(item => ({
-      code: String(item.code).trim(),
-      description: String(item.description).trim(),
-      unit: String(item.unit || 'sqm').toLowerCase().trim(),
-      rate: parseFloat(item.rate) || 0
-    }))
-    .filter(item => item.rate > 0 && item.code.length > 0);
-
-  return valid;
+  console.error('[BOQ AI] All models failed. Returning empty array.', lastError);
+  return [];
 }
 
 function renderOcrPreview() {
@@ -7419,3 +8042,1241 @@ function formatAiMarkdown(text) {
 
   return html;
 }
+
+// ── AI Bulk Survey Estimator Feature ──────────────────────────────────────────
+let parsedBulkOwners = [];
+
+function setupAiBulkEstimate() {
+  const dropzone = document.getElementById('bulk-dropzone');
+  const fileInput = document.getElementById('bulk-file-input');
+  const generateBtn = document.getElementById('bulk-generate-estimates-btn');
+  const addOwnerBtn = document.getElementById('bulk-add-owner-row-btn');
+
+  if (dropzone && fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          handleBulkPdfFile(file);
+        } else if (file.type.startsWith('image/')) {
+          handleBulkImageFile(file);
+        } else {
+          alert('Please upload a PDF or an image file.');
+        }
+      }
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--accent)';
+      dropzone.style.backgroundColor = 'var(--accent-light)';
+    });
+
+    dropzone.style.transition = 'all 0.2s';
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.borderColor = 'var(--border-color)';
+      dropzone.style.backgroundColor = '';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--border-color)';
+      dropzone.style.backgroundColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          handleBulkPdfFile(file);
+        } else if (file.type.startsWith('image/')) {
+          handleBulkImageFile(file);
+        } else {
+          alert('Please drop a PDF or an image file.');
+        }
+      }
+    });
+  }
+
+  if (generateBtn) {
+    generateBtn.addEventListener('click', generateBulkEstimates);
+  }
+
+  if (addOwnerBtn) {
+    addOwnerBtn.addEventListener('click', () => {
+      const newOwner = {
+        id: 'OWNER_PARSED_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        owner_name: 'New Owner',
+        village: '',
+        mouza: '',
+        structures: [
+          {
+            id: 'STRUCT_' + Date.now() + '_0',
+            description: 'Structure 1',
+            category: 'Temporary Building',
+            length_ft: 10,
+            breadth_ft: 10,
+            area_sqft: 100,
+            area_sqm: 9.29,
+            rate: 205.00,
+            deduction_pct: 0,
+            total_cost: 20500
+          }
+        ]
+      };
+      parsedBulkOwners.push(newOwner);
+      renderBulkPreview();
+    });
+  }
+}
+
+function refreshBulkProjectSelector() {
+  const select = document.getElementById('bulk-project-select');
+  if (!select) return;
+  
+  select.innerHTML = '';
+  
+  if (projects.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '-- No projects available. Create one first --';
+    select.appendChild(opt);
+    return;
+  }
+
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.workName || p.projectName || `Project ${p.id}`;
+    if (activeProject && activeProject.id === p.id) {
+      opt.selected = true;
+    }
+    select.appendChild(opt);
+  });
+}
+
+async function handleBulkImageFile(file) {
+  const container = document.getElementById('bulk-progress-container');
+  const statusEl = document.getElementById('bulk-progress-status');
+  const percentEl = document.getElementById('bulk-progress-percent');
+  const barEl = document.getElementById('bulk-progress-bar');
+  const previewPanel = document.getElementById('bulk-preview-panel');
+
+  if (!container || !statusEl || !percentEl || !barEl) return;
+
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  if (!apiKey) {
+    alert('Estimator AI key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env file and reload.');
+    return;
+  }
+
+  const selectedProjId = document.getElementById('bulk-project-select').value;
+  if (!selectedProjId) {
+    alert('Please select or create a project first before importing survey documents.');
+    return;
+  }
+
+  container.style.display = 'block';
+  statusEl.innerText = 'Reading image...';
+  percentEl.innerText = '10%';
+  barEl.style.width = '10%';
+  previewPanel.style.display = 'none';
+
+  try {
+    console.log('[AI Bulk Estimate] Processing image file:', file.name);
+
+    // Convert image file to base64 data URL
+    const base64DataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    statusEl.innerText = 'AI Analysing image...';
+    percentEl.innerText = '50%';
+    barEl.style.width = '50%';
+
+    console.log('[AI Bulk Estimate] Sending image to AI vision model...');
+    const pageData = await callAiVisionForBulkPdfPage(base64DataUrl, apiKey);
+    console.log('[AI Bulk Estimate] Image parsed: extracted', pageData.length, 'owners');
+
+    parsedBulkOwners = pageData;
+
+    statusEl.innerText = `✅ Extracted ${parsedBulkOwners.length} owners successfully!`;
+    percentEl.innerText = '100%';
+    barEl.style.width = '100%';
+
+    setTimeout(() => {
+      container.style.display = 'none';
+      if (parsedBulkOwners.length > 0) {
+        renderBulkPreview();
+      } else {
+        alert('The AI could not extract any owners or structures from this image. Please verify the image is clear and contains a survey schedule.');
+      }
+    }, 1500);
+
+  } catch (err) {
+    console.error('[AI Bulk Estimate] Image error:', err);
+    statusEl.innerText = 'AI Extraction Error!';
+    percentEl.innerText = '';
+    barEl.style.width = '0%';
+    alert('Failed to parse survey image with AI: ' + err.message);
+  }
+}
+
+async function handleBulkPdfFile(file) {
+  const container = document.getElementById('bulk-progress-container');
+  const statusEl = document.getElementById('bulk-progress-status');
+  const percentEl = document.getElementById('bulk-progress-percent');
+  const barEl = document.getElementById('bulk-progress-bar');
+  const previewPanel = document.getElementById('bulk-preview-panel');
+
+  if (!container || !statusEl || !percentEl || !barEl) return;
+
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+  if (!apiKey) {
+    alert('Estimator AI key is not configured. Please set VITE_OPENROUTER_API_KEY in your .env file and reload.');
+    return;
+  }
+
+  const selectedProjId = document.getElementById('bulk-project-select').value;
+  if (!selectedProjId) {
+    alert('Please select or create a project first before importing survey PDFs.');
+    return;
+  }
+
+  if (!window.pdfjsLib) {
+    alert('PDF.js library is not loaded yet. Please check your internet connection.');
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+  container.style.display = 'block';
+  statusEl.innerText = 'Loading Survey PDF...';
+  percentEl.innerText = '0%';
+  barEl.style.width = '0%';
+  previewPanel.style.display = 'none';
+
+  try {
+    console.log('[AI Bulk Estimate] Reading PDF file:', file.name);
+
+    const fileReader = new FileReader();
+    const loadPromise = new Promise((resolve, reject) => {
+      fileReader.onload = function() { resolve(new Uint8Array(this.result)); };
+      fileReader.onerror = function(e) { reject(e); };
+    });
+    fileReader.readAsArrayBuffer(file);
+    const typedarray = await loadPromise;
+
+    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+    console.log('[AI Bulk Estimate] PDF loaded. Pages:', pdf.numPages);
+
+    const startPageInput = document.getElementById('bulk-pdf-start-page');
+    const endPageInput = document.getElementById('bulk-pdf-end-page');
+
+    let startPage = parseInt(startPageInput?.value) || 1;
+    let endPage = parseInt(endPageInput?.value) || pdf.numPages;
+    startPage = Math.max(1, Math.min(pdf.numPages, startPage));
+    endPage = Math.max(startPage, Math.min(pdf.numPages, endPage));
+
+    const totalPagesToParse = (endPage - startPage) + 1;
+    console.log(`[AI Bulk Estimate] Rendering pages ${startPage}–${endPage} to canvas...`);
+
+    parsedBulkOwners = [];
+
+    for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+      const pageIndex = (pageNum - startPage) + 1;
+      const baseProgress = Math.round(((pageIndex - 1) / totalPagesToParse) * 100);
+
+      statusEl.innerText = `Rendering PDF Page ${pageNum} of ${endPage}...`;
+      percentEl.innerText = `${baseProgress}%`;
+      barEl.style.width = `${baseProgress}%`;
+
+      // Render page to canvas
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for legibility
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const base64DataUrl = canvas.toDataURL('image/png');
+
+      statusEl.innerText = `AI Analysing Page ${pageNum} of ${endPage}...`;
+      const aiProgress = baseProgress + Math.round((1 / totalPagesToParse) * 50);
+      percentEl.innerText = `${Math.min(aiProgress, 95)}%`;
+      barEl.style.width = `${Math.min(aiProgress, 95)}%`;
+
+      console.log(`[AI Bulk Estimate] Sending page ${pageNum} to AI vision model...`);
+      const pageData = await callAiVisionForBulkPdfPage(base64DataUrl, apiKey);
+      console.log(`[AI Bulk Estimate] Page ${pageNum}: extracted ${pageData.length} owners`);
+      parsedBulkOwners = parsedBulkOwners.concat(pageData);
+    }
+
+    statusEl.innerText = `✅ Extracted ${parsedBulkOwners.length} owners successfully!`;
+    percentEl.innerText = '100%';
+    barEl.style.width = '100%';
+
+    setTimeout(() => {
+      container.style.display = 'none';
+      if (parsedBulkOwners.length > 0) {
+        renderBulkPreview();
+      } else {
+        alert('The AI could not extract any owners or structures from this PDF page range. Please verify the document is clear and contains a survey schedule.');
+      }
+    }, 1500);
+
+  } catch (err) {
+    console.error('[AI Bulk Estimate] Error:', err);
+    statusEl.innerText = 'AI Extraction Error!';
+    percentEl.innerText = '';
+    barEl.style.width = '0%';
+    alert('Failed to parse survey PDF with AI: ' + err.message);
+  }
+}
+
+async function callAiVisionForBulkPdfPage(base64DataUrl, apiKey) {
+  const systemPrompt = `You are an expert Joint Measurement Survey (JMS) extractor.
+You will receive an image of a survey schedule (table) containing affected structures and landowner information.
+Extract ALL landowner records from the table and return them as a valid JSON object with this exact format:
+{
+  "owners": [
+    {
+      "owner_name": "...",
+      "village": "...",
+      "mouza": "...",
+      "structures": [
+        {
+          "description": "...",
+          "category": "Temporary Building",
+          "length_ft": 0.0,
+          "breadth_ft": 0.0,
+          "area_sqft": 0.0,
+          "area_sqm": 0.0
+        }
+      ]
+    }
+  ]
+}
+
+Table Column Structure:
+- Sl. No. | Name | Village | Mouza | Description | Size (in Feets) L and B
+
+Extraction and Splitting Rules:
+1. "owner_name" must contain the full name of the occupant or owner. Joint owners listed together in a row (e.g., "1. Smti Mina Hazarika, 2. Sri Praffulla Hazarika") should be extracted and joined with a comma or ampersand.
+2. "village" and "mouza" must be extracted from their respective columns (e.g. Village: "Haluwa Gaon", Mouza: "Kaziranga").
+3. A single owner row can contain multiple lines of L (Length) and B (Breadth) dimensions. Each line representing L and B is a separate structure asset. You MUST create a separate object in the "structures" array for each dimension line.
+4. How to pair structure descriptions with dimension lines:
+   - If the Description column lists multiple structures separated by slashes or plus signs (e.g., "Kacha House/Cowshed" or "Kacha House + Cowshed") and there are multiple dimension lines (e.g. 15x20 and 10x12), pair them in order:
+     - Structure 1: Description "Kacha House", Category "Temporary Building", L: 15, B: 20.
+     - Structure 2: Description "Cowshed", Category "Temp Shed", L: 10, B: 12.
+   - If there is only one description (e.g. "Kacha Shed") but multiple dimension lines (e.g., 5 lines), create 5 structures all of description "Kacha Shed" and category "Temp Shed" using their respective L and B dimensions.
+   - If the Description cell is blank/empty, default the description to "Kacha House" and category to "Temporary Building" (since the page is a "List of Kacha House").
+5. Category Mapping:
+   - "Kacha House" -> category "Temporary Building"
+   - "Ghumti" -> category "Temporary Building"
+   - "Kacha Shed", "Cow Shed", "Cowshed", "Kacha Cowshed", "Granary", "Rice Store House", "Paddy Straw House" -> category "Temp Shed"
+   - "Shop", "Kacha Shop", "Hotel" -> category "Commercial Building"
+   - "RCC Structure" -> category "RCC Structure"
+   - "Assam Type Building" -> category "Assam Type Building"
+6. For each structure, extract "length_ft" (L) and "breadth_ft" (B) as raw numbers in feet.
+7. Compute: "area_sqft" = length_ft * breadth_ft.
+8. Compute: "area_sqm" = area_sqft * 0.092903. Round all areas to 2 decimals.
+9. Return ONLY the raw JSON string starting with { and ending with }. Do not enclose in markdown code fences, backticks, or write explanations.`;
+
+  const isGeminiKey = apiKey && apiKey.startsWith('AQ.');
+  if (isGeminiKey) {
+    let geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+    const selectedModel = document.getElementById('bulk-ai-model-select')?.value || 'auto';
+    if (selectedModel && selectedModel.includes('gemini')) {
+      const cleanName = selectedModel.replace(':free', '').replace('google/', '');
+      geminiModels = [cleanName, ...geminiModels.filter(m => m !== cleanName)];
+    }
+
+    let geminiError = null;
+    for (const geminiModel of geminiModels) {
+      try {
+        console.log(`[AI Bulk Estimate] Attempting Gemini Direct call with model: ${geminiModel}`);
+        const rawContent = await callGeminiApiDirect(geminiModel, base64DataUrl, apiKey, systemPrompt, 'Please extract all owner and structure records from this survey schedule image and return them as a JSON object.');
+        
+        console.log(`[AI Bulk Estimate] Raw response from Gemini Direct (${geminiModel}):`, rawContent.substring(0, 500));
+
+        let cleaned = rawContent.trim();
+        cleaned = cleaned.replace(/<(think|thought)>[\s\S]*?<\/\1>/gi, '');
+
+        const firstBrace = cleaned.indexOf('{');
+        const lastBrace = cleaned.lastIndexOf('}');
+        const firstBracket = cleaned.indexOf('[');
+        const lastBracket = cleaned.lastIndexOf(']');
+
+        let jsonStr = '';
+        if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+          jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
+        } else if (firstBracket !== -1 && lastBracket !== -1) {
+          jsonStr = cleaned.substring(firstBracket, lastBracket + 1);
+        } else {
+          jsonStr = cleaned;
+        }
+
+        let parsed = null;
+        try {
+          parsed = JSON.parse(jsonStr);
+        } catch (err) {
+          console.warn(`[AI Bulk Estimate] Standard JSON.parse failed for ${geminiModel}, attempting loose repair...`, err.message);
+          try {
+            let repaired = jsonStr
+              .replace(/,\s*([\]}])/g, '$1')
+              .replace(/\\'/g, "'");
+            parsed = JSON.parse(repaired);
+          } catch (err2) {
+            console.warn(`[AI Bulk Estimate] Repaired JSON parse failed for ${geminiModel}, attempting object evaluation...`, err2.message);
+            const fn = new Function(`return (${jsonStr});`);
+            parsed = fn();
+          }
+        }
+
+        let ownersList = [];
+        if (Array.isArray(parsed)) {
+          ownersList = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.owners)) {
+            ownersList = parsed.owners;
+          } else {
+            const arrays = Object.values(parsed).filter(val => Array.isArray(val));
+            if (arrays.length > 0) {
+              ownersList = arrays[0];
+            }
+          }
+        }
+
+        const results = ownersList.map((owner, idx) => {
+          const ownerName = String(owner.owner_name || owner.owner || owner.name || owner.landowner || '').trim();
+          const village = String(owner.village || owner.village_name || owner.location || '').trim();
+          const mouza = String(owner.mouza || owner.mouza_name || '').trim();
+          
+          const rawStructs = owner.structures || owner.structure || owner.assets || owner.items || [];
+          const structures = Array.isArray(rawStructs) ? rawStructs.map((s, sIdx) => {
+            const desc = String(s.description || s.desc || s.name || s.type || '').trim();
+            let cat = String(s.category || s.structure_category || s.type || 'Temporary Building').trim();
+            if (cat === 'Temp Building' || cat.toLowerCase().includes('temporary')) {
+              cat = 'Temporary Building';
+            } else if (cat.toLowerCase().includes('shed')) {
+              cat = 'Temp Shed';
+            } else if (cat.toLowerCase().includes('rcc')) {
+              cat = 'RCC Structure';
+            } else if (cat.toLowerCase().includes('assam')) {
+              cat = 'Assam Type Building';
+            } else if (cat.toLowerCase().includes('commercial') || cat.toLowerCase().includes('shop') || cat.toLowerCase().includes('hotel')) {
+              cat = 'Commercial Building';
+            }
+
+            const l = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
+            const b = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+            const areaSqft = l * b;
+            const areaSqm = areaSqft * 0.092903;
+
+            let rate = 205.00;
+            if (cat === 'RCC Structure') rate = 20685.00;
+            else if (cat === 'Assam Type Building') rate = 15867.00;
+            else if (cat === 'Commercial Building') rate = 20685.00;
+
+            const qty = (cat === 'Temporary Building' || cat === 'Temp Shed') ? areaSqft : areaSqm;
+            const totalCost = Math.round(qty * rate);
+
+            return {
+              id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
+              description: desc || cat,
+              category: cat,
+              length_ft: l,
+              breadth_ft: b,
+              area_sqft: parseFloat(areaSqft.toFixed(2)),
+              area_sqm: parseFloat(areaSqm.toFixed(2)),
+              rate: rate,
+              deduction_pct: 0,
+              total_cost: totalCost
+            };
+          }) : [];
+
+          return {
+            id: `OWNER_PARSED_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+            owner_name: ownerName || 'Unknown Owner',
+            village: village,
+            mouza: mouza,
+            structures: structures
+          };
+        }).filter(o => o.owner_name && o.owner_name !== 'Unknown Owner');
+
+        if (results.length === 0) {
+          throw new Error('AI returned no valid owner records');
+        }
+
+        console.log(`[AI Bulk Estimate] Successfully parsed ${results.length} owner records from Gemini Direct (${geminiModel})`);
+        return results;
+      } catch (err) {
+        console.warn(`[AI Bulk Estimate] Gemini Direct model ${geminiModel} failed:`, err.message);
+        geminiError = err;
+      }
+    }
+    throw new Error(`Gemini Direct API call failed on all models. Last error: ${geminiError ? geminiError.message : 'Unknown error'}`);
+  }
+
+  const selectedModel = document.getElementById('bulk-ai-model-select')?.value || 'auto';
+  let candidateModels = [
+    'meta-llama/llama-3.2-11b-vision-instruct:free',
+    'nvidia/nemotron-nano-12b-v2-vl:free',
+    'openrouter/free'
+  ];
+  if (selectedModel && selectedModel !== 'auto') {
+    candidateModels = [selectedModel, ...candidateModels.filter(m => m !== selectedModel)];
+  }
+
+  let lastError = null;
+
+  for (const model of candidateModels) {
+    try {
+      console.log(`[AI Bulk Estimate] Attempting extraction with model: ${model}`);
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://valuroad.app',
+          'X-Title': 'ValuRoad Bulk PDF Parser'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please extract all owner and structure records from this survey schedule image and return them as a JSON object.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64DataUrl,
+                    detail: 'high'
+                  }
+                }
+              ]
+            }
+          ],
+          temperature: 0.1,
+          max_tokens: 4096
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`AI Vision Error (${response.status}): ${errText}`);
+      }
+
+      const data = await response.json();
+      const rawContent = data?.choices?.[0]?.message?.content || '';
+      console.log(`[AI Bulk Estimate] Raw Response from ${model}:`, rawContent.substring(0, 500));
+
+      let cleaned = rawContent.trim();
+      cleaned = cleaned.replace(/<(think|thought)>[\s\S]*?<\/\1>/gi, '');
+
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      const firstBracket = cleaned.indexOf('[');
+      const lastBracket = cleaned.lastIndexOf(']');
+
+      let jsonStr = '';
+      if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
+      } else if (firstBracket !== -1 && lastBracket !== -1) {
+        jsonStr = cleaned.substring(firstBracket, lastBracket + 1);
+      } else {
+        jsonStr = cleaned;
+      }
+
+      let parsed = null;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (err) {
+        console.warn(`[AI Bulk Estimate] Standard JSON.parse failed for ${model}, attempting loose repair...`, err.message);
+        try {
+          let repaired = jsonStr
+            .replace(/,\s*([\]}])/g, '$1')
+            .replace(/\\'/g, "'");
+          parsed = JSON.parse(repaired);
+        } catch (err2) {
+          console.warn(`[AI Bulk Estimate] Repaired JSON parse failed for ${model}, attempting object evaluation...`, err2.message);
+          const fn = new Function(`return (${jsonStr});`);
+          parsed = fn();
+        }
+      }
+
+      let ownersList = [];
+      if (Array.isArray(parsed)) {
+        ownersList = parsed;
+      } else if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.owners)) {
+          ownersList = parsed.owners;
+        } else {
+          const arrays = Object.values(parsed).filter(val => Array.isArray(val));
+          if (arrays.length > 0) {
+            ownersList = arrays[0];
+          }
+        }
+      }
+
+      const results = ownersList.map((owner, idx) => {
+        const ownerName = String(owner.owner_name || owner.owner || owner.name || owner.landowner || '').trim();
+        const village = String(owner.village || owner.village_name || owner.location || '').trim();
+        const mouza = String(owner.mouza || owner.mouza_name || '').trim();
+        
+        const rawStructs = owner.structures || owner.structure || owner.assets || owner.items || [];
+        const structures = Array.isArray(rawStructs) ? rawStructs.map((s, sIdx) => {
+          const desc = String(s.description || s.desc || s.name || s.type || '').trim();
+          let cat = String(s.category || s.structure_category || s.type || 'Temporary Building').trim();
+          if (cat === 'Temp Building' || cat.toLowerCase().includes('temporary')) {
+            cat = 'Temporary Building';
+          } else if (cat.toLowerCase().includes('shed')) {
+            cat = 'Temp Shed';
+          } else if (cat.toLowerCase().includes('rcc')) {
+            cat = 'RCC Structure';
+          } else if (cat.toLowerCase().includes('assam')) {
+            cat = 'Assam Type Building';
+          } else if (cat.toLowerCase().includes('commercial') || cat.toLowerCase().includes('shop') || cat.toLowerCase().includes('hotel')) {
+            cat = 'Commercial Building';
+          }
+
+          const l = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
+          const b = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+          const areaSqft = l * b;
+          const areaSqm = areaSqft * 0.092903;
+
+          let rate = 205.00;
+          if (cat === 'RCC Structure') rate = 20685.00;
+          else if (cat === 'Assam Type Building') rate = 15867.00;
+          else if (cat === 'Commercial Building') rate = 20685.00;
+
+          const qty = (cat === 'Temporary Building' || cat === 'Temp Shed') ? areaSqft : areaSqm;
+          const totalCost = Math.round(qty * rate);
+
+          return {
+            id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
+            description: desc || cat,
+            category: cat,
+            length_ft: l,
+            breadth_ft: b,
+            area_sqft: parseFloat(areaSqft.toFixed(2)),
+            area_sqm: parseFloat(areaSqm.toFixed(2)),
+            rate: rate,
+            deduction_pct: 0,
+            total_cost: totalCost
+          };
+        }) : [];
+
+        return {
+          id: `OWNER_PARSED_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+          owner_name: ownerName || 'Unknown Owner',
+          village: village,
+          mouza: mouza,
+          structures: structures
+        };
+      }).filter(o => o.owner_name && o.owner_name !== 'Unknown Owner');
+
+      if (results.length === 0) {
+        throw new Error(`AI returned no valid owner records from ${model}`);
+      }
+
+      console.log(`[AI Bulk Estimate] Successfully parsed ${results.length} owner records from ${model}`);
+      return results;
+
+    } catch (err) {
+      console.warn(`[AI Bulk Estimate] Model ${model} failed:`, err.message);
+      lastError = err;
+    }
+  }
+
+  throw new Error(`AI Vision Bulk PDF extraction failed on all candidate models. Last error: ${lastError ? lastError.message : 'Unknown error'}`);
+}
+
+function renderBulkPreview() {
+  const tbody = document.getElementById('bulk-preview-tbody');
+  const countEl = document.getElementById('bulk-preview-count');
+  const panel = document.getElementById('bulk-preview-panel');
+  if (!tbody || !panel) return;
+
+  tbody.innerHTML = '';
+  countEl.innerText = `${parsedBulkOwners.length} owners detected — review details below before generating estimates:`;
+
+  const selectedProjId = document.getElementById('bulk-project-select').value;
+  const project = projects.find(p => p.id === selectedProjId);
+  const existingEntries = (project && project.entries) ? project.entries : [];
+
+  parsedBulkOwners.forEach((owner, idx) => {
+    // 1. Duplicate detection
+    const isDuplicate = existingEntries.some(e => {
+      const matchName = (e.clientName || '').toLowerCase().trim() === owner.owner_name.toLowerCase().trim();
+      const locationStr = (e.location || '').toLowerCase().trim();
+      const matchVillage = owner.village ? locationStr.includes(owner.village.toLowerCase().trim()) : false;
+      const matchMouza = owner.mouza ? locationStr.includes(owner.mouza.toLowerCase().trim()) : false;
+      return matchName && (matchVillage || matchMouza);
+    });
+
+    if (owner.duplicateAction === undefined) {
+      owner.duplicateAction = isDuplicate ? 'skip' : 'new';
+    }
+
+    // 2. Validate completeness
+    const needsReview = !owner.owner_name || !owner.village || owner.structures.length === 0 || owner.structures.some(s => s.length_ft === 0 || s.breadth_ft === 0);
+    let statusClass = 'background: #22c55e; color: #fff;';
+    let statusText = 'Ready';
+    if (needsReview) {
+      statusClass = 'background: #f59e0b; color: #fff;';
+      statusText = 'Needs Review';
+    } else if (isDuplicate) {
+      statusClass = 'background: #3b82f6; color: #fff;';
+      statusText = 'Already Exists';
+    }
+
+    const tr = document.createElement('tr');
+    tr.dataset.ownerId = owner.id;
+    tr.innerHTML = `
+      <td>
+        <button type="button" class="expand-owner-btn" style="background: none; border: none; color: var(--text-primary); cursor: pointer; padding: 4px;">
+          <i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i>
+        </button>
+      </td>
+      <td>
+        <input type="text" class="owner-name-input" value="${owner.owner_name}" style="width:100%; font-size:0.85rem; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary);">
+      </td>
+      <td>
+        <input type="text" class="owner-village-input" value="${owner.village}" style="width:100%; font-size:0.85rem; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary);">
+      </td>
+      <td>
+        <input type="text" class="owner-mouza-input" value="${owner.mouza}" style="width:100%; font-size:0.85rem; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary);">
+      </td>
+      <td style="font-weight:600; text-align:center;">
+        <span class="struct-count-display">${owner.structures.length}</span>
+      </td>
+      <td>
+        <div style="display: flex; flex-direction: column; gap: 4px; align-items: stretch;">
+          <span class="status-badge" style="padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; text-align: center; ${statusClass}">${statusText}</span>
+          <select class="duplicate-action-select" style="padding: 2px 4px; font-size: 0.72rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; ${isDuplicate ? '' : 'display: none;'}">
+            <option value="skip" ${owner.duplicateAction === 'skip' ? 'selected' : ''}>Skip</option>
+            <option value="overwrite" ${owner.duplicateAction === 'overwrite' ? 'selected' : ''}>Overwrite</option>
+            <option value="duplicate" ${owner.duplicateAction === 'duplicate' ? 'selected' : ''}>Duplicate</option>
+          </select>
+        </div>
+      </td>
+      <td style="text-align:center;">
+        <button type="button" class="btn-danger delete-owner-row-btn" style="padding: 0.25rem 0.5rem;" title="Remove Owner">🗑</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    // Expanded structures row
+    const expTr = document.createElement('tr');
+    expTr.className = 'expanded-row';
+    expTr.style.display = 'none';
+    expTr.innerHTML = `
+      <td colspan="7" style="padding: 0.75rem 1rem; background-color: var(--bg-primary);">
+        <div class="structures-detail-container" style="padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-secondary);">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center;">
+            <span>Structure Assets Details</span>
+            <button type="button" class="btn-secondary add-structure-asset-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"><i data-lucide="plus" style="width:12px;height:12px;"></i> Add Structure</button>
+          </h4>
+          <div class="structures-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <!-- Structure cards go here -->
+          </div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(expTr);
+
+    // Bind Main row edits
+    tr.querySelector('.owner-name-input').addEventListener('input', (e) => {
+      owner.owner_name = e.target.value.trim();
+      revalidateRow(tr, owner, isDuplicate);
+    });
+    tr.querySelector('.owner-village-input').addEventListener('input', (e) => {
+      owner.village = e.target.value.trim();
+      revalidateRow(tr, owner, isDuplicate);
+    });
+    tr.querySelector('.owner-mouza-input').addEventListener('input', (e) => {
+      owner.mouza = e.target.value.trim();
+      revalidateRow(tr, owner, isDuplicate);
+    });
+    tr.querySelector('.duplicate-action-select').addEventListener('change', (e) => {
+      owner.duplicateAction = e.target.value;
+    });
+    tr.querySelector('.delete-owner-row-btn').addEventListener('click', () => {
+      if (confirm(`Remove owner "${owner.owner_name}" from the list?`)) {
+        parsedBulkOwners.splice(idx, 1);
+        renderBulkPreview();
+      }
+    });
+
+    // Wire up expand/collapse toggle
+    const expandBtn = tr.querySelector('.expand-owner-btn');
+    expandBtn.addEventListener('click', () => {
+      const isCollapsed = expTr.style.display === 'none';
+      expTr.style.display = isCollapsed ? 'table-row' : 'none';
+      expandBtn.querySelector('i').style.transform = isCollapsed ? 'rotate(90deg)' : 'rotate(0deg)';
+    });
+
+    // Populate structure cards
+    const structuresContainer = expTr.querySelector('.structures-list');
+    
+    function renderStructureCards() {
+      structuresContainer.innerHTML = '';
+      tr.querySelector('.struct-count-display').innerText = owner.structures.length;
+
+      if (owner.structures.length === 0) {
+        structuresContainer.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted); text-align:center; padding:1rem; border:1px dashed var(--border-color); border-radius:0.5rem;">No structures defined. Add one using the button above.</p>`;
+        revalidateRow(tr, owner, isDuplicate);
+        return;
+      }
+
+      owner.structures.forEach((struct, sIdx) => {
+        const card = document.createElement('div');
+        card.className = 'structure-card';
+        card.style = `display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; background-color: var(--bg-secondary); margin-bottom: 0.5rem;`;
+        card.innerHTML = `
+          <div style="flex-grow: 1; min-width: 150px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Structure Type / Description</label>
+            <input type="text" class="struct-desc-input" value="${struct.description}" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary);">
+          </div>
+          <div style="width: 140px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Category</label>
+            <select class="struct-cat-select" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary);">
+              <option value="Temporary Building" ${struct.category === 'Temporary Building' ? 'selected' : ''}>Temp Building</option>
+              <option value="Temp Shed" ${struct.category === 'Temp Shed' ? 'selected' : ''}>Temp Shed</option>
+              <option value="Commercial Building" ${struct.category === 'Commercial Building' ? 'selected' : ''}>Commercial Building</option>
+              <option value="RCC Structure" ${struct.category === 'RCC Structure' ? 'selected' : ''}>RCC Structure</option>
+              <option value="Assam Type Building" ${struct.category === 'Assam Type Building' ? 'selected' : ''}>Assam Type Building</option>
+            </select>
+          </div>
+          <div style="width: 70px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Length (ft)</label>
+            <input type="number" class="struct-l-input" value="${struct.length_ft}" step="0.1" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: right;">
+          </div>
+          <div style="width: 70px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Breadth (ft)</label>
+            <input type="number" class="struct-b-input" value="${struct.breadth_ft}" step="0.1" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: right;">
+          </div>
+          <div style="width: 100px; text-align: right;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Area (sqft / sqm)</label>
+            <span style="font-size: 0.78rem; font-weight: 500;" class="struct-area-display">${struct.area_sqft} sqf<br>${struct.area_sqm} sqm</span>
+          </div>
+          <div style="width: 90px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Rate (₹/unit)</label>
+            <input type="number" class="struct-rate-input" value="${struct.rate}" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: right;">
+          </div>
+          <div style="width: 65px;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Deduct %</label>
+            <input type="number" class="struct-deduct-input" value="${struct.deduction_pct}" min="0" max="100" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: right;">
+          </div>
+          <div style="width: 100px; text-align: right;">
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Total Cost</label>
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--accent);" class="struct-cost-display">₹ ${formatIndianCurrency(struct.total_cost)}</span>
+          </div>
+          <div>
+            <button type="button" class="btn-danger delete-structure-asset-btn" style="padding: 0.25rem 0.45rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
+          </div>
+        `;
+        structuresContainer.appendChild(card);
+
+        // Bind structure card events
+        const descInput = card.querySelector('.struct-desc-input');
+        const catSelect = card.querySelector('.struct-cat-select');
+        const lInput = card.querySelector('.struct-l-input');
+        const bInput = card.querySelector('.struct-b-input');
+        const rateInput = card.querySelector('.struct-rate-input');
+        const deductInput = card.querySelector('.struct-deduct-input');
+
+        const recalculateCard = () => {
+          struct.description = descInput.value.trim();
+          struct.length_ft = parseFloat(lInput.value) || 0;
+          struct.breadth_ft = parseFloat(bInput.value) || 0;
+          struct.deduction_pct = parseFloat(deductInput.value) || 0;
+          struct.rate = parseFloat(rateInput.value) || 0;
+
+          // Re-compute Area
+          struct.area_sqft = parseFloat((struct.length_ft * struct.breadth_ft).toFixed(2));
+          struct.area_sqm = parseFloat((struct.area_sqft * 0.092903).toFixed(2));
+
+          card.querySelector('.struct-area-display').innerHTML = `${struct.area_sqft.toFixed(2)} sqf<br>${struct.area_sqm.toFixed(2)} sqm`;
+
+          // Re-compute Cost
+          const qty = (struct.category === 'Temporary Building' || struct.category === 'Temp Shed') ? struct.area_sqft : struct.area_sqm;
+          const rawCost = qty * struct.rate;
+          const deductAmount = rawCost * (struct.deduction_pct / 100);
+          struct.total_cost = Math.round(rawCost - deductAmount);
+
+          card.querySelector('.struct-cost-display').innerText = `₹ ${formatIndianCurrency(struct.total_cost)}`;
+
+          revalidateRow(tr, owner, isDuplicate);
+        };
+
+        descInput.addEventListener('input', recalculateCard);
+        lInput.addEventListener('input', recalculateCard);
+        bInput.addEventListener('input', recalculateCard);
+        rateInput.addEventListener('input', recalculateCard);
+        deductInput.addEventListener('input', recalculateCard);
+
+        catSelect.addEventListener('change', () => {
+          struct.category = catSelect.value;
+          // Assign default rate for selected category
+          if (struct.category === 'RCC Structure') struct.rate = 20685.00;
+          else if (struct.category === 'Assam Type Building') struct.rate = 15867.00;
+          else if (struct.category === 'Temporary Building') struct.rate = 205.00;
+          else if (struct.category === 'Temp Shed') struct.rate = 205.00;
+          else if (struct.category === 'Commercial Building') struct.rate = 20685.00;
+
+          rateInput.value = struct.rate;
+          recalculateCard();
+        });
+
+        card.querySelector('.delete-structure-asset-btn').addEventListener('click', () => {
+          owner.structures.splice(sIdx, 1);
+          renderStructureCards();
+        });
+      });
+
+      revalidateRow(tr, owner, isDuplicate);
+      if (window.lucide) lucide.createIcons();
+    }
+
+    renderStructureCards();
+
+    // Wire up Add structure button
+    expTr.querySelector('.add-structure-asset-btn').addEventListener('click', () => {
+      const nextIdx = owner.structures.length + 1;
+      owner.structures.push({
+        id: `STRUCT_${Date.now()}_${idx}_${nextIdx}`,
+        description: `Structure ${nextIdx}`,
+        category: 'Temporary Building',
+        length_ft: 10,
+        breadth_ft: 10,
+        area_sqft: 100,
+        area_sqm: 9.29,
+        rate: 205.00,
+        deduction_pct: 0,
+        total_cost: 20500
+      });
+      renderStructureCards();
+    });
+  });
+
+  if (window.lucide) lucide.createIcons();
+  panel.style.display = 'block';
+}
+
+function revalidateRow(tr, owner, isDuplicate) {
+  const needsReview = !owner.owner_name || !owner.village || owner.structures.length === 0 || owner.structures.some(s => s.length_ft === 0 || s.breadth_ft === 0);
+  const badge = tr.querySelector('.status-badge');
+  const actionSel = tr.querySelector('.duplicate-action-select');
+
+  if (needsReview) {
+    badge.innerText = 'Needs Review';
+    badge.style.background = '#f59e0b';
+    badge.style.color = '#fff';
+  } else if (isDuplicate) {
+    badge.innerText = 'Already Exists';
+    badge.style.background = '#3b82f6';
+    badge.style.color = '#fff';
+  } else {
+    badge.innerText = 'Ready';
+    badge.style.background = '#22c55e';
+    badge.style.color = '#fff';
+  }
+}
+
+async function generateBulkEstimates() {
+  const selectedProjId = document.getElementById('bulk-project-select').value;
+  if (!selectedProjId) {
+    alert('Please select a target project.');
+    return;
+  }
+
+  const project = projects.find(p => p.id === selectedProjId);
+  if (!project) {
+    alert('Selected project does not exist.');
+    return;
+  }
+
+  if (parsedBulkOwners.length === 0) {
+    alert('No owners available to generate estimates.');
+    return;
+  }
+
+  // Double check reviews
+  const needsReviewCount = parsedBulkOwners.filter(owner => {
+    return !owner.owner_name || !owner.village || owner.structures.length === 0 || owner.structures.some(s => s.length_ft === 0 || s.breadth_ft === 0);
+  }).length;
+
+  if (needsReviewCount > 0) {
+    if (!confirm(`Warning: There are ${needsReviewCount} owner(s) that need review (missing names, villages, or structure dimensions). Do you want to proceed anyway? These records will be generated with partial details.`)) {
+      return;
+    }
+  }
+
+  const generateBtn = document.getElementById('bulk-generate-estimates-btn');
+  const origText = generateBtn.innerHTML;
+  generateBtn.disabled = true;
+  generateBtn.innerHTML = '<i data-lucide="refresh-cw" class="spin"></i> Generating...';
+  if (window.lucide) lucide.createIcons();
+
+  try {
+    let savedCount = 0;
+    let skippedCount = 0;
+
+    const bulkEnableDep = document.getElementById('bulk-enable-depreciation');
+    const isDepreciated = bulkEnableDep ? bulkEnableDep.checked : true;
+
+    const bulkEnableCP = document.getElementById('bulk-enable-contractor-profit');
+    const deductCP = bulkEnableCP ? bulkEnableCP.checked : true;
+    const tplSettings = getPdfTemplateSettings();
+    const contractorPctValue = deductCP ? (tplSettings.contractorPct !== undefined ? tplSettings.contractorPct : 15) : 0;
+
+    for (const owner of parsedBulkOwners) {
+      if (owner.duplicateAction === 'skip') {
+        skippedCount++;
+        continue;
+      }
+
+      const needsReview = !owner.owner_name || !owner.village || owner.structures.length === 0 || owner.structures.some(s => s.length_ft === 0 || s.breadth_ft === 0);
+
+      let entry = null;
+
+      // Handle overwrite
+      if (owner.duplicateAction === 'overwrite' && project.entries) {
+        // Find existing match
+        const match = project.entries.find(e => {
+          const matchName = (e.clientName || '').toLowerCase().trim() === owner.owner_name.toLowerCase().trim();
+          const locationStr = (e.location || '').toLowerCase().trim();
+          const matchVillage = owner.village ? locationStr.includes(owner.village.toLowerCase().trim()) : false;
+          const matchMouza = owner.mouza ? locationStr.includes(owner.mouza.toLowerCase().trim()) : false;
+          return matchName && (matchVillage || matchMouza);
+        });
+        if (match) {
+          entry = JSON.parse(JSON.stringify(match));
+          entry.items = []; // reset structures for full re-creation
+          entry.enableDepreciation = isDepreciated;
+          entry.contractorPct = contractorPctValue;
+          entry.status = needsReview ? 'needs-review' : 'draft';
+        }
+      }
+
+      // Create new if not overwriting
+      if (!entry) {
+        entry = {
+          id: 'OWNER_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          clientName: owner.owner_name,
+          location: owner.village + (owner.mouza ? `, Mouza: ${owner.mouza}` : ''),
+          constructionYear: 2010,
+          constructionYearComment: '',
+          valuationYear: 2025,
+          inspectionDate: new Date().toISOString().split('T')[0],
+          gpsLat: '',
+          gpsLon: '',
+          gpsAcc: '',
+          roadWidth: '',
+          infraElectricity: false,
+          infraWater: false,
+          infraSewer: false,
+          infraDrainage: false,
+          infraLighting: false,
+          depreciationPct: 2.0,
+          residualLife: '',
+          constructionClass: 'First Class',
+          enableDepreciation: isDepreciated,
+          contractorPct: contractorPctValue,
+          items: [],
+          addElectrification: false,
+          electrificationCost: 135000,
+          addSanitary: false,
+          sanitaryCost: 85000,
+          sketcherData: [],
+          status: needsReview ? 'needs-review' : 'draft',
+          grandTotal: 0
+        };
+      }
+
+      // Populate structures as plinth-area items
+      owner.structures.forEach((s, idx) => {
+        const itemNo = (entry.items.length + 1).toString();
+        
+        let mappedCat = s.category;
+        if (mappedCat === 'Temp Building') mappedCat = 'Temporary Building'; // standardize
+
+        const plinthItem = {
+          id: 'ITEM_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 5),
+          itemNo: itemNo,
+          title: mappedCat,
+          description: 'Plinth area for building',
+          type: 'plinth-area',
+          quantity: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? s.area_sqft : s.area_sqm,
+          unit: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? 'sqf' : 'sqm',
+          rate: s.rate,
+          totalCost: s.total_cost,
+          includeInValuation: true,
+          excludeFromDepreciation: false,
+          customDepreciation: false,
+          customDepreciationPct: 2.0,
+          customDepreciationAge: 10,
+          rooms: [
+            {
+              id: Date.now() + Math.random(),
+              name: s.description || mappedCat,
+              l: parseFloat((s.length_ft * 0.3048).toFixed(3)),
+              w: parseFloat((s.breadth_ft * 0.3048).toFixed(3)),
+              areaSqm: s.area_sqm
+            }
+          ],
+          totalAreaSqm: s.area_sqm,
+          totalAreaSqft: s.area_sqft,
+          deductionPct: s.deduction_pct,
+          deductionLabel: s.deduction_pct > 0 ? 'non conformity with CPWD norms' : '',
+          deductionAmount: 0
+        };
+
+        // Re-compute to verify consistency
+        const isSqf = plinthItem.unit === 'sqf';
+        const qty = isSqf ? plinthItem.totalAreaSqft : plinthItem.totalAreaSqm;
+        const rawCost = qty * plinthItem.rate;
+        plinthItem.deductionAmount = Math.round(rawCost * (plinthItem.deductionPct / 100));
+        plinthItem.totalCost = Math.round(rawCost - plinthItem.deductionAmount);
+
+        entry.items.push(plinthItem);
+      });
+
+      // Auto-draw sketcher shapes
+      const autoShapes = autoGenerateSketcherShapes(entry);
+      entry.sketcherData = autoShapes;
+
+      if (!sketcher) {
+        sketcher = new SiteSketcher('sketcher-canvas');
+        window.sketcher = sketcher;
+      }
+      if (sketcher) {
+        sketcher.loadData(autoShapes);
+        sketcher.fitToContent();
+        entry.sketcherImage = sketcher.exportImage();
+      }
+
+      // Run Programmatic Valuation Calculations on Entry
+      calculateBulkEntryTotals(entry);
+
+      // Save Entry
+      if (!project.entries) project.entries = [];
+      const eIdx = project.entries.findIndex(e => e.id === entry.id);
+      if (eIdx > -1) {
+        project.entries[eIdx] = entry;
+      } else {
+        project.entries.push(entry);
+      }
+
+      project.entriesCount = project.entries.length;
+      project.totalValuation = project.entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+
+      // Cloud saves if online
+      if (auth.currentUser) {
+        await saveProjectEntry(project.id, entry);
+      }
+      
+      savedCount++;
+    }
+
+    // Save project metadata
+    if (auth.currentUser) {
+      await saveUserProject(auth.currentUser.uid, project);
+    }
+
+    // Save local projects list
+    const pIdx = projects.findIndex(p => p.id === project.id);
+    if (pIdx > -1) {
+      projects[pIdx] = project;
+    }
+    saveProjects();
+
+    alert(`Estimates generation complete!\nSaved/Generated: ${savedCount}\nSkipped (Duplicates): ${skippedCount}`);
+
+    // Clean up parsed list
+    parsedBulkOwners = [];
+    document.getElementById('bulk-preview-panel').style.display = 'none';
+
+    // Switch view to projectDetails for selected project
+    activeProject = project;
+    switchView('projectDetails');
+
+  } catch (err) {
+    console.error('[AI Bulk Estimate] Generation failed:', err);
+    alert('Failed to generate valuation estimates: ' + err.message);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = origText;
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function calculateBulkEntryTotals(entry) {
+  if (!entry.items) entry.items = [];
+  if (!entry.customServices) entry.customServices = [];
+
+  const includedItems = entry.items.filter(i => i.includeInValuation);
+  const mainDepreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation && !i.customDepreciation);
+  const customDepreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation && i.customDepreciation);
+  const excludedItems = includedItems.filter(i => i.excludeFromDepreciation);
+
+  // 1. Calculate Main Depreciated totals
+  const totalA = Math.round(mainDepreciatedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
+  entry.totalA = totalA;
+
+  // Read contractor profit pct (standard is 15%)
+  const contractorPct = entry.contractorPct !== undefined ? entry.contractorPct : 15;
+  const contractorDeduction = Math.round(totalA * (contractorPct / 100));
+  entry.contractorDeduction = contractorDeduction;
+
+  const totalB = totalA - contractorDeduction;
+  entry.totalB = totalB;
+
+  const age = Math.max(0, entry.valuationYear - entry.constructionYear);
+  entry.structureAge = age;
+  
+  const totalDepPct = entry.enableDepreciation ? (entry.depreciationPct * age) : 0;
+  entry.totalDepreciationPct = totalDepPct;
+
+  const depAmount = entry.enableDepreciation ? Math.round(totalB * (totalDepPct / 100)) : 0;
+  entry.depreciationAmount = depAmount;
+
+  const mainAfterDep = Math.max(0, totalB - depAmount);
+
+  // 2. Calculate Custom Depreciated totals
+  let totalCustomCostBeforeDep = 0;
+  let totalCustomDepAmount = 0;
+  
+  customDepreciatedItems.forEach(item => {
+    const rawCost = item.totalCost;
+    const costAfterProfit = Math.round(rawCost * (1 - (contractorPct / 100))); 
+    const itemDepPct = entry.enableDepreciation ? ((item.customDepreciationPct || 0) * (item.customDepreciationAge || 0)) : 0;
+    const itemDepAmount = Math.round(costAfterProfit * (itemDepPct / 100));
+    
+    totalCustomCostBeforeDep += costAfterProfit;
+    totalCustomDepAmount += itemDepAmount;
+  });
+
+  entry.totalAfterDepreciation = mainAfterDep + Math.max(0, totalCustomCostBeforeDep - totalCustomDepAmount);
+  entry.depreciationAmount = depAmount + totalCustomDepAmount;
+
+  const totalExcludedCost = Math.round(excludedItems.reduce((acc, curr) => acc + curr.totalCost, 0));
+  entry.totalExcludedCost = totalExcludedCost;
+
+  const customServicesSum = (entry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
+  let grandTotal = entry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
+  if (entry.addElectrification) grandTotal += entry.electrificationCost;
+  if (entry.addSanitary) grandTotal += entry.sanitaryCost;
+  entry.grandTotal = Math.round(grandTotal);
+}
+
