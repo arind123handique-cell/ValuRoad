@@ -24,6 +24,7 @@ import {
   saveProjectEntry,
   deleteProjectEntry
 } from './firebase.js';
+import packageInfo from '../package.json';
 
 const lucide = window.lucide || { createIcons() {} };
 
@@ -67,6 +68,11 @@ const navBtns = {
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+  const versionDisplay = document.getElementById('app-version-display');
+  if (versionDisplay && packageInfo && packageInfo.version) {
+    versionDisplay.innerText = `v${packageInfo.version} (Projects)`;
+  }
+
   setupAuthUI();
   setupNavigation();
   setupDashboard();
