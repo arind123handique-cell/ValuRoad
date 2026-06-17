@@ -319,7 +319,11 @@
       </div>
 
       <!-- Export & Print Actions -->
-      <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-bottom: 0.75rem; flex-wrap: wrap;">
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-bottom: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <label class="check-label" style="justify-content: flex-start; padding: 0.4rem 0.75rem; background: var(--bg-primary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; user-select: none; font-size: 0.85rem; height: 35px;">
+          <input type="checkbox" id="project-show-jms-sl" checked style="width: 15px; height: 15px; margin: 0; cursor: pointer;">
+          <span style="font-weight: 600; color: var(--text-secondary);">Show JMS Sl. No. in PDF</span>
+        </label>
         <button class="btn-secondary" id="proj-export-excel-btn" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem;">
           <i data-lucide="file-spreadsheet" style="width: 15px; height: 15px;"></i> Export to Excel
         </button>
@@ -1572,6 +1576,10 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
             <option value="0.98" selected>98% Qual</option>
             <option value="1.00">100% Qual</option>
           </select>
+          <label class="check-label" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; user-select: none; font-size: 0.8rem;">
+            <input type="checkbox" id="tpl-show-jms-sl" checked style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+            <span style="font-weight: 600; color: var(--text-secondary);">Show JMS Sl. No.</span>
+          </label>
         </div>
       </div>
 
@@ -1748,6 +1756,15 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
           <button type="button" class="btn-secondary" id="prev-btn-pagebreak" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; height: auto;" title="Insert manual page break at cursor position">
             <i data-lucide="scissors" style="width:13px; height:13px;"></i> Insert Page Break
           </button>
+        </div>
+      </div>
+      <div class="ribbon-group">
+        <span class="ribbon-label">Metadata</span>
+        <div class="ribbon-controls">
+          <label class="check-label" style="cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; user-select: none; font-size: 0.8rem; height: 28px;">
+            <input type="checkbox" id="prev-show-jms-sl" checked style="width: 14px; height: 14px; margin: 0; cursor: pointer;">
+            <span style="font-weight: 600; color: var(--text-secondary);">Show JMS Sl. No.</span>
+          </label>
         </div>
       </div>
       <div class="ribbon-group">

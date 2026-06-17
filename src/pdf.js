@@ -979,7 +979,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
       </div>
-      ${report.jmsSlNo ? `
+      ${(report.jmsSlNo && tpl.showJmsSlNo !== false) ? `
       <div class="pdf-row" style="margin-bottom: 4px;">
         <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">As per JMS report Sl NO</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
@@ -1045,7 +1045,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1;">${report.location || 'N/A'}</div>
       </div>
-      ${report.jmsSlNo ? `
+      ${(report.jmsSlNo && tpl.showJmsSlNo !== false) ? `
       <div class="pdf-row" style="margin-bottom: 4px;">
         <div style="width: 45mm; font-weight: bold; flex-shrink: 0;">As per JMS report Sl NO</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>

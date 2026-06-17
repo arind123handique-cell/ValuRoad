@@ -1008,6 +1008,18 @@ function setupProjectDetails() {
     if (activeProject) printProjectOwnerList();
   });
 
+  const projShowJms = document.getElementById('project-show-jms-sl');
+  if (projShowJms) {
+    projShowJms.addEventListener('change', (e) => {
+      const settings = getPdfTemplateSettings();
+      settings.showJmsSlNo = e.target.checked;
+      localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(settings));
+      if (auth.currentUser) {
+        saveUserPdfTemplate(auth.currentUser.uid, settings).catch(err => {});
+      }
+    });
+  }
+
   const searchInput = document.getElementById('owner-search-input');
   if (searchInput) {
     searchInput.addEventListener('input', renderProjectDetails);
@@ -1760,11 +1772,16 @@ function printProjectOwnerList() {
 
 function renderProjectDetails() {
   if (!activeProject) return;
-
   document.getElementById('project-details-work-title').innerText = activeProject.workName || 'Untitled Project';
   document.getElementById('project-details-location').innerText = activeProject.location || 'N/A';
 
   const isProjectOwner = !activeProject.ownerId || (auth.currentUser && activeProject.ownerId === auth.currentUser.uid);
+
+  const projectShowJmsEl = document.getElementById('project-show-jms-sl');
+  if (projectShowJmsEl) {
+    const settings = getPdfTemplateSettings();
+    projectShowJmsEl.checked = settings.showJmsSlNo !== false;
+  }
 
   const tbody = document.getElementById('owner-entries-list-body');
   const emptyState = document.getElementById('owner-entries-empty-state');
@@ -6530,7 +6547,8 @@ function setupPdfTemplate() {
     depRate:        document.getElementById('tpl-dep-rate'),
     contractorPct:  document.getElementById('tpl-contractor-pct'),
     photosPerRow:   document.getElementById('tpl-photos-per-row'),
-    photoHeight:    document.getElementById('tpl-photo-height')
+    photoHeight:    document.getElementById('tpl-photo-height'),
+    showJmsSlNo:    document.getElementById('tpl-show-jms-sl')
   };
   const saveBtn  = document.getElementById('pdf-template-save-btn');
   const preview  = document.getElementById('pdf-tpl-preview');
@@ -6541,6 +6559,8 @@ function setupPdfTemplate() {
     if (fields[key] && settings[key] !== undefined) {
       if (fields[key].isContentEditable) {
         fields[key].innerText = settings[key];
+      } else if (fields[key].type === 'checkbox') {
+        fields[key].checked = settings[key];
       } else {
         fields[key].value = settings[key];
       }
@@ -6593,6 +6613,7 @@ function setupPdfTemplate() {
       out.contractorPct  = parseFloat(fields.contractorPct?.value)  || 15;
       out.photosPerRow   = parseInt(fields.photosPerRow?.value)     || 2;
       out.photoHeight    = fields.photoHeight?.value                || '60mm';
+      out.showJmsSlNo    = fields.showJmsSlNo ? fields.showJmsSlNo.checked : true;
 
       localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(out));
       if (auth.currentUser) {
@@ -7380,6 +7401,11 @@ function openPrintPreview(entryId) {
   document.getElementById('prev-page-orient').value = currentPreviewEntry.prevPageOrient || 'portrait';
   document.getElementById('prev-page-margin').value = currentPreviewEntry.prevPageMargin !== undefined ? currentPreviewEntry.prevPageMargin : parseInt(tpl.margin) || 10;
   
+  const prevShowJms = document.getElementById('prev-show-jms-sl');
+  if (prevShowJms) {
+    prevShowJms.checked = tpl.showJmsSlNo !== false;
+  }
+
   const targetSelect = document.getElementById('prev-style-target');
   if (targetSelect) targetSelect.value = 'whole';
   
@@ -7881,6 +7907,19 @@ function initPrintPreviewEvents() {
 
   const btnPageBreak = document.getElementById('prev-btn-pagebreak');
   if (btnPageBreak) btnPageBreak.addEventListener('click', insertPageBreakAtCursor);
+
+  const prevShowJms = document.getElementById('prev-show-jms-sl');
+  if (prevShowJms) {
+    prevShowJms.addEventListener('change', (e) => {
+      const settings = getPdfTemplateSettings();
+      settings.showJmsSlNo = e.target.checked;
+      localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(settings));
+      if (auth.currentUser) {
+        saveUserPdfTemplate(auth.currentUser.uid, settings).catch(err => {});
+      }
+      renderPreviewPages();
+    });
+  }
 
   const btnPdf = document.getElementById('prev-btn-pdf');
   if (btnPdf) btnPdf.addEventListener('click', () => exportPreviewedDocument(false));
