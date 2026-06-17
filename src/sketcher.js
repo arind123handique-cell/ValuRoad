@@ -52,7 +52,7 @@ export class SiteSketcher {
     this.selectedShapes = [];          // multi-select support
 
     // ── typography ──
-    this.globalFontSizeBase = 10;
+    this.globalFontSizeBase = 17;
     this.globalFontFamily = 'sans-serif';
 
     // ── map bg ──
@@ -389,7 +389,7 @@ export class SiteSketcher {
           const pt = this._snap(raw, null);
           const nb = { id:Date.now(), type:'building', x:pt.x, y:pt.y, w:6, h:4,
                        label:'Building', structureType:'',
-                       dimW:'6.00m', dimH:'4.00m', dimWOffset:-1.5, dimHOffset:-1.5 };
+                       dimW:'6.00m', dimH:'4.00m', dimWOffset:-1.5, dimHOffset:1.5 };
           this.shapes.push(nb); this.selectedShape = nb;
           if (this.onSelectionChange) this.onSelectionChange(nb);
           this.draw(); break;
@@ -399,7 +399,7 @@ export class SiteSketcher {
           this.pushHistory();
           const pt = this._snap(raw, null);
           const nb = { id:Date.now(), type:'custom-block', x:pt.x, y:pt.y, w:4, h:3,
-                       label:'Misc', blockStyle:'misc', dimWOffset:-1.5, dimHOffset:-1.5 };
+                       label:'Misc', blockStyle:'misc', dimWOffset:-1.5, dimHOffset:1.5 };
           this.shapes.push(nb); this.selectedShape = nb; this.mode = 'select';
           if (this.onSelectionChange) this.onSelectionChange(nb);
           this.draw(); break;
@@ -497,7 +497,7 @@ export class SiteSketcher {
             s.customEdgeOffsets[j] = curOff + proj;
           } else if (s.type === 'building' || s.type === 'custom-block') {
             if (dim.edgeKey === 'w') s.dimWOffset = (s.dimWOffset||(-1.5)) + (raw.y - this.dragStart.y);
-            if (dim.edgeKey === 'h') s.dimHOffset = (s.dimHOffset||(-1.5)) + (raw.x - this.dragStart.x);
+            if (dim.edgeKey === 'h') s.dimHOffset = (s.dimHOffset !== undefined ? s.dimHOffset : 1.5) - (raw.x - this.dragStart.x);
           } else if (s.type === 'dimension' || s.type === 'boundary-wall' || s.type === 'gate' || s.type === 'wall' || s.type === 'gate-toran') {
             const dx=s.x2-s.x1,dy=s.y2-s.y1,l=Math.hypot(dx,dy)||1;
             const nx=-dy/l,ny=dx/l;
@@ -509,7 +509,7 @@ export class SiteSketcher {
         }
 
         if (h === 'dim-w') { s.dimWOffset = (s.dimWOffset||(-1.5)) + (raw.y - this.dragStart.y); this.dragStart=raw; this.draw(); return; }
-        if (h === 'dim-h') { s.dimHOffset = (s.dimHOffset||(-1.5)) + (raw.x - this.dragStart.x); this.dragStart=raw; this.draw(); return; }
+        if (h === 'dim-h') { s.dimHOffset = (s.dimHOffset !== undefined ? s.dimHOffset : 1.5) - (raw.x - this.dragStart.x); this.dragStart=raw; this.draw(); return; }
         if (h === 'dim-line') {
           const dx=s.x2-s.x1,dy=s.y2-s.y1,l=Math.hypot(dx,dy)||1;
           const nx=-dy/l,ny=dx/l;
@@ -743,7 +743,7 @@ export class SiteSketcher {
       const col=colors[this.shapes.filter(s=>s.type==='room').length%colors.length];
       this.shapes.push({ id:Date.now(), type:'room', points:pts, label:'Room', color:col, areaSqm });
     } else {
-      this.shapes.push({ id:Date.now(), type:'polygon-building', points:pts, label:'Building Block', structureType:'rcc', dimW:'', dimH:'', dimWOffset:-1.5, dimHOffset:-1.5, areaSqm });
+      this.shapes.push({ id:Date.now(), type:'polygon-building', points:pts, label:'Building Block', structureType:'rcc', dimW:'', dimH:'', dimWOffset:-1.5, dimHOffset:1.5, areaSqm });
     }
     this.polyChain=[];
     this.previewPt=null;
@@ -788,7 +788,7 @@ export class SiteSketcher {
       const cs=[{k:'nw',x:s.x,y:s.y},{k:'ne',x:s.x+s.w,y:s.y},{k:'se',x:s.x+s.w,y:s.y+s.h},{k:'sw',x:s.x,y:s.y+s.h}];
       for(const c of cs) if(Math.hypot(wp.x-c.x,wp.y-c.y)<THR) return c.k;
       if(s.dimW&&Math.hypot(wp.x-(s.x+s.w/2),wp.y-(s.y+(s.dimWOffset||(-1.5))))<THR) return 'dim-w';
-      if(s.dimH&&Math.hypot(wp.x-(s.x+(s.dimHOffset||(-1.5))),wp.y-(s.y+s.h/2))<THR) return 'dim-h';
+      if(s.dimH&&Math.hypot(wp.x-(s.x+(s.dimHOffset !== undefined ? s.dimHOffset : 1.5)),wp.y-(s.y+s.h/2))<THR) return 'dim-h';
     }
     if (this._isLinear(s)||s.type==='wall') {
       if(Math.hypot(wp.x-s.x1,wp.y-s.y1)<THR) return 'ep1';
@@ -1033,7 +1033,7 @@ export class SiteSketcher {
       lbl.split('\n').forEach((l,i,a)=>ctx.fillText(l,sp.x+sw/2,sp.y+sh/2-(a.length-1)*7+i*13));
       // dimensions
       if(s.dimW) this._drawBoxDim(s.x,s.y,s.x+s.w,s.y,s.dimW,s.dimWOffset||(-1.5), s.fontSize, s.fontFamily, s, 'w');
-      if(s.dimH) this._drawBoxDim(s.x,s.y,s.x,s.y+s.h,s.dimH,s.dimHOffset||(-1.5), s.fontSize, s.fontFamily, s, 'h');
+      if(s.dimH) this._drawBoxDim(s.x,s.y,s.x,s.y+s.h,s.dimH,s.dimHOffset !== undefined ? s.dimHOffset : 1.5, s.fontSize, s.fontFamily, s, 'h');
 
     } else if (s.type==='polygon-building') {
       const bm2={rcc:{f:'rgba(59,130,246,0.25)',st:'#1d4ed8'},assam:{f:'rgba(16,185,129,0.25)',st:'#047857'},'temp-building':{f:'rgba(245,158,11,0.25)',st:'#b45309'},'temp-shed':{f:'rgba(120,113,108,0.15)',st:'#78716c',dash:[4,4]}};
@@ -1342,7 +1342,7 @@ export class SiteSketcher {
       ctx.fillStyle='#2563eb';
       [{x:s.x,y:s.y},{x:s.x+s.w,y:s.y},{x:s.x+s.w,y:s.y+s.h},{x:s.x,y:s.y+s.h}].forEach(c=>{const cs=this.w2s(c.x,c.y);ctx.fillRect(cs.x-4,cs.y-4,8,8);});
       this._dimHandle(this.w2s(s.x+s.w/2,s.y+(s.dimWOffset||(-1.5))));
-      this._dimHandle(this.w2s(s.x+(s.dimHOffset||(-1.5)),s.y+s.h/2));
+      this._dimHandle(this.w2s(s.x+(s.dimHOffset !== undefined ? s.dimHOffset : 1.5),s.y+s.h/2));
     } else if(s.type==='road'){
       const sy1=this.w2s(0,s.y).y,sh=s.h*p;ctx.setLineDash([4,3]);ctx.strokeRect(0,sy1-2,this.W,sh+4);ctx.setLineDash([]);
     } else if(s.type==='text'){
@@ -1497,7 +1497,7 @@ export class SiteSketcher {
   loadData(shapes){this.shapes=shapes||[];this.selectedShape=null;this.wallChain=[];this.polyChain=[];this.history=[];this.future=[];this.draw();if(this.onHistoryChange)this.onHistoryChange(0,0);}
   exportData(){return this.shapes;}
   setFontSize(size) {
-    this.globalFontSizeBase = parseFloat(size) || 10;
+    this.globalFontSizeBase = parseFloat(size) || 17;
     this.draw();
   }
   setFontFamily(family) {
@@ -1924,7 +1924,7 @@ export class SiteSketcher {
         dimW: '',
         dimH: '',
         dimWOffset: -1.5,
-        dimHOffset: -1.5
+        dimHOffset: 1.5
       };
       
       this.shapes.push(mergedShape);

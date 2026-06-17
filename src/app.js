@@ -843,7 +843,7 @@ function renderProjects() {
           <div class="action-btns" onclick="event.stopPropagation();">
             <button class="view-btn" title="View Project Details" data-id="${p.id}"><i data-lucide="eye"></i></button>
             <button class="share-btn" title="${isOwner ? 'Share Project' : 'View Collaborators'}" data-id="${p.id}" style="color: var(--accent);"><i data-lucide="share-2"></i></button>
-            <button class="delete-btn" title="Delete Project" data-id="${p.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>
+            ${isOwner ? `<button class="delete-btn" title="Delete Project" data-id="${p.id}" style="color: var(--danger);"><i data-lucide="trash-2"></i></button>` : ''}
           </div>
         </td>
       `;
@@ -904,9 +904,12 @@ function deleteProject(id) {
   if (!p) return;
 
   const isOwner = !p.ownerId || (auth.currentUser && p.ownerId === auth.currentUser.uid);
-  const msg = isOwner 
-    ? 'Are you sure you want to delete this infrastructure project? This will delete all affected owner entries under it.'
-    : 'Are you sure you want to remove this shared project from your dashboard? You will lose access to it.';
+  if (!isOwner) {
+    alert("You do not have permission to delete this project. Only the project creator can delete it.");
+    return;
+  }
+
+  const msg = 'Are you sure you want to delete this infrastructure project? This will delete all affected owner entries under it.';
 
   if (confirm(msg)) {
     projects = projects.filter(p => p.id !== id);
@@ -1024,6 +1027,7 @@ function exportProjectToExcel() {
 
   const headers = [
     "Sl. No.",
+    "JMS Sl. No.",
     "Owner / Occupant",
     "Village / Location",
     "GPS Latitude",
@@ -1044,6 +1048,7 @@ function exportProjectToExcel() {
 
   const rows = activeProject.entries.map((e, idx) => [
     idx + 1,
+    e.jmsSlNo || "",
     e.clientName || "Unnamed Owner",
     e.location || "N/A",
     e.gpsLat || "",
@@ -1163,6 +1168,12 @@ function exportSingleEstimateToExcel(entryId) {
     <td class="meta-label">Village/Location:</td>
     <td colspan="5">${entry.location || 'N/A'}</td>
   </tr>
+  ${entry.jmsSlNo ? `
+  <tr>
+    <td class="meta-label">As per JMS report Sl NO:</td>
+    <td colspan="5">${entry.jmsSlNo}</td>
+  </tr>
+  ` : ''}
   ${entry.enableDepreciation !== false ? `
   <tr>
     <td class="meta-label">Year of Construction:</td>
@@ -2130,6 +2141,8 @@ function setupEditor() {
   document.getElementById('residual-life').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('construction-class').addEventListener('change', calculateAndRenderTotals);
   document.getElementById('enable-depreciation').addEventListener('change', calculateAndRenderTotals);
+  const jmsSlNoEl = document.getElementById('jms-sl-no');
+  if (jmsSlNoEl) jmsSlNoEl.addEventListener('input', calculateAndRenderTotals);
 
   // Checkboxes
   const infraCheckboxes = ['infra-electricity', 'infra-water', 'infra-sewer', 'infra-drainage', 'infra-lighting'];
@@ -2170,7 +2183,7 @@ function setupEditor() {
       sketcher.pushHistory();
       allSelected.forEach(s => {
         if (fontSizeIn && fontSizeIn.value) {
-          s.fontSize = parseFloat(fontSizeIn.value) || (s.type === 'text' ? 13 : 10);
+          s.fontSize = parseFloat(fontSizeIn.value) || (s.type === 'text' ? 13 : 17);
         }
         if (fontFamilyIn && fontFamilyIn.value) {
           s.fontFamily = fontFamilyIn.value;
@@ -2539,7 +2552,7 @@ function autoGenerateSketcherShapes(entry) {
           dimW: `${l.toFixed(2)}m (${(l * 3.28084).toFixed(1)}ft)`,
           dimH: `${w.toFixed(2)}m (${(w * 3.28084).toFixed(1)}ft)`,
           dimWOffset: -1.5,
-          dimHOffset: -1.5
+          dimHOffset: 1.5
         });
 
         currentX += l + gap;
@@ -2588,7 +2601,7 @@ function autoGenerateSketcherShapes(entry) {
           dimW: `${l.toFixed(2)}m (${(l * 3.28084).toFixed(1)}ft)`,
           dimH: `${w.toFixed(2)}m (${(w * 3.28084).toFixed(1)}ft)`,
           dimWOffset: -1.5,
-          dimHOffset: -1.5
+          dimHOffset: 1.5
         });
 
         currentX += l + gap;
@@ -2698,6 +2711,10 @@ function loadEntryToEditor() {
   document.getElementById('residual-life').value = activeEntry.residualLife;
   document.getElementById('construction-class').value = activeEntry.constructionClass;
   document.getElementById('enable-depreciation').checked = activeEntry.enableDepreciation !== false;
+  const jmsSlNoEl = document.getElementById('jms-sl-no');
+  if (jmsSlNoEl) {
+    jmsSlNoEl.value = activeEntry.jmsSlNo || '';
+  }
 
   document.getElementById('toggle-electrification').checked = activeEntry.addElectrification;
   document.getElementById('toggle-sanitary').checked = activeEntry.addSanitary;
@@ -2801,7 +2818,7 @@ function loadEntryToEditor() {
     // Show font settings for most object types
     if (['building', 'polygon-building', 'text', 'dimension', 'boundary-wall', 'gate', 'gate-toran', 'room', 'road'].includes(shape.type)) {
       if (fieldFont) fieldFont.style.display = 'flex';
-      const defaultSize = (shape.type === 'text') ? 13 : 10;
+      const defaultSize = (shape.type === 'text') ? 13 : 17;
       if (inputFontSize) inputFontSize.value = shape.fontSize || defaultSize;
       if (inputFontFamily) inputFontFamily.value = shape.fontFamily || 'sans-serif';
     }
@@ -3100,7 +3117,7 @@ function loadEntryToEditor() {
   if (activeEntry.sketcherFontSize) {
     sketcher.globalFontSizeBase = activeEntry.sketcherFontSize;
   } else {
-    sketcher.globalFontSizeBase = 10;
+    sketcher.globalFontSizeBase = 17;
   }
   if (activeEntry.sketcherFontFamily) {
     sketcher.globalFontFamily = activeEntry.sketcherFontFamily;
@@ -4310,6 +4327,10 @@ function calculateAndRenderTotals() {
 
   activeEntry.clientName = document.getElementById('client-name').value;
   activeEntry.location = document.getElementById('location').value;
+  const jmsSlNoEl = document.getElementById('jms-sl-no');
+  if (jmsSlNoEl) {
+    activeEntry.jmsSlNo = jmsSlNoEl.value.trim();
+  }
   
   activeEntry.constructionYear = parseInt(document.getElementById('construction-year').value) || 2010;
   activeEntry.constructionYearComment = document.getElementById('construction-year-comment').value;
@@ -4492,6 +4513,7 @@ function checkForModifiedFields() {
 
   compareField('client-name', originalEntryCopy.clientName);
   compareField('location', originalEntryCopy.location);
+  compareField('jms-sl-no', originalEntryCopy.jmsSlNo || '');
   compareField('construction-year', originalEntryCopy.constructionYear);
   compareField('construction-year-comment', originalEntryCopy.constructionYearComment);
   compareField('valuation-year', originalEntryCopy.valuationYear);
@@ -8186,6 +8208,7 @@ function setupAiBulkEstimate() {
     addOwnerBtn.addEventListener('click', () => {
       const newOwner = {
         id: 'OWNER_PARSED_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        jms_sl_no: '',
         owner_name: 'New Owner',
         village: '',
         mouza: '',
@@ -8423,6 +8446,7 @@ Extract ALL landowner records from the table and return them as a valid JSON obj
 {
   "owners": [
     {
+      "jms_sl_no": "...",
       "owner_name": "...",
       "village": "...",
       "mouza": "...",
@@ -8444,9 +8468,10 @@ Table Column Structure:
 - Sl. No. | Name | Village | Mouza | Description | Size (in Feets) L and B
 
 Extraction and Splitting Rules:
-1. "owner_name" must contain the full name of the occupant or owner. Joint owners listed together in a row (e.g., "1. Smti Mina Hazarika, 2. Sri Praffulla Hazarika") should be extracted and joined with a comma or ampersand.
-2. "village" and "mouza" must be extracted from their respective columns (e.g. Village: "Haluwa Gaon", Mouza: "Kaziranga").
-3. A single owner row can contain multiple lines of L (Length) and B (Breadth) dimensions. Each line representing L and B is a separate structure asset. You MUST create a separate object in the "structures" array for each dimension line.
+1. "jms_sl_no" must contain the serial number of the row (e.g. from the 'Sl. No.' column, such as '1', '2', '2(a)', etc.). If not found or not visible, set it to an empty string.
+2. "owner_name" must contain the full name of the occupant or owner. Joint owners listed together in a row (e.g., "1. Smti Mina Hazarika, 2. Sri Praffulla Hazarika") should be extracted and joined with a comma or ampersand.
+3. "village" and "mouza" must be extracted from their respective columns (e.g. Village: "Haluwa Gaon", Mouza: "Kaziranga").
+4. A single owner row can contain multiple lines of L (Length) and B (Breadth) dimensions. Each line representing L and B is a separate structure asset. You MUST create a separate object in the "structures" array for each dimension line.
 4. How to pair structure descriptions with dimension lines:
    - If the Description column lists multiple structures separated by slashes or plus signs (e.g., "Kacha House/Cowshed" or "Kacha House + Cowshed") and there are multiple dimension lines (e.g. 15x20 and 10x12), pair them in order:
      - Structure 1: Description "Kacha House", Category "Temporary Building", L: 15, B: 20.
@@ -8531,6 +8556,7 @@ Extraction and Splitting Rules:
         }
 
         const results = ownersList.map((owner, idx) => {
+          const jmsSlNo = String(owner.jms_sl_no || owner.sl_no || owner.serial || owner.serial_no || '').trim();
           const ownerName = String(owner.owner_name || owner.owner || owner.name || owner.landowner || '').trim();
           const village = String(owner.village || owner.village_name || owner.location || '').trim();
           const mouza = String(owner.mouza || owner.mouza_name || '').trim();
@@ -8580,6 +8606,7 @@ Extraction and Splitting Rules:
 
           return {
             id: `OWNER_PARSED_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+            jms_sl_no: jmsSlNo,
             owner_name: ownerName || 'Unknown Owner',
             village: village,
             mouza: mouza,
@@ -8711,6 +8738,7 @@ Extraction and Splitting Rules:
       }
 
       const results = ownersList.map((owner, idx) => {
+        const jmsSlNo = String(owner.jms_sl_no || owner.sl_no || owner.serial || owner.serial_no || '').trim();
         const ownerName = String(owner.owner_name || owner.owner || owner.name || owner.landowner || '').trim();
         const village = String(owner.village || owner.village_name || owner.location || '').trim();
         const mouza = String(owner.mouza || owner.mouza_name || '').trim();
@@ -8760,6 +8788,7 @@ Extraction and Splitting Rules:
 
         return {
           id: `OWNER_PARSED_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+          jms_sl_no: jmsSlNo,
           owner_name: ownerName || 'Unknown Owner',
           village: village,
           mouza: mouza,
@@ -8831,6 +8860,9 @@ function renderBulkPreview() {
         </button>
       </td>
       <td>
+        <input type="text" class="owner-jms-sl-input" value="${owner.jms_sl_no || ''}" style="width:100%; font-size:0.85rem; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary);">
+      </td>
+      <td>
         <input type="text" class="owner-name-input" value="${owner.owner_name}" style="width:100%; font-size:0.85rem; padding:4px 8px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary);">
       </td>
       <td>
@@ -8863,7 +8895,7 @@ function renderBulkPreview() {
     expTr.className = 'expanded-row';
     expTr.style.display = 'none';
     expTr.innerHTML = `
-      <td colspan="7" style="padding: 0.75rem 1rem; background-color: var(--bg-primary);">
+      <td colspan="8" style="padding: 0.75rem 1rem; background-color: var(--bg-primary);">
         <div class="structures-detail-container" style="padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-secondary);">
           <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center;">
             <span>Structure Assets Details</span>
@@ -8878,6 +8910,9 @@ function renderBulkPreview() {
     tbody.appendChild(expTr);
 
     // Bind Main row edits
+    tr.querySelector('.owner-jms-sl-input').addEventListener('input', (e) => {
+      owner.jms_sl_no = e.target.value.trim();
+    });
     tr.querySelector('.owner-name-input').addEventListener('input', (e) => {
       owner.owner_name = e.target.value.trim();
       revalidateRow(tr, owner, isDuplicate);
@@ -9123,6 +9158,9 @@ async function generateBulkEstimates() {
     const tplSettings = getPdfTemplateSettings();
     const contractorPctValue = deductCP ? (tplSettings.contractorPct !== undefined ? tplSettings.contractorPct : 15) : 0;
 
+    const bulkEnableJms = document.getElementById('bulk-enable-jms-sl');
+    const isJmsEnabled = bulkEnableJms ? bulkEnableJms.checked : true;
+
     for (const owner of parsedBulkOwners) {
       if (owner.duplicateAction === 'skip') {
         skippedCount++;
@@ -9186,6 +9224,8 @@ async function generateBulkEstimates() {
           grandTotal: 0
         };
       }
+
+      entry.jmsSlNo = (isJmsEnabled && owner.jms_sl_no) ? owner.jms_sl_no : '';
 
       // Populate structures as plinth-area items
       owner.structures.forEach((s, idx) => {

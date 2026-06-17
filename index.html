@@ -473,6 +473,10 @@
               <input type="text" id="location" placeholder="e.g., Halowa Gaon">
             </div>
             <div class="form-group">
+              <label for="jms-sl-no">As per JMS report Sl NO</label>
+              <input type="text" id="jms-sl-no" placeholder="e.g., 15 or 15(a)">
+            </div>
+            <div class="form-group">
               <label for="inspection-date">Inspection Date</label>
               <input type="date" id="inspection-date">
             </div>
@@ -814,7 +818,7 @@
               <div id="prop-field-font" style="display:none;align-items:center;gap:0.75rem;">
                 <div style="display:flex;align-items:center;gap:0.4rem;">
                   <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);"><i data-lucide="type" style="width:12px;height:12px;"></i> Size:</label>
-                  <input type="number" id="prop-input-font-size" value="10" min="4" max="100" style="width:55px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                  <input type="number" id="prop-input-font-size" value="17" min="4" max="100" style="width:55px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
                 </div>
                 <div style="display:flex;align-items:center;gap:0.4rem;">
                   <select id="prop-input-font-family" style="width:110px;padding:0.25rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
@@ -1304,6 +1308,14 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
               <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Deduct Contractor Profit</span>
             </label>
           </div>
+
+          <!-- Enable JMS Serial Number Toggle -->
+          <div style="display: flex; align-items: center;">
+            <label class="check-label" style="justify-content: flex-start; padding: 0.5rem 0.75rem; background: var(--bg-primary); border-radius: 0.5rem; border: 1px solid var(--border-color); cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; user-select: none; height: 38px;">
+              <input type="checkbox" id="bulk-enable-jms-sl" checked style="width: 15px; height: 15px; margin: 0; cursor: pointer;">
+              <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">As per JMS report Sl NO</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1346,11 +1358,12 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
             <thead>
               <tr>
                 <th style="width: 40px;"></th>
-                <th style="width: 25%;">Owner Name</th>
+                <th style="width: 12%;">JMS Sl. No.</th>
+                <th style="width: 23%;">Owner Name</th>
                 <th style="width: 15%;">Village</th>
                 <th style="width: 15%;">Mouza</th>
                 <th style="width: 10%;">Structures</th>
-                <th style="width: 20%;">Duplicate Action / Status</th>
+                <th style="width: 15%;">Duplicate Action / Status</th>
                 <th style="width: 10%; text-align: center;">Action</th>
               </tr>
             </thead>
