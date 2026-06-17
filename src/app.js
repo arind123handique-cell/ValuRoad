@@ -1570,6 +1570,7 @@ function exportProjectToWord() {
     rowsHtml += `
       <tr>
         <td style="border: 1px solid #cccccc; padding: 8px;">${idx + 1}</td>
+        <td style="border: 1px solid #cccccc; padding: 8px; text-align: center;">${e.jmsSlNo || '-'}</td>
         <td style="border: 1px solid #cccccc; padding: 8px; font-weight: bold;">${e.clientName || 'Unnamed Owner'}</td>
         <td style="border: 1px solid #cccccc; padding: 8px;">${e.location || 'N/A'}</td>
         <td style="border: 1px solid #cccccc; padding: 8px; font-family: monospace;">${gpsText}</td>
@@ -1626,11 +1627,12 @@ function exportProjectToWord() {
         <thead>
           <tr>
             <th style="width: 5%;">Sl. No.</th>
-            <th style="width: 30%;">Owner / Occupant</th>
+            <th style="width: 10%;">JMS Sl. No.</th>
+            <th style="width: 25%;">Owner / Occupant</th>
             <th style="width: 20%;">Village / Location</th>
             <th style="width: 20%;">GPS Coordinates</th>
-            <th style="width: 15%; text-align: right;">Valuation (Rs.)</th>
-            <th style="width: 10%; text-align: center;">Status</th>
+            <th style="width: 12%; text-align: right;">Valuation (Rs.)</th>
+            <th style="width: 8%; text-align: center;">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -1673,6 +1675,7 @@ function printProjectOwnerList() {
     rowsHtml += `
       <tr>
         <td>${idx + 1}</td>
+        <td class="text-center">${e.jmsSlNo || '-'}</td>
         <td class="bold">${e.clientName || 'Unnamed Owner'}</td>
         <td>${e.location || 'N/A'}</td>
         <td class="mono">${gpsText}</td>
@@ -1732,11 +1735,12 @@ function printProjectOwnerList() {
         <thead>
           <tr>
             <th style="width: 5%;">Sl. No.</th>
-            <th style="width: 30%;">Owner / Occupant</th>
+            <th style="width: 10%;">JMS Sl. No.</th>
+            <th style="width: 25%;">Owner / Occupant</th>
             <th style="width: 25%;">Village / Location</th>
-            <th style="width: 20%;">GPS Coordinates</th>
-            <th style="width: 12%; text-align: right;">Valuation</th>
-            <th style="width: 8%; text-align: center;">Status</th>
+            <th style="width: 17%;">GPS Coordinates</th>
+            <th style="width: 11%; text-align: right;">Valuation</th>
+            <th style="width: 7%; text-align: center;">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -1791,7 +1795,7 @@ function renderProjectDetails() {
   if (entries.length === 0) {
     if (activeProject.entries && activeProject.entries.length > 0) {
       // Filtered out all items
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">No entries match your search/filter criteria</td></tr>`;
       emptyState.style.display = 'none';
       table.style.display = 'table';
     } else {
@@ -1815,6 +1819,7 @@ function renderProjectDetails() {
       
       tr.innerHTML = `
         <td style="text-align: center; font-weight: 500; color: var(--text-muted);">${idx + 1}</td>
+        <td style="text-align: center; font-weight: 500; color: var(--text-primary);">${e.jmsSlNo || '-'}</td>
         <td>
           <div style="font-weight: 600; font-size: 0.95rem;">${e.clientName || 'Unnamed Owner'}</div>
         </td>
