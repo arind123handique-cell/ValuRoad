@@ -7371,6 +7371,7 @@ function openPrintPreview(entryId) {
     workName: activeProject.workName,
     nbNote: activeProject.nbNote
   };
+  console.log("DEBUG: currentPreviewEntry in openPrintPreview:", currentPreviewEntry);
 
   switchView('printPreview');
 

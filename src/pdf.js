@@ -496,6 +496,7 @@ function renderLumpSumItem(item) {
 export function exportToPDF(report, sketcherImage, isPrint = false) {
   try {
     const tpl = getPdfTemplateSettings();
+    console.log("DEBUG: exportToPDF: report.jmsSlNo =", report.jmsSlNo, "tpl.showJmsSlNo =", tpl.showJmsSlNo);
 
     const includedItems = report.items.filter(item => item.includeInValuation);
   const depreciatedItems = includedItems.filter(item => !item.excludeFromDepreciation);
