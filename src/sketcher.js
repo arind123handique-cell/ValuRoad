@@ -1400,14 +1400,28 @@ export class SiteSketcher {
     this.shapes.forEach(s=>{
       if(s.x!==undefined){expand(s.x,s.y);expand(s.x+(s.w||0),s.y+(s.h||0));}
       if(s.x1!==undefined){expand(s.x1,s.y1);expand(s.x2,s.y2);}
-      if(s.y!==undefined&&s.h!==undefined&&s.x1===undefined&&s.x===undefined){expand(0,s.y);expand(this.W/this.ppm,s.y+s.h);}
+      if(s.y!==undefined&&s.h!==undefined&&s.x1===undefined&&s.x===undefined){
+        // For road: only expand Y bounds. X bounds are full-width and shouldn't restrict the zoom calculation.
+        minY = Math.min(minY, s.y);
+        maxY = Math.max(maxY, s.y + (s.h || 0));
+      }
       if(s.points)s.points.forEach(p=>expand(p.x,p.y));
     });
+
+    if(minX===Infinity){
+      minX=0;
+      maxX=20; // Default width in meters if only road or no x-positioned elements exist
+    }
+    if(minY===Infinity){
+      minY=0;
+      maxY=20; // Default height in meters if only road or no y-positioned elements exist
+    }
+
     const pad=2,rW=maxX-minX+pad*2,rH=maxY-minY+pad*2;
     const newZoom=Math.min(this.MAX_ZOOM,Math.max(this.MIN_ZOOM,Math.min((this.W-60)/(rW*this.basePPM),(this.H-60)/(rH*this.basePPM))));
     this.zoom=newZoom;
-    this.panX=(this.W-(maxX+minX+pad*2)*this.basePPM*newZoom)/2;
-    this.panY=(this.H-(maxY+minY+pad*2)*this.basePPM*newZoom)/2;
+    this.panX=(this.W-(maxX+minX)*this.basePPM*newZoom)/2;
+    this.panY=(this.H-(maxY+minY)*this.basePPM*newZoom)/2;
     if(this.onZoomChange)this.onZoomChange(this.zoom);
     this.draw();
   }

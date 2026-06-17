@@ -3118,12 +3118,14 @@ function loadEntryToEditor() {
     if (autoShapes.length > 0) {
       activeEntry.sketcherData = autoShapes;
       sketcher.loadData(autoShapes);
+      sketcher.fitToContent();
       activeEntry.sketcherImage = sketcher.exportImage();
     } else {
       sketcher.loadData([]);
     }
   } else {
     sketcher.loadData(activeEntry.sketcherData);
+    sketcher.fitToContent();
   }
   if (activeEntry.mapLat && activeEntry.mapLon) {
     const mapZoom = activeEntry.mapZoom || 17;
@@ -5087,6 +5089,7 @@ function setupSketcherToolbar() {
         if (autoShapes.length > 0) {
           sketcher.pushHistory();
           sketcher.loadData(autoShapes);
+          sketcher.fitToContent();
           activeEntry.sketcherData = autoShapes;
           activeEntry.sketcherImage = sketcher.exportImage();
           showToast('Auto-drawing generated successfully!');
@@ -6350,6 +6353,32 @@ function runPdfExport(entryId) {
   const entry = activeProject.entries.find(e => e.id === entryId);
   if (!entry) return;
 
+  // Initialize sketcher if not already loaded
+  if (!sketcher) {
+    sketcher = new SiteSketcher('sketcher-canvas');
+    window.sketcher = sketcher;
+  }
+
+  // Auto-correct tiny/squished drawings on the fly
+  if (sketcher && entry.sketcherData && entry.sketcherData.length > 0) {
+    sketcher.loadData(entry.sketcherData);
+    sketcher.fitToContent();
+    entry.sketcherImage = sketcher.exportImage();
+    
+    // Save corrected image back to project entries (local & cloud storage)
+    const projIdx = projects.findIndex(p => p.id === activeProject.id);
+    if (projIdx > -1) {
+      const entryIdx = projects[projIdx].entries.findIndex(e => e.id === entry.id);
+      if (entryIdx > -1) {
+        projects[projIdx].entries[entryIdx].sketcherImage = entry.sketcherImage;
+        saveProjects();
+        if (auth.currentUser) {
+          saveProjectEntry(activeProject.id, projects[projIdx].entries[entryIdx]).catch(e => {});
+        }
+      }
+    }
+  }
+
   const pdfData = {
     ...entry,
     workName: activeProject.workName,
@@ -7262,6 +7291,32 @@ function openPrintPreview(entryId) {
   if (!activeProject) return;
   const rawEntry = activeProject.entries.find(e => e.id === entryId);
   if (!rawEntry) return;
+
+  // Initialize sketcher if not already loaded
+  if (!sketcher) {
+    sketcher = new SiteSketcher('sketcher-canvas');
+    window.sketcher = sketcher;
+  }
+
+  // Auto-correct tiny/squished drawings on the fly
+  if (sketcher && rawEntry.sketcherData && rawEntry.sketcherData.length > 0) {
+    sketcher.loadData(rawEntry.sketcherData);
+    sketcher.fitToContent();
+    rawEntry.sketcherImage = sketcher.exportImage();
+    
+    // Save corrected image back to project entries (local & cloud storage)
+    const projIdx = projects.findIndex(p => p.id === activeProject.id);
+    if (projIdx > -1) {
+      const entryIdx = projects[projIdx].entries.findIndex(e => e.id === rawEntry.id);
+      if (entryIdx > -1) {
+        projects[projIdx].entries[entryIdx].sketcherImage = rawEntry.sketcherImage;
+        saveProjects();
+        if (auth.currentUser) {
+          saveProjectEntry(activeProject.id, projects[projIdx].entries[entryIdx]).catch(e => {});
+        }
+      }
+    }
+  }
 
   currentPreviewEntry = {
     ...rawEntry,
