@@ -106,6 +106,7 @@ export async function fetchUserProjects(uid, email = "") {
     });
   } catch (err) {
     console.error("Error fetching projects:", err);
+    throw err;
   }
 
   return projects;
@@ -163,6 +164,7 @@ export async function deleteUserProject(uid, projectId) {
     }
   } catch (err) {
     console.error("Error deleting root project:", err);
+    throw err;
   }
 
   // Always attempt to delete legacy project for cleanup
@@ -296,6 +298,7 @@ export async function fetchProjectById(projectId) {
     }
   } catch (err) {
     console.error("Error fetching project by ID from Firestore:", err);
+    throw err;
   }
   return null;
 }

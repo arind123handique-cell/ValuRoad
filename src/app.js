@@ -4668,6 +4668,7 @@ async function saveActiveEntry(status = 'draft') {
 
   saveProjects(); // Local backup
 
+  let isCloudSuccess = false;
   if (auth.currentUser) {
     try {
       // Perform cloud saves with timeout
@@ -4678,7 +4679,7 @@ async function saveActiveEntry(status = 'draft') {
         ]),
         timeout(10000)
       ]);
-      return true; // Success
+      isCloudSuccess = true;
     } catch (err) {
       console.error("Cloud sync failed:", err);
       throw err; // Signal failure to caller
@@ -4688,7 +4689,7 @@ async function saveActiveEntry(status = 'draft') {
   // Auto-learn DSR rates from this entry's quantity-rate items
   learnDsrRatesFromEntry(activeEntry);
   renderProjectDetails();
-  return false; // Not a cloud user but saved locally
+  return isCloudSuccess;
 }
 
 // Site Evidence Image Upload
@@ -6963,15 +6964,23 @@ function startAutoSync() {
     try {
       if (views.dashboard.classList.contains('active')) {
         const updatedProjects = await fetchUserProjects(auth.currentUser.uid, auth.currentUser.email);
+        const currentStr = JSON.stringify(projects);
         updateProjectsList(updatedProjects);
-        renderProjects();
+        const updatedStr = JSON.stringify(projects);
+        if (currentStr !== updatedStr) {
+          renderProjects();
+        }
       } else if (views.projectDetails.classList.contains('active') && activeProject) {
         const updated = await fetchProjectById(activeProject.id);
         if (updated) {
           const idx = projects.findIndex(p => p.id === activeProject.id);
-          if (idx !== -1) projects[idx] = updated;
-          activeProject = updated;
-          renderProjectDetails();
+          const currentStr = idx !== -1 ? JSON.stringify(projects[idx]) : '';
+          const updatedStr = JSON.stringify(updated);
+          if (currentStr !== updatedStr) {
+            if (idx !== -1) projects[idx] = updated;
+            activeProject = updated;
+            renderProjectDetails();
+          }
         }
       }
       setSyncStatus('ok', `Synced · ${auth.currentUser.email}`);
