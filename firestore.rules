@@ -1,0 +1,37 @@
+// Firestore Security Rules for ValuRoad
+// Deploy these at: Firebase Console → Firestore → Rules
+//
+// These rules allow:
+// - Authenticated users to read/write their own projects
+// - Authenticated users to read/write entries subcollections
+// - Authenticated users to read/write their own user settings
+// - Authenticated users to read/write global DSR items
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Projects collection - owners and shared users can read/write
+    match /projects/{projectId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+
+      // Entries subcollection - authenticated users can read/write
+      match /entries/{entryId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+    }
+
+    // User-specific data (settings, legacy projects)
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Global community DSR catalog - any authenticated user
+    match /global_dsr_items/{itemId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

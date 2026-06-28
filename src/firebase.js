@@ -277,21 +277,29 @@ export async function fetchProjectById(projectId) {
     const rootSnap = await getDoc(rootDocRef);
     if (rootSnap.exists()) {
       const projectData = rootSnap.data();
-      const entries = [];
+      let entries = [];
 
       // 1. Fetch entries from the subcollection
-      const entriesCol = collection(db, 'projects', String(projectId), 'entries');
-      const entriesSnap = await getDocs(entriesCol);
-      entriesSnap.forEach(d => {
-        entries.push({ id: d.id, ...d.data() });
-      });
+      try {
+        const entriesCol = collection(db, 'projects', String(projectId), 'entries');
+        const entriesSnap = await getDocs(entriesCol);
+        entriesSnap.forEach(d => {
+          entries.push({ id: d.id, ...d.data() });
+        });
+      } catch (entriesErr) {
+        console.warn("Could not fetch entries subcollection:", entriesErr.code || entriesErr.message);
+      }
 
       // 2. Backward compatibility: Migrate legacy inline entries to subcollection
       if (projectData.entries && projectData.entries.length > 0) {
         console.log(`Migrating ${projectData.entries.length} legacy entries to subcollection...`);
         for (const entry of projectData.entries) {
-          const entryDocRef = doc(db, 'projects', String(projectId), 'entries', String(entry.id));
-          await setDoc(entryDocRef, entry);
+          try {
+            const entryDocRef = doc(db, 'projects', String(projectId), 'entries', String(entry.id));
+            await setDoc(entryDocRef, entry);
+          } catch (migErr) {
+            console.warn("Could not migrate legacy entry:", entry.id, migErr.code || migErr.message);
+          }
           // Only add to result if not already present in subcollection
           if (!entries.some(e => e.id === entry.id)) {
             entries.push(entry);
@@ -299,13 +307,17 @@ export async function fetchProjectById(projectId) {
         }
         
         // Clean up parent document and save it to complete migration
-        projectData.entriesCount = entries.length;
-        projectData.totalValuation = entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
-        
-        const projectDoc = doc(db, 'projects', String(projectId));
-        const projectToSave = { ...projectData };
-        delete projectToSave.entries;
-        await setDoc(projectDoc, projectToSave);
+        try {
+          projectData.entriesCount = entries.length;
+          projectData.totalValuation = entries.reduce((acc, e) => acc + (e.grandTotal || 0), 0);
+          
+          const projectDoc = doc(db, 'projects', String(projectId));
+          const projectToSave = { ...projectData };
+          delete projectToSave.entries;
+          await setDoc(projectDoc, projectToSave);
+        } catch (cleanupErr) {
+          console.warn("Could not clean up legacy entries from parent:", cleanupErr.code || cleanupErr.message);
+        }
       }
 
       return { id: rootSnap.id, ...projectData, entries };
