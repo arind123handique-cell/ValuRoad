@@ -4,6 +4,7 @@ import { getFirestore, collection, getDocs, collectionGroup } from "firebase/fir
 const firebaseConfig = {
   apiKey: "AIzaSyCy0Ag2-KyNxX0NymeReKLctiw71RYql1k",
   authDomain: "road-val-v9zgrb.firebaseapp.com",
+  databaseURL: "https://road-val-v9zgrb-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "road-val-v9zgrb",
   storageBucket: "road-val-v9zgrb.firebasestorage.app",
   messagingSenderId: "41687836536",
