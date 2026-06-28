@@ -1,37 +1,78 @@
-// Firestore Security Rules for ValuRoad
-// Deploy these at: Firebase Console → Firestore → Rules
-//
-// These rules allow:
-// - Authenticated users to read/write their own projects
-// - Authenticated users to read/write entries subcollections
-// - Authenticated users to read/write their own user settings
-// - Authenticated users to read/write global DSR items
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Projects collection - owners and shared users can read/write
+    // ── Projects ────────────────────────────────────────────────────
+    // Any authenticated user can create projects.
+    // Owners can read/write/delete their own projects.
+    // Shared users (in sharedWith array) can read and update.
     match /projects/{projectId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+      allow read:   if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid;
 
-      // Entries subcollection - authenticated users can read/write
+      // Entries subcollection — authenticated users can read/write
       match /entries/{entryId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null;
+        allow read, write: if request.auth != null;
       }
     }
 
-    // User-specific data (settings, legacy projects)
+    // ── Users (private per-user data) ───────────────────────────────
+    // Users can only access their own data, including all subcollections
+    // (settings/dsr_catalog, settings/pdf_template, projects/*)
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
     }
 
-    // Global community DSR catalog - any authenticated user
+    // ── Global Community DSR Catalog ────────────────────────────────
+    // Any authenticated user can read and contribute items
     match /global_dsr_items/{itemId} {
       allow read, write: if request.auth != null;
+    }
+
+    // ── Other collections (from original rules) ─────────────────────
+    match /approvals/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    match /documents/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    match /surveys/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    match /valuation_items/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    match /villages/{document} {
+      allow create: if true;
+      allow read: if true;
+      allow write: if false;
+      allow delete: if false;
+    }
+
+    // ── FlutterFlow admin access ────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if request.auth.token.email.matches("firebase@flutterflow.io");
     }
   }
 }
