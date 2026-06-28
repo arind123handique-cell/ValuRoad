@@ -95,8 +95,14 @@ export async function fetchUserProjects(uid, email = "") {
         }
       });
     }
+  } catch (err) {
+    console.error("Error fetching projects:", err);
+    throw err;
+  }
 
-    // 3. Fetch legacy user-isolated projects
+  // 3. Fetch legacy user-isolated projects (separate try/catch to avoid
+  //    killing the entire sync if legacy path has permission issues)
+  try {
     const legacyCol = collection(db, 'users', uid, 'projects');
     const legacySnapshot = await getDocs(legacyCol);
     legacySnapshot.forEach(doc => {
@@ -106,8 +112,7 @@ export async function fetchUserProjects(uid, email = "") {
       }
     });
   } catch (err) {
-    console.error("Error fetching projects:", err);
-    throw err;
+    console.warn("Legacy projects fetch failed (non-fatal):", err.code || err.message);
   }
 
   return projects;
@@ -178,10 +183,14 @@ export async function deleteUserProject(uid, projectId) {
 }
 
 export async function fetchUserCustomDsr(uid) {
-  const dsrDoc = doc(db, 'users', uid, 'settings', 'dsr_catalog');
-  const snapshot = await getDoc(dsrDoc);
-  if (snapshot.exists()) {
-    return snapshot.data().items || [];
+  try {
+    const dsrDoc = doc(db, 'users', uid, 'settings', 'dsr_catalog');
+    const snapshot = await getDoc(dsrDoc);
+    if (snapshot.exists()) {
+      return snapshot.data().items || [];
+    }
+  } catch (err) {
+    console.warn('Could not fetch user custom DSR catalog:', err.code || err.message);
   }
   return [];
 }
@@ -245,10 +254,14 @@ export async function removeFromGlobalDsr(code) {
 }
 
 export async function fetchUserPdfTemplate(uid) {
-  const tplDoc = doc(db, 'users', uid, 'settings', 'pdf_template');
-  const snapshot = await getDoc(tplDoc);
-  if (snapshot.exists()) {
-    return snapshot.data();
+  try {
+    const tplDoc = doc(db, 'users', uid, 'settings', 'pdf_template');
+    const snapshot = await getDoc(tplDoc);
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+  } catch (err) {
+    console.warn('Could not fetch user PDF template:', err.code || err.message);
   }
   return null;
 }
