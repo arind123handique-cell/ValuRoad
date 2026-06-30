@@ -1,5 +1,4 @@
 import { getPdfTemplateSettings } from './app.js';
-import { generateVectorPdf } from './vectorPdf.js';
 // Utility to format number into Indian Currency Style (e.g. 30,14,993.00)
 export function formatIndianCurrency(num) {
   if (isNaN(num) || num === null) return '0.00';
