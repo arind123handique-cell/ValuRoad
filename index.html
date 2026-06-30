@@ -1815,9 +1815,24 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
       </div>
     </div>
 
+    <!-- Tab Navigation -->
+    <div class="preview-tabs-container" style="display: flex; gap: 0.35rem; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; padding: 0.4rem 1.5rem 0 1.5rem; margin-top: 1px; user-select: none;">
+      <button type="button" class="preview-tab-btn active" id="btn-tab-interactive" style="padding: 0.5rem 1rem; border: 1px solid #cbd5e1; border-bottom: none; background: #ffffff; border-radius: 6px 6px 0 0; font-size: 0.825rem; font-weight: 700; cursor: pointer; color: var(--accent); display: flex; align-items: center; gap: 0.4rem; outline: none; margin-bottom: -1px; z-index: 2;">
+        <i data-lucide="edit-3" style="width:13px; height:13px;"></i> Layout Designer & Editor
+      </button>
+      <button type="button" class="preview-tab-btn" id="btn-tab-pdf-preview" style="padding: 0.5rem 1rem; border: 1px solid transparent; border-bottom: none; background: transparent; border-radius: 6px 6px 0 0; font-size: 0.825rem; font-weight: 600; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; gap: 0.4rem; outline: none; margin-bottom: -1px;">
+        <i data-lucide="file-text" style="width:13px; height:13px;"></i> PDF Acrobat Print Preview
+      </button>
+    </div>
+
     <!-- Live Document Sheets Container -->
     <div class="preview-canvas-container" id="print-preview-pages-canvas">
       <!-- Generated Sheets with contenteditable elements will be inserted dynamically here -->
+    </div>
+
+    <!-- Embedded Acrobat PDF Iframe View -->
+    <div id="pdf-iframe-container" style="display: none; width: 100%; height: calc(100vh - 170px); background: #525659; overflow: hidden; position: relative;">
+      <!-- The iframe will be inserted dynamically -->
     </div>
   </div>
 

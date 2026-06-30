@@ -1233,7 +1233,10 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
   }
 
-  if (isPrint === true || isPrint === 'true') {
+  if (isPrint === 'bloburl') {
+    const blob = pdf.output('blob');
+    return URL.createObjectURL(blob);
+  } else if (isPrint === true || isPrint === 'true') {
     const blob = pdf.output('blob');
     const blobUrl = URL.createObjectURL(blob);
     window.open(blobUrl, '_blank');

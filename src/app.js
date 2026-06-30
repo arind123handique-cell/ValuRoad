@@ -7659,6 +7659,36 @@ function renderPreviewPages() {
   if (!canvas || !currentPreviewEntry) return;
   canvas.innerHTML = '<div style="color:#ffffff; font-weight:600; text-align:center; padding-top:2rem;">Generating interactive preview pages...</div>';
 
+  // Reset tab to interactive layout editor
+  const btnTabInteractive = document.getElementById('btn-tab-interactive');
+  if (btnTabInteractive) {
+    // We update style state directly to prevent recursion if click is triggered
+    const canvasContainer = document.getElementById('print-preview-pages-canvas');
+    const iframeContainer = document.getElementById('pdf-iframe-container');
+    if (canvasContainer && iframeContainer) {
+      canvasContainer.style.display = 'block';
+      iframeContainer.style.display = 'none';
+      
+      btnTabInteractive.classList.add('active');
+      btnTabInteractive.style.background = '#ffffff';
+      btnTabInteractive.style.border = '1px solid #cbd5e1';
+      btnTabInteractive.style.borderBottom = 'none';
+      btnTabInteractive.style.color = 'var(--accent)';
+      btnTabInteractive.style.fontWeight = '700';
+      btnTabInteractive.style.zIndex = '2';
+
+      const btnTabPdfPreview = document.getElementById('btn-tab-pdf-preview');
+      if (btnTabPdfPreview) {
+        btnTabPdfPreview.classList.remove('active');
+        btnTabPdfPreview.style.background = 'transparent';
+        btnTabPdfPreview.style.border = '1px solid transparent';
+        btnTabPdfPreview.style.color = 'var(--text-secondary)';
+        btnTabPdfPreview.style.fontWeight = '600';
+        btnTabPdfPreview.style.zIndex = '1';
+      }
+    }
+  }
+
   // Generate compiled HTML from the pdf.js template engine
   const rawHtml = exportToPDF(currentPreviewEntry, currentPreviewEntry.sketcherImage, 'preview');
 
@@ -7842,11 +7872,11 @@ function refreshPreviewFromDOM() {
   updatePreviewStyles();
 }
 
-function exportPreviewedDocument(isPrint = false) {
-  if (!currentPreviewEntry) return;
+function exportPreviewedDocument(isPrint = false, returnBlobUrl = false) {
+  if (!currentPreviewEntry) return Promise.reject("No entry selected");
   if (!window.html2pdf) {
     alert('PDF export library is not loaded yet. Please check your internet connection.');
-    return;
+    return Promise.reject("Library not loaded");
   }
 
   const canvas = document.getElementById('print-preview-pages-canvas');
@@ -7898,20 +7928,34 @@ function exportPreviewedDocument(isPrint = false) {
 
   // Create temporary offscreen element in DOM to capture pages via html2canvas
   const tempContainer = document.createElement('div');
-  tempContainer.style.position = 'absolute';
-  tempContainer.style.left = '-9999px';
-  tempContainer.style.top = '-9999px';
+  tempContainer.style.position = 'fixed';
+  tempContainer.style.left = '0';
+  tempContainer.style.top = '0';
+  tempContainer.style.zIndex = '-9999';
+  tempContainer.style.opacity = '0';
+  tempContainer.style.pointerEvents = 'none';
   tempContainer.innerHTML = combinedHtml;
   document.body.appendChild(tempContainer);
 
-  generateMixedPdf(tempContainer, filename, 0.98, isPrint)
-    .then(() => {
+  const generateMode = returnBlobUrl ? 'bloburl' : isPrint;
+
+  return generateMixedPdf(tempContainer, filename, 0.98, generateMode)
+    .then((result) => {
       document.body.removeChild(tempContainer);
       markEntryPrinted(currentPreviewEntry.id);
+      return result;
     })
     .catch(err => {
       console.error("Mixed orientation PDF generation failed, falling back:", err);
       document.body.removeChild(tempContainer);
+      
+      if (returnBlobUrl) {
+        return html2pdf().from(combinedHtml).set(opt).toPdf().outputPdf('blob').then(blob => {
+          markEntryPrinted(currentPreviewEntry.id);
+          return URL.createObjectURL(blob);
+        });
+      }
+
       if (isPrint) {
         html2pdf().from(combinedHtml).set(opt).toPdf().outputPdf('blob').then((blob) => {
           const blobUrl = URL.createObjectURL(blob);
@@ -8292,6 +8336,84 @@ function initPrintPreviewEvents() {
       dragType = null;
       siblings = [];
       paperEl = null;
+    });
+  }
+
+  // Preview Tabs Event Handlers
+  const btnTabInteractive = document.getElementById('btn-tab-interactive');
+  const btnTabPdfPreview = document.getElementById('btn-tab-pdf-preview');
+  const canvasContainer = document.getElementById('print-preview-pages-canvas');
+  const iframeContainer = document.getElementById('pdf-iframe-container');
+
+  if (btnTabInteractive && btnTabPdfPreview && canvasContainer && iframeContainer) {
+    btnTabInteractive.addEventListener('click', () => {
+      canvasContainer.style.display = 'block';
+      iframeContainer.style.display = 'none';
+
+      btnTabInteractive.classList.add('active');
+      btnTabInteractive.style.background = '#ffffff';
+      btnTabInteractive.style.border = '1px solid #cbd5e1';
+      btnTabInteractive.style.borderBottom = 'none';
+      btnTabInteractive.style.color = 'var(--accent)';
+      btnTabInteractive.style.fontWeight = '700';
+      btnTabInteractive.style.zIndex = '2';
+
+      btnTabPdfPreview.classList.remove('active');
+      btnTabPdfPreview.style.background = 'transparent';
+      btnTabPdfPreview.style.border = '1px solid transparent';
+      btnTabPdfPreview.style.color = 'var(--text-secondary)';
+      btnTabPdfPreview.style.fontWeight = '600';
+      btnTabPdfPreview.style.zIndex = '1';
+    });
+
+    btnTabPdfPreview.addEventListener('click', () => {
+      canvasContainer.style.display = 'none';
+      iframeContainer.style.display = 'block';
+
+      btnTabPdfPreview.classList.add('active');
+      btnTabPdfPreview.style.background = '#ffffff';
+      btnTabPdfPreview.style.border = '1px solid #cbd5e1';
+      btnTabPdfPreview.style.borderBottom = 'none';
+      btnTabPdfPreview.style.color = 'var(--accent)';
+      btnTabPdfPreview.style.fontWeight = '700';
+      btnTabPdfPreview.style.zIndex = '2';
+
+      btnTabInteractive.classList.remove('active');
+      btnTabInteractive.style.background = 'transparent';
+      btnTabInteractive.style.border = '1px solid transparent';
+      btnTabInteractive.style.color = 'var(--text-secondary)';
+      btnTabInteractive.style.fontWeight = '600';
+      btnTabInteractive.style.zIndex = '1';
+
+      iframeContainer.innerHTML = `
+        <div class="pdf-loading-overlay" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e293b; color: #ffffff; font-family: sans-serif; gap: 1rem; z-index: 5;">
+          <div class="spinner" style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <span style="font-weight: 600; font-size: 0.95rem;">Compiling & Rendering PDF Preview...</span>
+        </div>
+        <style>
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      `;
+
+      exportPreviewedDocument(false, true)
+        .then(blobUrl => {
+          iframeContainer.innerHTML = '';
+          const iframe = document.createElement('iframe');
+          iframe.src = `${blobUrl}#toolbar=1&navpanes=0`;
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.border = 'none';
+          iframe.style.background = '#525659';
+          iframeContainer.appendChild(iframe);
+        })
+        .catch(err => {
+          iframeContainer.innerHTML = `
+            <div style="padding: 2rem; color: #f87171; text-align: center; font-family: sans-serif;">
+              <h3>⚠️ Failed to Render PDF</h3>
+              <p>${err.message || err}</p>
+            </div>
+          `;
+        });
     });
   }
 }
