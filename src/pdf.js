@@ -1139,7 +1139,6 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // Generate page-by-page to allow true mixed portrait & landscape orientations
   generateMixedPdf(container, opt.filename, tpl.imgQuality, isPrint).catch(err => {
     console.error("Custom page-by-page PDF generation failed, using standard fallback:", err);
-    alert("PDF Compiler Error: " + err.message + "\nStack: " + err.stack);
     if (isPrint === true || isPrint === 'true') {
       html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
         const blobUrl = URL.createObjectURL(blob);
@@ -1164,5 +1163,82 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
 // Custom page-by-page generator to support mixed portrait/landscape PDF orientations
 export async function generateMixedPdf(container, filename, imgQuality, isPrint) {
-  return generateVectorPdf(container, filename, imgQuality, isPrint);
+  let jsPDF = null;
+  if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+    jsPDF = window.jspdf.jsPDF;
+  } else if (typeof window.jsPDF === 'function') {
+    jsPDF = window.jsPDF;
+  } else if (typeof window.jspdf === 'function') {
+    jsPDF = window.jspdf;
+  }
+
+  if (!jsPDF) {
+    throw new Error("jsPDF library not found in global scope.");
+  }
+  const html2canvas = window.html2canvas;
+
+  const pages = container.querySelectorAll('.pdf-page, .preview-paper');
+  if (pages.length === 0) {
+    throw new Error("No pages found to export.");
+  }
+
+  let pdf = null;
+
+  for (let i = 0; i < pages.length; i++) {
+    const pageEl = pages[i];
+    const isLandscape = pageEl.classList.contains('pdf-landscape') || pageEl.classList.contains('landscape');
+
+    const canvas = await html2canvas(pageEl, {
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
+
+    let format = 'a4';
+    if (pageEl.classList.contains('size-letter')) format = 'letter';
+    else if (pageEl.classList.contains('size-legal')) format = 'legal';
+    else if (pageEl.classList.contains('size-a3')) format = 'a3';
+
+    let pdfWidth = 210;
+    let pdfHeight = 297;
+
+    if (format === 'a4') {
+      pdfWidth = isLandscape ? 297 : 210;
+      pdfHeight = isLandscape ? 210 : 297;
+    } else if (format === 'letter') {
+      pdfWidth = isLandscape ? 279 : 216;
+      pdfHeight = isLandscape ? 216 : 279;
+    } else if (format === 'legal') {
+      pdfWidth = isLandscape ? 356 : 216;
+      pdfHeight = isLandscape ? 216 : 356;
+    } else if (format === 'a3') {
+      pdfWidth = isLandscape ? 420 : 297;
+      pdfHeight = isLandscape ? 297 : 420;
+    }
+
+    if (!pdf) {
+      pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: format
+      });
+    } else {
+      pdf.addPage(format, isLandscape ? 'landscape' : 'portrait');
+    }
+
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  }
+
+  if (isPrint === 'bloburl') {
+    const blob = pdf.output('blob');
+    return URL.createObjectURL(blob);
+  } else if (isPrint === true || isPrint === 'true') {
+    const blob = pdf.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+  } else {
+    pdf.save(filename);
+  }
 }
