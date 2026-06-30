@@ -613,20 +613,30 @@
               <label class="check-label">
                 <input type="checkbox" id="toggle-electrification"> Add Electrification (% of Buildings)
               </label>
-              <div id="electrification-controls" style="display: none; align-items: center; gap: 0.5rem;">
+              <div id="electrification-controls" style="display: none; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                 <input type="number" id="electrification-pct" value="5" step="0.1" min="0" max="100" style="width: 80px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); text-align: center;">
                 <span style="font-size: 0.85rem; color: var(--text-muted);">%</span>
                 <span id="electrification-cost-display" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-left: 0.5rem;"></span>
+                <div style="display: flex; align-items: center; gap: 0.35rem; margin-left: 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--border-color);">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Non-conformity:</span>
+                  <input type="number" id="electrification-deduct-pct" value="0" step="1" min="0" max="100" style="width: 55px; padding: 0.3rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--border-color); text-align: center; font-size: 0.8rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">%</span>
+                </div>
               </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <label class="check-label">
                 <input type="checkbox" id="toggle-sanitary"> Add Water Supply & Sanitary (% of Buildings)
               </label>
-              <div id="sanitary-controls" style="display: none; align-items: center; gap: 0.5rem;">
+              <div id="sanitary-controls" style="display: none; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                 <input type="number" id="sanitary-pct" value="3" step="0.1" min="0" max="100" style="width: 80px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); text-align: center;">
                 <span style="font-size: 0.85rem; color: var(--text-muted);">%</span>
                 <span id="sanitary-cost-display" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-left: 0.5rem;"></span>
+                <div style="display: flex; align-items: center; gap: 0.35rem; margin-left: 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--border-color);">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Non-conformity:</span>
+                  <input type="number" id="sanitary-deduct-pct" value="0" step="1" min="0" max="100" style="width: 55px; padding: 0.3rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--border-color); text-align: center; font-size: 0.8rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">%</span>
+                </div>
               </div>
             </div>
             

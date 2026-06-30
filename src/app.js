@@ -1410,22 +1410,42 @@ function exportSingleEstimateToExcel(entryId) {
       <tr><td colspan="6" class="section-header">SERVICES & OTHER ADDITIONS</td></tr>
     `;
     if (entry.addSanitary) {
+      const saniDeductPct = entry.sanitaryDeductPct || 0;
       htmlContent += `
         <tr class="service-item-row">
           <td style="padding-left:15px;" colspan="4">Add for Sanitary & Water Supply Fittings @ ${entry.sanitaryPct || 3}%</td>
           <td>${entry.sanitaryPct || 3}% =</td>
-          <td class="text-right">Rs. ${formatIndianCurrency(entry.sanitaryCost)}</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(entry.sanitaryCostGross || entry.sanitaryCost)}</td>
         </tr>
       `;
+      if (saniDeductPct > 0) {
+        htmlContent += `
+          <tr class="service-item-row">
+            <td style="padding-left:30px; font-style:italic; color:#64748b;" colspan="4">Less: ${saniDeductPct}% for non-conformity with CPWD norms</td>
+            <td></td>
+            <td class="text-right" style="color:#b91c1c;">Rs. -${formatIndianCurrency(entry.sanitaryDeductAmt || 0)}</td>
+          </tr>
+        `;
+      }
     }
     if (entry.addElectrification) {
+      const elecDeductPct = entry.electrificationDeductPct || 0;
       htmlContent += `
         <tr class="service-item-row">
           <td style="padding-left:15px;" colspan="4">Add for Electrification @ ${entry.electrificationPct || 5}%</td>
           <td>${entry.electrificationPct || 5}% =</td>
-          <td class="text-right">Rs. ${formatIndianCurrency(entry.electrificationCost)}</td>
+          <td class="text-right">Rs. ${formatIndianCurrency(entry.electrificationCostGross || entry.electrificationCost)}</td>
         </tr>
       `;
+      if (elecDeductPct > 0) {
+        htmlContent += `
+          <tr class="service-item-row">
+            <td style="padding-left:30px; font-style:italic; color:#64748b;" colspan="4">Less: ${elecDeductPct}% for non-conformity with CPWD norms</td>
+            <td></td>
+            <td class="text-right" style="color:#b91c1c;">Rs. -${formatIndianCurrency(entry.electrificationDeductAmt || 0)}</td>
+          </tr>
+        `;
+      }
     }
     if (hasCustomServices) {
       entry.customServices.forEach(cs => {
@@ -2152,6 +2172,8 @@ function setupEditor() {
 
   inputElecPct.addEventListener('input', calculateAndRenderTotals);
   inputSaniPct.addEventListener('input', calculateAndRenderTotals);
+  document.getElementById('electrification-deduct-pct').addEventListener('input', calculateAndRenderTotals);
+  document.getElementById('sanitary-deduct-pct').addEventListener('input', calculateAndRenderTotals);
 
   // Bind live calculations to inputs
   document.getElementById('construction-year').addEventListener('input', calculateAndRenderTotals);
@@ -2466,9 +2488,11 @@ function initNewOwnerEntry() {
     items: [],
     addElectrification: false,
     electrificationPct: 5,
+    electrificationDeductPct: 0,
     electrificationCost: 0,
     addSanitary: false,
     sanitaryPct: 3,
+    sanitaryDeductPct: 0,
     sanitaryCost: 0,
     sketcherData: [],
     status: 'draft',
@@ -2748,11 +2772,15 @@ function loadEntryToEditor() {
   // Migrate legacy lump-sum entries: if electrificationPct is missing, set default
   if (activeEntry.electrificationPct === undefined) activeEntry.electrificationPct = 5;
   if (activeEntry.sanitaryPct === undefined) activeEntry.sanitaryPct = 3;
+  if (activeEntry.electrificationDeductPct === undefined) activeEntry.electrificationDeductPct = 0;
+  if (activeEntry.sanitaryDeductPct === undefined) activeEntry.sanitaryDeductPct = 0;
 
   const inputElecPct = document.getElementById('electrification-pct');
   const inputSaniPct = document.getElementById('sanitary-pct');
   inputElecPct.value = activeEntry.electrificationPct;
   inputSaniPct.value = activeEntry.sanitaryPct;
+  document.getElementById('electrification-deduct-pct').value = activeEntry.electrificationDeductPct;
+  document.getElementById('sanitary-deduct-pct').value = activeEntry.sanitaryDeductPct;
   document.getElementById('electrification-controls').style.display = activeEntry.addElectrification ? 'flex' : 'none';
   document.getElementById('sanitary-controls').style.display = activeEntry.addSanitary ? 'flex' : 'none';
 
@@ -4382,8 +4410,10 @@ function calculateAndRenderTotals() {
 
   activeEntry.addElectrification = document.getElementById('toggle-electrification').checked;
   activeEntry.electrificationPct = parseFloat(document.getElementById('electrification-pct').value) || 0;
+  activeEntry.electrificationDeductPct = parseFloat(document.getElementById('electrification-deduct-pct').value) || 0;
   activeEntry.addSanitary = document.getElementById('toggle-sanitary').checked;
   activeEntry.sanitaryPct = parseFloat(document.getElementById('sanitary-pct').value) || 0;
+  activeEntry.sanitaryDeductPct = parseFloat(document.getElementById('sanitary-deduct-pct').value) || 0;
 
   const includedItems = activeEntry.items.filter(i => i.includeInValuation);
   
@@ -4446,15 +4476,47 @@ function calculateAndRenderTotals() {
     .reduce((acc, curr) => acc + curr.totalCost, 0));
   activeEntry.buildingBase = buildingBase;
 
-  // Calculate electrification and sanitary costs as percentage of building base
-  activeEntry.electrificationCost = activeEntry.addElectrification ? Math.round(buildingBase * (activeEntry.electrificationPct / 100)) : 0;
-  activeEntry.sanitaryCost = activeEntry.addSanitary ? Math.round(buildingBase * (activeEntry.sanitaryPct / 100)) : 0;
+  // Calculate electrification and sanitary costs as percentage of building base, then apply non-conformity deduction
+  if (activeEntry.addElectrification) {
+    const elecGross = Math.round(buildingBase * (activeEntry.electrificationPct / 100));
+    const elecDeduct = Math.round(elecGross * (activeEntry.electrificationDeductPct / 100));
+    activeEntry.electrificationCostGross = elecGross;
+    activeEntry.electrificationDeductAmt = elecDeduct;
+    activeEntry.electrificationCost = elecGross - elecDeduct;
+  } else {
+    activeEntry.electrificationCostGross = 0;
+    activeEntry.electrificationDeductAmt = 0;
+    activeEntry.electrificationCost = 0;
+  }
+  if (activeEntry.addSanitary) {
+    const saniGross = Math.round(buildingBase * (activeEntry.sanitaryPct / 100));
+    const saniDeduct = Math.round(saniGross * (activeEntry.sanitaryDeductPct / 100));
+    activeEntry.sanitaryCostGross = saniGross;
+    activeEntry.sanitaryDeductAmt = saniDeduct;
+    activeEntry.sanitaryCost = saniGross - saniDeduct;
+  } else {
+    activeEntry.sanitaryCostGross = 0;
+    activeEntry.sanitaryDeductAmt = 0;
+    activeEntry.sanitaryCost = 0;
+  }
 
   // Update the cost display next to percentage inputs
   const elecCostDisplay = document.getElementById('electrification-cost-display');
   const saniCostDisplay = document.getElementById('sanitary-cost-display');
-  if (elecCostDisplay) elecCostDisplay.textContent = activeEntry.addElectrification ? '= Rs. ' + formatIndianCurrency(activeEntry.electrificationCost) : '';
-  if (saniCostDisplay) saniCostDisplay.textContent = activeEntry.addSanitary ? '= Rs. ' + formatIndianCurrency(activeEntry.sanitaryCost) : '';
+  if (elecCostDisplay) {
+    if (activeEntry.addElectrification) {
+      let txt = '= Rs. ' + formatIndianCurrency(activeEntry.electrificationCostGross);
+      if (activeEntry.electrificationDeductPct > 0) txt += ' − ' + activeEntry.electrificationDeductPct + '% = Rs. ' + formatIndianCurrency(activeEntry.electrificationCost);
+      elecCostDisplay.textContent = txt;
+    } else elecCostDisplay.textContent = '';
+  }
+  if (saniCostDisplay) {
+    if (activeEntry.addSanitary) {
+      let txt = '= Rs. ' + formatIndianCurrency(activeEntry.sanitaryCostGross);
+      if (activeEntry.sanitaryDeductPct > 0) txt += ' − ' + activeEntry.sanitaryDeductPct + '% = Rs. ' + formatIndianCurrency(activeEntry.sanitaryCost);
+      saniCostDisplay.textContent = txt;
+    } else saniCostDisplay.textContent = '';
+  }
 
   const customServicesSum = (activeEntry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
   let grandTotal = activeEntry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
@@ -4579,8 +4641,10 @@ function checkForModifiedFields() {
 
   compareField('toggle-electrification', originalEntryCopy.addElectrification, true);
   compareField('electrification-pct', originalEntryCopy.electrificationPct);
+  compareField('electrification-deduct-pct', originalEntryCopy.electrificationDeductPct);
   compareField('toggle-sanitary', originalEntryCopy.addSanitary, true);
   compareField('sanitary-pct', originalEntryCopy.sanitaryPct);
+  compareField('sanitary-deduct-pct', originalEntryCopy.sanitaryDeductPct);
 
   // GPS check
   const gpsDisplay = document.getElementById('gps-display');
@@ -9297,9 +9361,11 @@ async function generateBulkEstimates() {
           items: [],
           addElectrification: false,
           electrificationPct: 5,
+          electrificationDeductPct: 0,
           electrificationCost: 0,
           addSanitary: false,
           sanitaryPct: 3,
+          sanitaryDeductPct: 0,
           sanitaryCost: 0,
           sketcherData: [],
           status: needsReview ? 'needs-review' : 'draft',
@@ -9488,10 +9554,32 @@ function calculateBulkEntryTotals(entry) {
   // Migrate legacy entries
   if (entry.electrificationPct === undefined) entry.electrificationPct = 5;
   if (entry.sanitaryPct === undefined) entry.sanitaryPct = 3;
+  if (entry.electrificationDeductPct === undefined) entry.electrificationDeductPct = 0;
+  if (entry.sanitaryDeductPct === undefined) entry.sanitaryDeductPct = 0;
 
-  // Calculate electrification and sanitary costs as percentage of building base
-  entry.electrificationCost = entry.addElectrification ? Math.round(buildingBase * (entry.electrificationPct / 100)) : 0;
-  entry.sanitaryCost = entry.addSanitary ? Math.round(buildingBase * (entry.sanitaryPct / 100)) : 0;
+  // Calculate electrification and sanitary costs as percentage of building base, with non-conformity deduction
+  if (entry.addElectrification) {
+    const elecGross = Math.round(buildingBase * (entry.electrificationPct / 100));
+    const elecDeduct = Math.round(elecGross * (entry.electrificationDeductPct / 100));
+    entry.electrificationCostGross = elecGross;
+    entry.electrificationDeductAmt = elecDeduct;
+    entry.electrificationCost = elecGross - elecDeduct;
+  } else {
+    entry.electrificationCostGross = 0;
+    entry.electrificationDeductAmt = 0;
+    entry.electrificationCost = 0;
+  }
+  if (entry.addSanitary) {
+    const saniGross = Math.round(buildingBase * (entry.sanitaryPct / 100));
+    const saniDeduct = Math.round(saniGross * (entry.sanitaryDeductPct / 100));
+    entry.sanitaryCostGross = saniGross;
+    entry.sanitaryDeductAmt = saniDeduct;
+    entry.sanitaryCost = saniGross - saniDeduct;
+  } else {
+    entry.sanitaryCostGross = 0;
+    entry.sanitaryDeductAmt = 0;
+    entry.sanitaryCost = 0;
+  }
 
   const customServicesSum = (entry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
   let grandTotal = entry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
