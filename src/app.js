@@ -7739,7 +7739,7 @@ function renderPreviewPages() {
   for (let i = 1; i < pages.length; i++) {
     allPagesList.push({
       html: pages[i].innerHTML,
-      isLandscape: pages[i].classList.contains('pdf-landscape')
+      isLandscape: pages[i].classList.contains('landscape') || pages[i].getAttribute('data-landscape') === 'true'
     });
   }
 
