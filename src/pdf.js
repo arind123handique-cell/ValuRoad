@@ -1067,18 +1067,20 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-   <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; min-height: 270mm;">
-     ${headerHtml}
-     <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px;">
-       ${sketcherImage
-         ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: ${tpl.linePlanHeight || '160mm'}; object-fit: contain;" />`
-         : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
+   <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; padding: 0 !important; min-height: 297mm; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; box-sizing: border-box;">
+     <div style="width: 297mm; height: 210mm; transform: rotate(90deg); transform-origin: center; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 15mm; flex-shrink: 0;">
+       ${headerHtml}
+       <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 3mm; margin-bottom: 3mm; padding: 3mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
+         ${sketcherImage
+           ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: 110mm; object-fit: contain;" />`
+           : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
+       </div>
+       <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; padding-bottom: 2mm;">
+         LINE PLAN / SITE LAYOUT<br>
+         <span style="font-size: 9pt; font-weight: normal; color: #475569;">(Not to Scale)</span>
+       </div>
+       ${sitePlanProfileHtml}
      </div>
-     <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; margin-top: auto; padding-bottom: 5mm;">
-       LINE PLAN / SITE LAYOUT<br>
-       (Not to Scale)
-     </div>
-     ${sitePlanProfileHtml}
    </div>
   `;
 
