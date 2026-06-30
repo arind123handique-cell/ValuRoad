@@ -7731,10 +7731,110 @@ function renderPreviewPages() {
   // Attach click-to-delete listeners to any page breaks already present
   canvas.querySelectorAll('.preview-page-break').forEach(pb => {
     pb.setAttribute('contenteditable', 'false');
-    pb.addEventListener('click', () => pb.remove());
+    pb.addEventListener('click', () => {
+      pb.remove();
+      refreshPreviewFromDOM();
+    });
   });
 
   // Re-bind Lucide icons inside preview pages
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+
+  updatePreviewStyles();
+}
+
+function refreshPreviewFromDOM() {
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  if (!canvas || !currentPreviewEntry) return;
+
+  const papers = Array.from(canvas.querySelectorAll('.preview-paper'));
+
+  // Find estimate papers (which are not landscape and do not contain photo evidence grid)
+  const estimatePapers = papers.filter(paper => {
+    const isLandscape = paper.getAttribute('data-landscape') === 'true';
+    const hasPhotos = paper.querySelector('.pdf-photo-grid') !== null;
+    return !isLandscape && !hasPhotos;
+  });
+
+  // Collect all child nodes from estimate papers to re-paginate
+  const childrenArray = [];
+  estimatePapers.forEach(paper => {
+    Array.from(paper.childNodes).forEach(node => {
+      // Avoid empty text nodes
+      if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) return;
+      childrenArray.push(node.cloneNode(true));
+    });
+  });
+
+  // Get options for pagination
+  const size = document.getElementById('prev-page-size').value;
+  const orient = document.getElementById('prev-page-orient').value;
+  const margin = parseFloat(document.getElementById('prev-page-margin').value) || 10;
+
+  const styles = {
+    '--preview-whole-font-family': previewStyles.whole.family,
+    '--preview-whole-font-size': `${previewStyles.whole.size}pt`,
+    '--preview-title-font-family': previewStyles.title.family,
+    '--preview-title-font-size': `${previewStyles.title.size}pt`,
+    '--preview-meta-font-family': previewStyles.meta.family,
+    '--preview-meta-font-size': `${previewStyles.meta.size}pt`,
+    '--preview-tables-font-family': previewStyles.tables.family,
+    '--preview-tables-font-size': `${previewStyles.tables.size}pt`,
+    '--preview-seals-font-family': previewStyles.seals.family,
+    '--preview-seals-font-size': `${previewStyles.seals.size}pt`
+  };
+
+  const paginatedEstimateHtmls = paginateContent(childrenArray, size, orient, margin, styles);
+
+  // Collect other pages from DOM
+  const otherPages = papers.filter(paper => {
+    const isLandscape = paper.getAttribute('data-landscape') === 'true';
+    const hasPhotos = paper.querySelector('.pdf-photo-grid') !== null;
+    return isLandscape || hasPhotos;
+  });
+
+  const otherPagesData = otherPages.map(paper => ({
+    html: paper.innerHTML,
+    isLandscape: paper.getAttribute('data-landscape') === 'true'
+  }));
+
+  // Clear and rebuild canvas
+  canvas.innerHTML = '';
+
+  // Append paginated estimate pages
+  paginatedEstimateHtmls.forEach(html => {
+    const paper = document.createElement('div');
+    paper.className = 'preview-paper';
+    paper.setAttribute('contenteditable', 'true');
+    paper.setAttribute('spellcheck', 'false');
+    paper.innerHTML = html;
+    canvas.appendChild(paper);
+  });
+
+  // Append other pages
+  otherPagesData.forEach(page => {
+    const paper = document.createElement('div');
+    paper.className = 'preview-paper';
+    paper.setAttribute('contenteditable', 'true');
+    paper.setAttribute('spellcheck', 'false');
+    if (page.isLandscape) {
+      paper.setAttribute('data-landscape', 'true');
+    }
+    paper.innerHTML = page.html;
+    canvas.appendChild(paper);
+  });
+
+  // Re-bind click handlers and icons
+  canvas.querySelectorAll('.preview-page-break').forEach(pb => {
+    pb.setAttribute('contenteditable', 'false');
+    pb.addEventListener('click', () => {
+      pb.remove();
+      refreshPreviewFromDOM();
+    });
+  });
+
   if (window.lucide) {
     lucide.createIcons();
   }
@@ -8078,60 +8178,120 @@ function initPrintPreviewEvents() {
     });
   }
 
-  // Pointer drag-and-drop vertical positioning for signatures/seals blocks
+  // Pointer drag-and-drop vertical positioning for signatures and page breaks
   const canvas = document.getElementById('print-preview-pages-canvas');
   if (canvas) {
     let dragEl = null;
+    let dragType = null; // 'signature' or 'page-break'
     let startY = 0;
     let startTop = 0;
+    let siblings = [];
+    let paperEl = null;
 
     canvas.addEventListener('pointerdown', (e) => {
       const sigRow = e.target.closest('.pdf-signature-row');
-      if (!sigRow) return;
+      const pb = e.target.closest('.preview-page-break');
+      
+      if (sigRow) {
+        e.preventDefault();
+        dragEl = sigRow;
+        dragType = 'signature';
+        
+        const paper = dragEl.closest('.preview-paper');
+        if (paper) {
+          paper.style.position = 'relative';
+        }
 
-      // Prevent text selection during drag
-      e.preventDefault();
+        const style = window.getComputedStyle(dragEl);
+        if (style.position !== 'absolute') {
+          const rect = dragEl.getBoundingClientRect();
+          const parentRect = paper.getBoundingClientRect();
+          const zoomFactor = parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0;
 
-      dragEl = sigRow;
-      const paper = dragEl.closest('.preview-paper');
-      if (paper) {
-        paper.style.position = 'relative';
+          const relativeTop = (rect.top - parentRect.top) / zoomFactor;
+
+          dragEl.style.position = 'absolute';
+          dragEl.style.left = 'var(--preview-margin, 15mm)';
+          dragEl.style.width = 'calc(100% - 2 * var(--preview-margin, 15mm))';
+          dragEl.style.top = `${relativeTop}px`;
+          dragEl.style.margin = '0';
+          dragEl.style.zIndex = '1000';
+          dragEl.style.cursor = 'ns-resize';
+        }
+
+        startY = e.clientY;
+        startTop = parseFloat(dragEl.style.top) || 0;
+        dragEl.setPointerCapture(e.pointerId);
+      } else if (pb) {
+        e.preventDefault();
+        dragEl = pb;
+        dragType = 'page-break';
+        
+        paperEl = dragEl.closest('.preview-paper');
+        siblings = Array.from(paperEl.children).filter(el => el !== dragEl && !el.classList.contains('preview-page-break'));
+        
+        dragEl.style.opacity = '0.5';
+        dragEl.style.zIndex = '2000';
+        dragEl.setPointerCapture(e.pointerId);
       }
-
-      const style = window.getComputedStyle(dragEl);
-      if (style.position !== 'absolute') {
-        const rect = dragEl.getBoundingClientRect();
-        const parentRect = paper.getBoundingClientRect();
-        const zoomFactor = parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0;
-
-        const relativeTop = (rect.top - parentRect.top) / zoomFactor;
-
-        dragEl.style.position = 'absolute';
-        dragEl.style.left = 'var(--preview-margin, 15mm)';
-        dragEl.style.width = 'calc(100% - 2 * var(--preview-margin, 15mm))';
-        dragEl.style.top = `${relativeTop}px`;
-        dragEl.style.margin = '0';
-        dragEl.style.zIndex = '1000';
-        dragEl.style.cursor = 'ns-resize';
-      }
-
-      startY = e.clientY;
-      startTop = parseFloat(dragEl.style.top) || 0;
-      dragEl.setPointerCapture(e.pointerId);
     });
 
     canvas.addEventListener('pointermove', (e) => {
       if (!dragEl) return;
-      const paper = dragEl.closest('.preview-paper');
-      const zoomFactor = paper ? (parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0) : 1.0;
-      const dy = (e.clientY - startY) / zoomFactor;
-      dragEl.style.top = `${startTop + dy}px`;
+
+      if (dragType === 'signature') {
+        const paper = dragEl.closest('.preview-paper');
+        const zoomFactor = paper ? (parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0) : 1.0;
+        const dy = (e.clientY - startY) / zoomFactor;
+        dragEl.style.top = `${startTop + dy}px`;
+      } else if (dragType === 'page-break' && paperEl) {
+        const rect = paperEl.getBoundingClientRect();
+        const relativeY = e.clientY - rect.top;
+
+        let closestEl = null;
+        let closestDist = Infinity;
+        let insertAfter = false;
+
+        siblings.forEach(child => {
+          const childRect = child.getBoundingClientRect();
+          const childCenter = (childRect.top + childRect.bottom) / 2 - rect.top;
+          const dist = Math.abs(relativeY - childCenter);
+
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEl = child;
+            insertAfter = relativeY > childCenter;
+          }
+        });
+
+        if (closestEl) {
+          if (insertAfter) {
+            if (closestEl.nextSibling !== dragEl) {
+              paperEl.insertBefore(dragEl, closestEl.nextSibling);
+            }
+          } else {
+            if (closestEl !== dragEl) {
+              paperEl.insertBefore(dragEl, closestEl);
+            }
+          }
+        }
+      }
     });
 
     canvas.addEventListener('pointerup', (e) => {
       if (!dragEl) return;
+
       dragEl.releasePointerCapture(e.pointerId);
+
+      if (dragType === 'page-break') {
+        dragEl.style.opacity = '1.0';
+        refreshPreviewFromDOM();
+      }
+
       dragEl = null;
+      dragType = null;
+      siblings = [];
+      paperEl = null;
     });
   }
 }

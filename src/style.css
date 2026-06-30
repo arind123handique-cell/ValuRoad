@@ -2615,13 +2615,13 @@ body:has(#view-pdf-template.active) main {
   margin: 25px 0;
   position: relative;
   height: 0;
-  cursor: pointer;
+  cursor: ns-resize;
   user-select: none;
   display: block;
 }
 
 .preview-paper .preview-page-break::after {
-  content: "✂ PAGE BREAK (Click to delete)";
+  content: "↕ PAGE BREAK (Drag to move, Click to delete)";
   position: absolute;
   top: -11px;
   left: 24px;
@@ -2634,6 +2634,7 @@ body:has(#view-pdf-template.active) main {
   border-radius: 9999px;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 #print-preview-pages-canvas .pdf-signature-row {
@@ -2651,6 +2652,7 @@ body:has(#view-pdf-template.active) main {
   color: #ffffff;
   border-color: #ef4444;
   content: "🗑 REMOVE PAGE BREAK";
+  cursor: pointer;
 }
 
 /* Page Break in Print/PDF */
