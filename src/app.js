@@ -7750,6 +7750,7 @@ function renderPreviewPages() {
     paper.setAttribute('spellcheck', 'false');
     if (pageObj.isLandscape) {
       paper.setAttribute('data-landscape', 'true');
+      paper.classList.add('landscape');
     }
     
     // Inject the raw page inner contents

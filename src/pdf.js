@@ -1248,12 +1248,12 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
 
       if (!pdf) {
         pdf = new jsPDF({
-          orientation: isLandscape ? 'landscape' : 'portrait',
+          orientation: isLandscape ? 'l' : 'p',
           unit: 'mm',
-          format: format
+          format: [pdfWidth, pdfHeight]
         });
       } else {
-        pdf.addPage(format, isLandscape ? 'landscape' : 'portrait');
+        pdf.addPage([pdfWidth, pdfHeight], isLandscape ? 'l' : 'p');
       }
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
