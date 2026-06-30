@@ -2628,6 +2628,16 @@ body:has(#view-pdf-template.active) main {
   transition: all 0.2s;
 }
 
+#print-preview-pages-canvas .pdf-signature-row {
+  cursor: ns-resize;
+  transition: background-color 0.2s, outline 0.2s;
+  border-radius: 4px;
+}
+#print-preview-pages-canvas .pdf-signature-row:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+  outline: 1px dashed rgba(59, 130, 246, 0.4);
+}
+
 .preview-paper .preview-page-break:hover::after {
   background: #ef4444;
   color: #ffffff;

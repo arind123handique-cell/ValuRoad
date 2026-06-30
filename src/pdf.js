@@ -737,7 +737,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           </div>`;
 
         profileHtml = `
-          <div class="pdf-seals-text" style="margin-top: 15mm; display: flex; justify-content: space-between; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
+          <div class="pdf-seals-text pdf-signature-row" style="margin-top: 15mm; display: flex; justify-content: space-between; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
             ${jeBlock}
             ${aeeBlock}
             ${eeBlock}
@@ -754,7 +754,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         const blockWidth = visibleCount > 1 ? (98 / visibleCount) + '%' : '65mm';
 
         sitePlanProfileHtml = `
-          <div class="pdf-seals-text" style="margin-top: 5mm; display: flex; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
+          <div class="pdf-seals-text pdf-signature-row" style="margin-top: 5mm; display: flex; justify-content: flex-start; page-break-inside: avoid; break-inside: avoid; align-items: flex-start; gap: 4mm;">
             ${showJe ? jeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
             ${showAee ? aeeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
             ${showEe ? eeBlock.replace('width: 32%', `width: ${blockWidth}`) : ''}
@@ -763,7 +763,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
       } else if (prof.name || prof.designation || prof.signatureBase64) {
         const standardProfile = `
-          <div style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
+          <div class="pdf-signature-row" style="margin-top: 20mm; display: flex; justify-content: flex-end; page-break-inside: avoid; break-inside: avoid;">
             <div style="text-align: center; width: 65mm; font-family: Arial, Helvetica, sans-serif;">
               ${prof.signatureBase64 ? `<img src="${prof.signatureBase64}" style="max-height: 25mm; max-width: 60mm; margin-bottom: 2px;">` : '<div style="height: 15mm;"></div>'}
               <div style="font-weight: bold; font-size: 10.5pt; color: #000000;">${prof.name || ''}</div>

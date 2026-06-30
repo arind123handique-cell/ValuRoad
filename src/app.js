@@ -8077,6 +8077,63 @@ function initPrintPreviewEvents() {
       switchView('dashboard');
     });
   }
+
+  // Pointer drag-and-drop vertical positioning for signatures/seals blocks
+  const canvas = document.getElementById('print-preview-pages-canvas');
+  if (canvas) {
+    let dragEl = null;
+    let startY = 0;
+    let startTop = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const sigRow = e.target.closest('.pdf-signature-row');
+      if (!sigRow) return;
+
+      // Prevent text selection during drag
+      e.preventDefault();
+
+      dragEl = sigRow;
+      const paper = dragEl.closest('.preview-paper');
+      if (paper) {
+        paper.style.position = 'relative';
+      }
+
+      const style = window.getComputedStyle(dragEl);
+      if (style.position !== 'absolute') {
+        const rect = dragEl.getBoundingClientRect();
+        const parentRect = paper.getBoundingClientRect();
+        const zoomFactor = parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0;
+
+        const relativeTop = (rect.top - parentRect.top) / zoomFactor;
+
+        dragEl.style.position = 'absolute';
+        dragEl.style.left = 'var(--preview-margin, 15mm)';
+        dragEl.style.width = 'calc(100% - 2 * var(--preview-margin, 15mm))';
+        dragEl.style.top = `${relativeTop}px`;
+        dragEl.style.margin = '0';
+        dragEl.style.zIndex = '1000';
+        dragEl.style.cursor = 'ns-resize';
+      }
+
+      startY = e.clientY;
+      startTop = parseFloat(dragEl.style.top) || 0;
+      dragEl.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragEl) return;
+      const paper = dragEl.closest('.preview-paper');
+      const zoomFactor = paper ? (parseFloat(paper.style.getPropertyValue('--preview-zoom')) || 1.0) : 1.0;
+      const dy = (e.clientY - startY) / zoomFactor;
+      dragEl.style.top = `${startTop + dy}px`;
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      if (!dragEl) return;
+      dragEl.releasePointerCapture(e.pointerId);
+      dragEl = null;
+    });
+  }
 }
 
 // ── Particle Background Effect ──────────────────────────────────────────
