@@ -1049,12 +1049,28 @@ export class SiteSketcher {
         const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
         if(len > 0.05) {
           const lbl = (s.customEdgeDims && s.customEdgeDims[j]) ? s.customEdgeDims[j] : `${len.toFixed(2)}m`;
-          const off = (s.customEdgeOffsets && s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
+          let off = (s.customEdgeOffsets && s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
+          const prevI = (j - 1 + s.points.length) % s.points.length;
+          const nextI = (j + 1) % s.points.length;
+          const pPrev = s.points[prevI];
+          const pNext = s.points[nextI];
+          const v1x1 = p1.x - pPrev.x, v1y1 = p1.y - pPrev.y;
+          const v2x1 = p2.x - p1.x, v2y1 = p2.y - p1.y;
+          const dot1 = v1x1 * v2x1 + v1y1 * v2y1;
+          const cross1 = v1x1 * v2y1 - v1y1 * v2x1;
+          const angle1 = Math.atan2(Math.abs(cross1), dot1);
+          const v1x2 = p2.x - p1.x, v1y2 = p2.y - p1.y;
+          const v2x2 = pNext.x - p2.x, v2y2 = pNext.y - p2.y;
+          const dot2 = v1x2 * v2x2 + v1y2 * v2y2;
+          const cross2 = v1x2 * v2y2 - v1y2 * v2x2;
+          const angle2 = Math.atan2(Math.abs(cross2), dot2);
+          const minAngle = Math.min(angle1, angle2);
+          if (minAngle < Math.PI / 2) {
+            off *= 1 + 2.0 * (1 - minAngle / (Math.PI / 2));
+          }
           this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, lbl, off, s.fontSize, s.fontFamily, s, j);
         }
       }
-
-      let cx=0,cy=0;s.points.forEach(pt=>{cx+=pt.x;cy+=pt.y;});cx/=s.points.length;cy/=s.points.length;
       const lox = s.labelOffsetX || 0, loy = s.labelOffsetY || 0;
       const csp2=this.w2s(cx + lox, cy + loy);
       const fs = s.fontSize || this.globalFontSizeBase;
