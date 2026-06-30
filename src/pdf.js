@@ -624,26 +624,54 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         </div>
     `;
     if (report.addSanitary) {
+      const sGross = report.sanitaryCostGross || report.sanitaryCost;
+      const sPct = report.sanitaryPct || 3;
+      const sDeductPct = report.sanitaryDeductPct || 0;
+      const sDeductAmt = report.sanitaryDeductAmt || 0;
       serviceItemsHtml += `
         <div class="pdf-row" style="margin-bottom: 2px;">
           <div style="margin-left: 20mm; flex-grow: 1;">. Add for Sanitary & Water Supply Fittings</div>
-          <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            <span style="display: inline-block; width: 15mm; text-align: left; font-weight: normal;">L/S =</span>
-            <span>Rs. ${formatIndianCurrency(report.sanitaryCost)}</span>
+          <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <span style="display: inline-block; width: 25mm; text-align: left; font-weight: normal;">@ ${sPct}% =</span>
+            <span>Rs. ${formatIndianCurrency(sGross)}</span>
           </div>
         </div>
       `;
+      if (sDeductPct > 0) {
+        serviceItemsHtml += `
+          <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
+            <div style="flex-grow: 1; padding-left: 20mm;">Less ${sDeductPct}% Non-conformity deduction</div>
+            <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+              = Rs. -${formatIndianCurrency(sDeductAmt)}
+            </div>
+          </div>
+        `;
+      }
     }
     if (report.addElectrification) {
+      const eGross = report.electrificationCostGross || report.electrificationCost;
+      const ePct = report.electrificationPct || 5;
+      const eDeductPct = report.electrificationDeductPct || 0;
+      const eDeductAmt = report.electrificationDeductAmt || 0;
       serviceItemsHtml += `
         <div class="pdf-row" style="margin-bottom: 2px;">
           <div style="margin-left: 20mm; flex-grow: 1;">. Add for Electrification</div>
-          <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            <span style="display: inline-block; width: 15mm; text-align: left; font-weight: normal;">L/S =</span>
-            <span>Rs. ${formatIndianCurrency(report.electrificationCost)}</span>
+          <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <span style="display: inline-block; width: 25mm; text-align: left; font-weight: normal;">@ ${ePct}% =</span>
+            <span>Rs. ${formatIndianCurrency(eGross)}</span>
           </div>
         </div>
       `;
+      if (eDeductPct > 0) {
+        serviceItemsHtml += `
+          <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
+            <div style="flex-grow: 1; padding-left: 20mm;">Less ${eDeductPct}% Non-conformity deduction</div>
+            <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+              = Rs. -${formatIndianCurrency(eDeductAmt)}
+            </div>
+          </div>
+        `;
+      }
     }
     if (hasCustomServices) {
       report.customServices.forEach(cs => {
@@ -659,6 +687,86 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       });
     }
     serviceItemsHtml += `</div>`;
+  }
+
+  // PART-B: Injurious Affection — Staircase Acquisition (Section 94 RFCTLARR Act, 2013)
+  let partBHtml = '';
+  if (report.addStaircase) {
+    const method = report.staircaseMethod || 'adverse-pct';
+    const note = report.staircaseNote || '';
+    partBHtml = `
+      <div class="pdf-service-block" style="margin-top: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45;">
+        <div class="pdf-row" style="font-weight: bold; font-size: 10.5pt; margin-bottom: 3px;">
+          <div style="flex-grow: 1;">PART-B: INJURIOUS AFFECTION — STAIRCASE ACQUISITION (SECTION 94 RFCTLARR ACT, 2013)</div>
+          <div style="width: 50mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <span>Rs. ${formatIndianCurrency(report.staircaseCost)}</span>
+          </div>
+        </div>
+        <div style="margin-left: 5mm; font-size: 9pt; color: #1e293b; margin-bottom: 4px; text-align: justify; line-height: 1.5;">
+          <em>${note}</em>
+        </div>
+    `;
+    if (method === 'adverse-pct') {
+      const totalFloors = report.staircaseFloors || 2;
+      const affectedFloors = Math.max(0, totalFloors - 1);
+      const floorMeasures = report.staircaseFloorMeasurements || [];
+      const residualArea = floorMeasures.reduce((sum, fm) => {
+        const g = (fm.l || 0) * (fm.b || 0);
+        return sum + g * (1 - (fm.nonConfPct || 0) / 100);
+      }, 0);
+      const residualValue = residualArea * report.staircaseRate;
+      const affPct = report.staircaseAffectionPct || 2;
+      let calcLines = '';
+      floorMeasures.forEach(fm => {
+        const gross = (fm.l || 0) * (fm.b || 0);
+        const ncp = fm.nonConfPct || 0;
+        const net = gross * (1 - ncp / 100);
+        calcLines += `${fm.floorLabel} L×B = ${(fm.l || 0).toFixed(2)} m × ${(fm.b || 0).toFixed(2)} m = ${gross.toFixed(2)} sqm`;
+        if (ncp > 0) calcLines += ` (less ${ncp}% NC${fm.nonConfReason ? ': ' + fm.nonConfReason : ''} → ${net.toFixed(2)} sqm)`;
+        calcLines += `<br>`;
+      });
+      calcLines += `<br>`;
+      calcLines += `Total Residual Built-up Area (after NC deductions) = ${residualArea.toFixed(2)} sqm<br>`;
+      calcLines += `Building Type = ${totalFloors}-storey (${totalFloors} floors). Upper floors inaccessible = ${affectedFloors} nos.<br>`;
+
+      calcLines += `Residual Building Value = ${residualArea.toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(report.staircaseRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(residualValue))}<br>`;
+      calcLines += `Affection Level = ${affPct}%<br>`;
+      calcLines += `<b>Compensation = Rs. ${formatIndianCurrency(Math.round(residualValue))} × ${affPct}% = Rs. ${formatIndianCurrency(report.staircaseCost)}</b>`;
+      partBHtml += `
+        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px; border-left: 2px solid #2563eb;">
+          ${calcLines}
+        </div>
+      `;
+    } else if (method === 'restoration') {
+      const restItems = report.staircaseRestorationItems || [];
+      const foundationCost = (report.staircaseFoundationSqm || 0) * (report.staircaseFoundationRate || 0);
+      const restSubtotal = (report.staircaseRestorationTotal || 0) + foundationCost;
+      let calcLines = `<b>Itemised Construction Works:</b><br>`;
+      restItems.forEach(ri => {
+        const hasLxB = ri.unit === 'sqm' && (ri.l || 0) > 0 && (ri.b || 0) > 0;
+        const lxbStr = hasLxB ? ` [L×B: ${(ri.l || 0).toFixed(2)} m × ${(ri.b || 0).toFixed(2)} m]` : '';
+        calcLines += `${ri.description || 'Item'}: ${ri.quantity || 0} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
+      });
+      calcLines += `<br>`;
+      calcLines += `Subtotal (Construction Items) = Rs. ${formatIndianCurrency(Math.round(report.staircaseRestorationTotal || 0))}<br>`;
+      if (foundationCost > 0) {
+        calcLines += `Foundation Strengthening: ${(report.staircaseFoundationSqm || 0).toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(report.staircaseFoundationRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(foundationCost))}<br>`;
+      }
+      calcLines += `Subtotal (Construction + Foundation) = Rs. ${formatIndianCurrency(Math.round(restSubtotal))}<br>`;
+      calcLines += `Add: Contingencies @ 3% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.03))}<br>`;
+      calcLines += `Add: Supervision Charges @ 5% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.05))}<br>`;
+      calcLines += `Total with Overheads = Rs. ${formatIndianCurrency(report.staircaseRestorationWithOverheads)}<br>`;
+      if ((report.staircaseNonConfPct || 0) > 0) {
+        calcLines += `Less: Non-Conformity Deduction @ ${report.staircaseNonConfPct}% (${report.staircaseNonConfReason || ''}) = Rs. ${formatIndianCurrency(report.staircaseNonConfDeduction || 0)}<br>`;
+      }
+      calcLines += `<b>Final Restoration Compensation = Rs. ${formatIndianCurrency(report.staircaseRestorationGrandTotal)}</b>`;
+      partBHtml += `
+        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px; border-left: 2px solid #2563eb;">
+          ${calcLines}
+        </div>
+      `;
+    }
+    partBHtml += `</div>`;
   }
 
   let grandTotalHtml = `
@@ -868,6 +976,18 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     serviceHeight = 4 + serviceLines * 5 + 10;
   }
 
+  let partBHeight = 0;
+  if (report.addStaircase) {
+    const method = report.staircaseMethod || 'adverse-pct';
+    const restItems = report.staircaseRestorationItems || [];
+    let detailLines = 8; // header + method title + at least 5 detail lines + closing
+    if (method === 'restoration') {
+      detailLines += restItems.length; // one per restoration item
+      if ((report.staircaseNonConfPct || 0) > 0) detailLines += 1;
+    }
+    partBHeight = 4 + detailLines * 5 + 10;
+  }
+
   const grandTotalHeight = 25;
 
   let nbHeight = 0;
@@ -933,6 +1053,15 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       type: 'services',
       html: `<div class="pdf-table-text">${serviceItemsHtml}</div>`,
       height: serviceHeight
+    });
+  }
+
+  // PART-B: Injurious Affection
+  if (report.addStaircase) {
+    blocks.push({
+      type: 'partb',
+      html: `<div class="pdf-table-text">${partBHtml}</div>`,
+      height: partBHeight
     });
   }
 

@@ -644,6 +644,186 @@
               </div>
             </div>
             
+            <!-- PART-B: Injurious Affection / Staircase Acquisition — Section 94 RFCTLARR Act, 2013 -->
+            <div style="border-top: 2px solid var(--accent); padding-top: 1rem; margin-top: 1.25rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                <span style="background:var(--accent);color:#fff;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;">PART-B</span>
+                <span style="font-weight:700;font-size:0.95rem;color:var(--accent);">Injurious Affection — Staircase Acquisition (Section 94 RFCTLARR Act, 2013)</span>
+              </div>
+              <label class="check-label" style="margin-bottom:0.5rem;">
+                <input type="checkbox" id="toggle-staircase"> Include Injurious Affection Compensation in valuation
+              </label>
+              <div id="staircase-controls" style="display: none; margin-top: 0.75rem; background: var(--bg-secondary); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+
+                <!-- Approach Selector -->
+                <div style="margin-bottom: 1rem;">
+                  <div style="font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Select Approach</div>
+                  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;cursor:pointer;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:0.4rem;background:var(--bg-primary);">
+                      <input type="radio" name="staircase-method" value="adverse-pct" checked> Approach 1 — Adverse Percentage of Residual Area
+                    </label>
+                    <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.82rem;cursor:pointer;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:0.4rem;background:var(--bg-primary);">
+                      <input type="radio" name="staircase-method" value="restoration"> Approach 2 — Cost of Restoration (Itemised RCC)
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Approach 1: Adverse Percentage of Residual Area -->
+                <div id="staircase-method-adverse" style="display:block;">
+                  <div style="font-weight:600;font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.5rem;">Approach 1: Adverse Percentage of Residual Area</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;background:var(--bg-primary);padding:0.5rem 0.75rem;border-radius:0.35rem;border:1px solid var(--border-color);line-height:1.5;">
+                    <strong>Concept:</strong> When the staircase is acquired, upper floors become inaccessible, reducing the utility and value of the remaining building. 
+                    The compensation is assessed as a percentage of the residual building value, based on the proportion of floors rendered unusable (adverse percentage) 
+                    and the severity of impact (affection level).
+                  </div>
+                  <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: end;">
+                    <div>
+                      <label style="font-size:0.78rem; font-weight:500; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Building Type</label>
+                      <select id="staircase-floors" style="padding:0.35rem 0.5rem; border-radius:0.4rem; border:1px solid var(--border-color); font-size:0.82rem; background:var(--bg-primary); color:var(--text-primary);">
+                        <option value="1">G only (Single Storey)</option>
+                        <option value="2" selected>G+1 (Two Storeys)</option>
+                        <option value="3">G+2 (Three Storeys)</option>
+                        <option value="4">G+3 (Four Storeys)</option>
+                        <option value="5">G+4+ (Five or more)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style="font-size:0.78rem; font-weight:500; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Construction Rate / sqm (Rs.)</label>
+                      <input type="number" id="staircase-rate" value="0" step="100" min="0" style="width:120px; padding:0.35rem 0.5rem; border-radius:0.4rem; border:1px solid var(--border-color); text-align:center; font-size:0.82rem; background:var(--bg-primary); color:var(--text-primary);">
+                      <span id="staircase-rate-auto" style="font-size:0.72rem; color:var(--text-muted); margin-left:0.3rem;"></span>
+                    </div>
+                    <div>
+                      <label style="font-size:0.78rem; font-weight:500; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Residual Building Amount (Rs.)</label>
+                      <input type="number" id="staircase-residual-amt" value="0" step="1000" min="0" style="width:150px; padding:0.35rem 0.5rem; border-radius:0.4rem; border:1px solid var(--border-color); text-align:center; font-size:0.82rem; background:var(--bg-primary); color:var(--text-primary);">
+                      <span id="staircase-residual-auto" style="font-size:0.72rem; color:var(--text-muted); margin-left:0.3rem;"></span>
+                    </div>
+                  </div>
+
+                  <!-- Floor-by-Floor L x B Measurements -->
+                  <div style="margin-top:0.75rem;padding:0.6rem 0.75rem;background:var(--bg-primary);border-radius:0.4rem;border:1px solid var(--border-color);">
+                    <div style="font-weight:600;font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.4rem;">Floor-wise L x B Measurements (Residual Built-up Area)</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.5rem;">Enter L (Length) and B (Breadth) for each floor to compute residual built-up area.</div>
+                    <div id="staircase-floor-measurements" style="display:flex;flex-direction:column;gap:0.35rem;"></div>
+                    <div style="margin-top:0.4rem;padding:0.35rem 0.5rem;background:var(--bg-secondary);border-radius:0.3rem;display:flex;justify-content:space-between;font-weight:600;font-size:0.85rem;">
+                      <span>Total Residual Built-up Area:</span>
+                      <span id="staircase-total-residual-area" style="color:var(--accent);">0.00 sqm</span>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:0.75rem;">
+                    <label style="font-size:0.78rem; font-weight:500; color:var(--text-secondary); display:block; margin-bottom:0.35rem;">Affection Level</label>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;padding:0.35rem 0.6rem;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">
+                        <input type="radio" name="staircase-affection" value="mild" checked> Mild (2%)
+                      </label>
+                      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;padding:0.35rem 0.6rem;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">
+                        <input type="radio" name="staircase-affection" value="medium"> Medium (5%)
+                      </label>
+                      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;padding:0.35rem 0.6rem;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">
+                        <input type="radio" name="staircase-affection" value="adverse"> Adverse (10%)
+                      </label>
+                      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;padding:0.35rem 0.6rem;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">
+                        <input type="radio" name="staircase-affection" value="custom"> Custom
+                        <input type="number" id="staircase-affection-custom" value="0" step="0.1" min="0" max="100" style="width:55px;padding:0.2rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.78rem;">
+                        <span style="font-size:0.75rem;">%</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 0.4rem; border: 1px solid var(--border-color);">
+                    <div style="font-weight: 600; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Step-by-Step Calculation:</div>
+                    <table style="width:100%; font-size:0.82rem; line-height:1.8; border-collapse: collapse;">
+                      <tr><td style="padding: 2px 8px; width: 60%;">Total Floors (incl. Ground):</td><td style="padding: 2px 8px; font-weight:600;"><span id="calc-total-floors">2</span> nos.</td></tr>
+                      <tr><td style="padding: 2px 8px;">Upper Floors rendered inaccessible (Total − Ground):</td><td style="padding: 2px 8px; font-weight:600;"><span id="calc-affected-floors">1</span> nos.</td></tr>
+                      <tr><td style="padding: 2px 8px;">Total Residual Built-up Area (Sum of Floor L×B):</td><td style="padding: 2px 8px; font-weight:600;"><span id="calc-residual-area">0.00</span> sqm</td></tr>
+                      <tr><td style="padding: 2px 8px;">Residual Building Value (Area × Rate):</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-residual-value">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Affection Level Applied:</td><td style="padding: 2px 8px; font-weight:600;"><span id="calc-affection-label">Mild (2%)</span></td></tr>
+                      <tr style="background: var(--accent-light);"><td style="padding: 4px 8px; font-weight:700; font-size:0.9rem; color:var(--accent);">Compensation = Residual Value × Affection %:</td><td style="padding: 4px 8px; font-weight:700; font-size:0.9rem; color:var(--accent);">Rs. <span id="calc-affected-value">0</span></td></tr>
+                    </table>
+                  </div>
+                  <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--text-muted);font-style:italic;">
+                    Note: Total Residual Built-up Area = Sum of (L × B) for each floor.
+                    Residual Building Value = Residual Area × Construction Rate. Compensation = Residual Value × Affection %.
+                  </div>
+                </div>
+
+                <!-- Approach 2: Cost of Restoration (Itemised RCC Staircase) -->
+                <div id="staircase-method-restoration" style="display:none;">
+                  <div style="font-weight:600;font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.5rem;">Approach 2: Cost of Restoration — Itemised RCC Staircase Construction</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.75rem;background:var(--bg-primary);padding:0.5rem 0.75rem;border-radius:0.35rem;border:1px solid var(--border-color);line-height:1.5;">
+                    <strong>Concept:</strong> Compensation is assessed as the cost to construct a new RCC staircase (or alternate access) 
+                    to restore access to upper floors, including foundation strengthening, contingencies, supervision, and 
+                    deducting non-conformity (if applicable) based on the remaining useful life / structural adequacy.
+                  </div>
+
+                  <!-- Itemised restoration items -->
+                  <div style="margin-bottom:0.5rem;font-size:0.78rem;color:var(--text-muted);">Staircase Construction Items:</div>
+                  <div id="staircase-restoration-container" style="display:flex;flex-direction:column;gap:0.4rem;">
+                    <!-- Dynamic items -->
+                  </div>
+                  <button type="button" class="btn-secondary" id="staircase-add-item-btn" style="padding:0.3rem 0.6rem;font-size:0.78rem;height:auto;margin-top:0.4rem;">
+                    <i data-lucide="plus"></i> Add Construction Item
+                  </button>
+
+                  <!-- Foundation Strengthening -->
+                  <div style="margin-top:0.75rem;padding:0.6rem 0.75rem;background:var(--bg-primary);border-radius:0.4rem;border:1px solid var(--border-color);">
+                    <div style="font-weight:600;font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.4rem;">Foundation Strengthening (if required)</div>
+                    <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:end;">
+                      <div>
+                        <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.15rem;">Area (sqm)</label>
+                        <input type="number" id="staircase-foundation-sqm" value="0" step="0.1" min="0" style="width:90px;padding:0.3rem 0.5rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);">
+                      </div>
+                      <div>
+                        <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.15rem;">Rate / sqm (Rs.)</label>
+                        <input type="number" id="staircase-foundation-rate" value="0" step="10" min="0" style="width:100px;padding:0.3rem 0.5rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);">
+                      </div>
+                      <div style="font-weight:600;font-size:0.85rem;color:var(--accent);">= Rs. <span id="calc-foundation-cost">0</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Non-Conformity Deduction -->
+                  <div style="margin-top:0.75rem;padding:0.6rem 0.75rem;background:var(--bg-primary);border-radius:0.4rem;border:1px solid var(--border-color);">
+                    <div style="font-weight:600;font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.4rem;">Non-Conformity / Obsolescence Deduction</div>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
+                      <div>
+                        <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.15rem;">Deduction (%)</label>
+                        <input type="number" id="staircase-nonconf-pct" value="0" step="1" min="0" max="100" style="width:60px;padding:0.3rem 0.5rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);">
+                      </div>
+                      <div style="flex:1;min-width:200px;">
+                        <label style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:0.15rem;">Reason for Deduction</label>
+                        <input type="text" id="staircase-nonconf-reason" placeholder="e.g. Existing structure does not meet current NBC norms for staircase width / headroom" style="width:100%;padding:0.3rem 0.5rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+                      </div>
+                    </div>
+                    <div style="font-weight:600;font-size:0.85rem;margin-top:0.35rem;color:#b91c1c;">Less: Rs. <span id="calc-nonconf-deduction">0</span></div>
+                  </div>
+
+                  <!-- Cost Summary -->
+                  <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 0.4rem; border: 1px solid var(--border-color);">
+                    <div style="font-weight: 600; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Cost Summary:</div>
+                    <table style="width:100%; font-size:0.82rem; line-height:1.8; border-collapse: collapse;">
+                      <tr><td style="padding: 2px 8px; width: 60%;">Staircase Construction Cost (Itemised):</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-restoration-total">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Add: Foundation Strengthening:</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-foundation-added">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Subtotal (Construction + Foundation):</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-restoration-subtotal">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Add: Contingencies @ 3%:</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-restoration-contingency">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Add: Supervision Charges @ 5%:</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-restoration-supervision">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px;">Total Cost with Overheads:</td><td style="padding: 2px 8px; font-weight:600;">Rs. <span id="calc-total-with-overheads">0</span></td></tr>
+                      <tr><td style="padding: 2px 8px; color:#b91c1c;">Less: Non-Conformity Deduction (Rs. ...):</td><td style="padding: 2px 8px; font-weight:600;color:#b91c1c;">Rs. <span id="calc-nonconf-final">0</span></td></tr>
+                      <tr style="background: var(--accent-light);"><td style="padding: 4px 8px; font-weight:700; font-size:0.9rem; color:var(--accent);">Final Restoration Compensation:</td><td style="padding: 4px 8px; font-weight:700; font-size:0.9rem; color:var(--accent);">Rs. <span id="calc-restoration-grand-total">0</span></td></tr>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Adopted Compensation Summary -->
+                <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #1e293b; border-radius: 0.4rem; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-size:0.8rem; color:#94a3b8;">PART-B Compensation (Injurious Affection — Section 94)</div>
+                    <div id="staircase-method-note" style="font-size:0.72rem; color:#64748b; margin-top:0.15rem; max-width: 400px;"></div>
+                  </div>
+                  <div style="font-size:1.1rem; font-weight:700; color:#22c55e;">Rs. <span id="staircase-cost-display">0</span></div>
+                </div>
+              </div>
+            </div>
+
             <!-- Custom Service Items section -->
             <div style="margin-top: 0.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">

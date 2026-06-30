@@ -1460,6 +1460,93 @@ function exportSingleEstimateToExcel(entryId) {
     }
   }
 
+  // PART-B: Injurious Affection — Staircase Acquisition (Section 94 RFCTLARR Act, 2013)
+  if (entry.addStaircase) {
+    const method = entry.staircaseMethod || 'adverse-pct';
+    const totalFloors = entry.staircaseFloors || 2;
+    const affectedFloors = Math.max(0, totalFloors - 1);
+    const note = entry.staircaseNote || '';
+    htmlContent += `
+      <tr><td colspan="6" style="border:none; height:8px;"></td></tr>
+      <tr><td colspan="6" class="section-header" style="background-color:#e2e8f0;">PART-B: INJURIOUS AFFECTION — STAIRCASE ACQUISITION (SECTION 94 RFCTLARR ACT, 2013)</td></tr>
+    `;
+    if (method === 'adverse-pct') {
+      const floorMeasures = entry.staircaseFloorMeasurements || [];
+      const residualArea = floorMeasures.reduce((sum, fm) => {
+        const g = (fm.l || 0) * (fm.b || 0);
+        return sum + g * (1 - (fm.nonConfPct || 0) / 100);
+      }, 0);
+      const residualValue = residualArea * entry.staircaseRate;
+      const affPct = entry.staircaseAffectionPct || 2;
+      let calcLines = '';
+      floorMeasures.forEach(fm => {
+        const gross = (fm.l || 0) * (fm.b || 0);
+        const ncp = fm.nonConfPct || 0;
+        const net = gross * (1 - ncp / 100);
+        calcLines += `${fm.floorLabel} L×B = ${(fm.l || 0).toFixed(2)} m × ${(fm.b || 0).toFixed(2)} m = ${gross.toFixed(2)} sqm`;
+        if (ncp > 0) calcLines += ` (less ${ncp}% NC${fm.nonConfReason ? ': ' + fm.nonConfReason : ''} → net ${net.toFixed(2)} sqm)`;
+        calcLines += `<br>`;
+      });
+      calcLines += `<br>`;
+      calcLines += `Total Residual Built-up Area (after NC deductions) = ${residualArea.toFixed(2)} sqm<br>`;
+      calcLines += `Building Type = ${totalFloors}-storey (${totalFloors} floors). Upper floors inaccessible = ${affectedFloors} nos.<br>`;
+      calcLines += `Residual Building Value = ${residualArea.toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(entry.staircaseRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(residualValue))}<br>`;
+      calcLines += `Affection Level = ${affPct}%<br>`;
+      calcLines += `<strong>Compensation = Rs. ${formatIndianCurrency(Math.round(residualValue))} × ${affPct}% = Rs. ${formatIndianCurrency(entry.staircaseCost)}</strong>`;
+      htmlContent += `
+        <tr class="service-item-row">
+          <td colspan="5" style="padding-left:15px; font-weight:600;">Approach 1 — Adverse Percentage of Residual Area</td>
+          <td class="text-right" style="font-weight:700;">Rs. ${formatIndianCurrency(entry.staircaseCost)}</td>
+        </tr>
+        <tr class="service-item-row" style="font-size:0.8rem; color:#475569;">
+          <td colspan="6" style="padding-left:15px; text-align:justify;">
+            <div style="margin-bottom:4px; font-style:italic;">${note}</div>
+            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; border-left:3px solid #2563eb; font-family:monospace; font-size:0.78rem; line-height:1.7;">
+              ${calcLines}
+            </div>
+          </td>
+        </tr>
+      `;
+    } else if (method === 'restoration') {
+      const restItems = entry.staircaseRestorationItems || [];
+      const foundationCost = (entry.staircaseFoundationSqm || 0) * (entry.staircaseFoundationRate || 0);
+      const restSubtotal = (entry.staircaseRestorationTotal || 0) + foundationCost;
+      let calcLines = `<strong>Itemised Construction Works:</strong><br>`;
+      restItems.forEach(ri => {
+        const hasLxB = ri.unit === 'sqm' && (ri.l || 0) > 0 && (ri.b || 0) > 0;
+        const lxbStr = hasLxB ? ` [L×B: ${(ri.l || 0).toFixed(2)} m × ${(ri.b || 0).toFixed(2)} m]` : '';
+        calcLines += `${ri.description || 'Item'}: ${ri.quantity || 0} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
+      });
+      calcLines += `<br>`;
+      calcLines += `Subtotal (Construction Items) = Rs. ${formatIndianCurrency(Math.round(entry.staircaseRestorationTotal || 0))}<br>`;
+      if (foundationCost > 0) {
+        calcLines += `Foundation Strengthening: ${(entry.staircaseFoundationSqm || 0).toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(entry.staircaseFoundationRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(foundationCost))}<br>`;
+      }
+      calcLines += `Subtotal (Construction + Foundation) = Rs. ${formatIndianCurrency(Math.round(restSubtotal))}<br>`;
+      calcLines += `Add: Contingencies @ 3% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.03))}<br>`;
+      calcLines += `Add: Supervision Charges @ 5% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.05))}<br>`;
+      calcLines += `Total with Overheads = Rs. ${formatIndianCurrency(entry.staircaseRestorationWithOverheads)}<br>`;
+      if ((entry.staircaseNonConfPct || 0) > 0) {
+        calcLines += `Less: Non-Conformity Deduction @ ${entry.staircaseNonConfPct}% (${entry.staircaseNonConfReason || 'Not specified'}) = Rs. ${formatIndianCurrency(entry.staircaseNonConfDeduction || 0)}<br>`;
+      }
+      calcLines += `<strong>Final Restoration Compensation = Rs. ${formatIndianCurrency(entry.staircaseRestorationGrandTotal)}</strong>`;
+      htmlContent += `
+        <tr class="service-item-row">
+          <td colspan="5" style="padding-left:15px; font-weight:600;">Approach 2 — Cost of Restoration (Itemised RCC Staircase)</td>
+          <td class="text-right" style="font-weight:700;">Rs. ${formatIndianCurrency(entry.staircaseCost)}</td>
+        </tr>
+        <tr class="service-item-row" style="font-size:0.8rem; color:#475569;">
+          <td colspan="6" style="padding-left:15px; text-align:justify;">
+            <div style="margin-bottom:4px; font-style:italic;">${note}</div>
+            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; border-left:3px solid #2563eb; font-family:monospace; font-size:0.78rem; line-height:1.7;">
+              ${calcLines}
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  }
+
   // Grand Total & Words & N.B.
   htmlContent += `
     <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
@@ -2176,6 +2263,75 @@ function setupEditor() {
   document.getElementById('electrification-deduct-pct').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('sanitary-deduct-pct').addEventListener('input', calculateAndRenderTotals);
 
+  const toggleStair = document.getElementById('toggle-staircase');
+  const stairControls = document.getElementById('staircase-controls');
+  if (toggleStair) {
+    toggleStair.addEventListener('change', () => {
+      stairControls.style.display = toggleStair.checked ? 'block' : 'none';
+      if (toggleStair.checked && activeEntry && activeEntry.items && activeEntry.items.length > 0) {
+        prefillStaircaseFromItems();
+      }
+      calculateAndRenderTotals();
+    });
+  }
+  // Method radios
+  document.querySelectorAll('input[name="staircase-method"]').forEach(r => {
+    r.addEventListener('change', () => {
+      updateStaircaseMethodVisibility();
+      calculateAndRenderTotals();
+    });
+  });
+  // Adverse pct inputs
+  const sf = document.getElementById('staircase-floors');
+  const sr = document.getElementById('staircase-rate');
+  const sra = document.getElementById('staircase-residual-amt');
+  if (sf) {
+    sf.addEventListener('change', () => {
+      if (!activeEntry.staircaseFloorMeasurements) activeEntry.staircaseFloorMeasurements = [];
+      renderStaircaseFloorMeasurements();
+      calculateAndRenderTotals();
+    });
+  }
+  if (sr) sr.addEventListener('input', calculateAndRenderTotals);
+  if (sra) sra.addEventListener('input', calculateAndRenderTotals);
+  // Affection radios
+  document.querySelectorAll('input[name="staircase-affection"]').forEach(r => {
+    r.addEventListener('change', calculateAndRenderTotals);
+  });
+  const sac = document.getElementById('staircase-affection-custom');
+  if (sac) sac.addEventListener('input', calculateAndRenderTotals);
+  // Foundation
+  const fsqm = document.getElementById('staircase-foundation-sqm');
+  const frate = document.getElementById('staircase-foundation-rate');
+  if (fsqm) fsqm.addEventListener('input', calculateAndRenderTotals);
+  if (frate) frate.addEventListener('input', calculateAndRenderTotals);
+  // Non-conformity
+  const ncpct = document.getElementById('staircase-nonconf-pct');
+  const ncreason = document.getElementById('staircase-nonconf-reason');
+  if (ncpct) ncpct.addEventListener('input', calculateAndRenderTotals);
+  if (ncreason) ncreason.addEventListener('input', calculateAndRenderTotals);
+  // Restoration add item
+  const addRestBtn = document.getElementById('staircase-add-item-btn');
+  if (addRestBtn) {
+    addRestBtn.addEventListener('click', () => {
+      const newItem = {
+        id: 'REST_' + Date.now() + Math.random().toString(36).substr(2, 5),
+        description: '',
+        l: 0,
+        b: 0,
+        quantity: 1,
+        unit: 'nos',
+        rate: 0,
+        cost: 0
+      };
+      if (!activeEntry.staircaseRestorationItems) activeEntry.staircaseRestorationItems = [];
+      activeEntry.staircaseRestorationItems.push(newItem);
+      renderStaircaseRestorationRow(newItem);
+      lucide.createIcons();
+      calculateAndRenderTotals();
+    });
+  }
+
   // Bind live calculations to inputs
   document.getElementById('construction-year').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('construction-year-comment').addEventListener('input', calculateAndRenderTotals);
@@ -2495,6 +2651,32 @@ function initNewOwnerEntry() {
     sanitaryPct: 3,
     sanitaryDeductPct: 0,
     sanitaryCost: 0,
+    addStaircase: false,
+    staircaseMethod: 'adverse-pct',
+    // Approach 1: Adverse Percentage
+    staircaseFloors: 2,
+    staircaseTotalArea: 0,
+    staircaseRate: 0,
+    staircaseAdversePct: 0,
+    staircaseAffectedArea: 0,
+    staircaseFloorValue: 0,
+    staircaseAffectionLevel: 'mild',
+    staircaseAffectionPct: 2,
+    staircaseResidualAmt: 0,
+    staircaseFloorMeasurements: [],
+    // Approach 2: Restoration
+    staircaseRestorationItems: [],
+    staircaseRestorationTotal: 0,
+    staircaseFoundationSqm: 0,
+    staircaseFoundationRate: 0,
+    staircaseNonConfPct: 0,
+    staircaseNonConfReason: '',
+    staircaseRestorationSubtotal: 0,
+    staircaseRestorationWithOverheads: 0,
+    staircaseRestorationGrandTotal: 0,
+    // Computed
+    staircaseCost: 0,
+    staircaseNote: '',
     sketcherData: [],
     status: 'draft',
     grandTotal: 0
@@ -2548,6 +2730,273 @@ function renderCustomServiceRow(cs) {
   });
   
   lucide.createIcons();
+}
+
+function updateStaircaseMethodVisibility() {
+  const method = document.querySelector('input[name="staircase-method"]:checked');
+  if (!method) return;
+  const map = { 'adverse-pct': 'adverse', 'restoration': 'restoration' };
+  const panel = map[method.value] || 'adverse';
+  document.getElementById('staircase-method-adverse').style.display = panel === 'adverse' ? 'block' : 'none';
+  document.getElementById('staircase-method-restoration').style.display = panel === 'restoration' ? 'block' : 'none';
+}
+
+function renderStaircaseRestorationRow(item) {
+  const container = document.getElementById('staircase-restoration-container');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'staircase-restoration-row';
+  div.dataset.id = item.id;
+  div.style.display = 'flex';
+  div.style.gap = '0.5rem';
+  div.style.alignItems = 'center';
+  div.style.flexWrap = 'wrap';
+  const showLxB = item.unit === 'sqm';
+  const lVal = item.l || 0;
+  const bVal = item.b || 0;
+  const lxbArea = showLxB ? lVal * bVal : 0;
+  if (showLxB && item.quantity === 1) item.quantity = lxbArea;
+  div.innerHTML = `
+    <input type="text" class="rest-desc" value="${(item.description || '').replace(/"/g, '&quot;')}" placeholder="Item description" style="flex:1; min-width:150px; padding:0.3rem 0.5rem; border-radius:0.35rem; border:1px solid var(--border-color); font-size:0.8rem; background:var(--bg-primary); color:var(--text-primary);">
+    <input type="number" class="rest-qty" value="${item.quantity || 1}" step="0.01" min="0" style="width:70px; padding:0.3rem 0.5rem; border-radius:0.35rem; border:1px solid var(--border-color); text-align:center; font-size:0.8rem; background:var(--bg-primary); color:var(--text-primary);">
+    <select class="rest-unit" style="width:60px; padding:0.3rem 0.3rem; border-radius:0.35rem; border:1px solid var(--border-color); font-size:0.78rem; background:var(--bg-primary); color:var(--text-primary);">
+      <option value="nos" ${item.unit === 'nos' ? 'selected' : ''}>nos</option>
+      <option value="sqm" ${item.unit === 'sqm' ? 'selected' : ''}>sqm</option>
+      <option value="cum" ${item.unit === 'cum' ? 'selected' : ''}>cum</option>
+      <option value="kg" ${item.unit === 'kg' ? 'selected' : ''}>kg</option>
+      <option value="m" ${item.unit === 'm' ? 'selected' : ''}>m</option>
+      <option value="L.S" ${item.unit === 'L.S' ? 'selected' : ''}>L.S</option>
+    </select>
+    <div class="rest-lxb" style="display:${showLxB ? 'flex' : 'none'};gap:0.3rem;align-items:center;">
+      <input type="number" class="rest-l" value="${lVal}" step="0.01" min="0" placeholder="L" style="width:55px;padding:0.3rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+      <span style="font-size:0.75rem;color:var(--text-muted);">×</span>
+      <input type="number" class="rest-b" value="${bVal}" step="0.01" min="0" placeholder="B" style="width:55px;padding:0.3rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+      <span style="font-size:0.72rem;color:var(--text-muted);">m</span>
+    </div>
+    <input type="number" class="rest-rate" value="${item.rate || 0}" step="1" min="0" style="width:100px; padding:0.3rem 0.5rem; border-radius:0.35rem; border:1px solid var(--border-color); text-align:center; font-size:0.8rem; background:var(--bg-primary); color:var(--text-primary);">
+    <span class="rest-cost" style="font-weight:600; font-size:0.82rem; color:var(--accent); min-width:80px; text-align:right;">Rs. ${formatIndianCurrency(item.cost || 0)}</span>
+    <button type="button" class="btn-danger delete-rest-btn" style="padding:0.25rem 0.5rem; background-color:var(--text-muted);"><i data-lucide="minus" style="width:13px; height:13px;"></i></button>
+  `;
+  container.appendChild(div);
+  const lxbDiv = div.querySelector('.rest-lxb');
+  const lInp = div.querySelector('.rest-l');
+  const bInp = div.querySelector('.rest-b');
+  // Bind events
+  div.querySelector('.rest-desc').addEventListener('input', (e) => { item.description = e.target.value; });
+  div.querySelector('.rest-qty').addEventListener('input', (e) => {
+    item.quantity = parseFloat(e.target.value) || 0;
+    item.cost = item.quantity * item.rate;
+    div.querySelector('.rest-cost').textContent = 'Rs. ' + formatIndianCurrency(item.cost);
+    calculateAndRenderTotals();
+  });
+  div.querySelector('.rest-unit').addEventListener('change', (e) => {
+    item.unit = e.target.value;
+    lxbDiv.style.display = item.unit === 'sqm' ? 'flex' : 'none';
+    if (item.unit === 'sqm' && lInp && bInp) {
+      const l = parseFloat(lInp.value) || 0;
+      const b = parseFloat(bInp.value) || 0;
+      if (l > 0 && b > 0) {
+        item.quantity = l * b;
+        div.querySelector('.rest-qty').value = item.quantity;
+        item.cost = item.quantity * item.rate;
+        div.querySelector('.rest-cost').textContent = 'Rs. ' + formatIndianCurrency(item.cost);
+        calculateAndRenderTotals();
+      }
+    }
+  });
+  const updateFromLxB = () => {
+    if (item.unit === 'sqm') {
+      item.l = parseFloat(lInp.value) || 0;
+      item.b = parseFloat(bInp.value) || 0;
+      item.quantity = item.l * item.b;
+      div.querySelector('.rest-qty').value = item.quantity;
+      item.cost = item.quantity * item.rate;
+      div.querySelector('.rest-cost').textContent = 'Rs. ' + formatIndianCurrency(item.cost);
+      calculateAndRenderTotals();
+    }
+  };
+  if (lInp) lInp.addEventListener('input', updateFromLxB);
+  if (bInp) bInp.addEventListener('input', updateFromLxB);
+  div.querySelector('.rest-rate').addEventListener('input', (e) => {
+    item.rate = parseFloat(e.target.value) || 0;
+    item.cost = item.quantity * item.rate;
+    div.querySelector('.rest-cost').textContent = 'Rs. ' + formatIndianCurrency(item.cost);
+    calculateAndRenderTotals();
+  });
+  div.querySelector('.delete-rest-btn').addEventListener('click', () => {
+    activeEntry.staircaseRestorationItems = (activeEntry.staircaseRestorationItems || []).filter(x => x.id !== item.id);
+    div.remove();
+    calculateAndRenderTotals();
+  });
+  lucide.createIcons();
+}
+
+function renderStaircaseFloorMeasurements() {
+  const container = document.getElementById('staircase-floor-measurements');
+  if (!container) return;
+  const totalFloors = parseInt(document.getElementById('staircase-floors')?.value) || 2;
+  const floorLabels = ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', '4th Floor'];
+  const measures = activeEntry.staircaseFloorMeasurements || [];
+
+  // Ensure we have the right number of measurement rows
+  while (measures.length < totalFloors) {
+    measures.push({
+      id: 'FM_' + Date.now() + '_' + measures.length,
+      floorLabel: floorLabels[measures.length] || (measures.length + 1) + 'th Floor',
+      l: 0,
+      b: 0,
+      area: 0,
+      nonConfPct: 0,
+      nonConfReason: 'Non-conformity due to CPWD norms'
+    });
+  }
+  while (measures.length > totalFloors) {
+    measures.pop();
+  }
+
+  container.innerHTML = measures.map((fm, idx) => {
+    const lVal = fm.l || 0;
+    const bVal = fm.b || 0;
+    const grossArea = lVal * bVal;
+    const ncp = fm.nonConfPct || 0;
+    const netArea = grossArea * (1 - ncp / 100);
+    fm.area = grossArea;
+    fm.netArea = netArea;
+    return `
+      <div class="floor-measurement-row" data-id="${fm.id}" style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;">
+        <span style="font-weight:600;font-size:0.78rem;min-width:90px;color:var(--text-secondary);">${fm.floorLabel}</span>
+        <input type="number" class="fm-l" value="${lVal}" step="0.01" min="0" placeholder="L" style="width:65px;padding:0.25rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+        <span style="font-size:0.75rem;color:var(--text-muted);">×</span>
+        <input type="number" class="fm-b" value="${bVal}" step="0.01" min="0" placeholder="B" style="width:65px;padding:0.25rem 0.4rem;border-radius:0.35rem;border:1px solid var(--border-color);text-align:center;font-size:0.78rem;background:var(--bg-primary);color:var(--text-primary);">
+        <span class="fm-area" style="font-weight:600;font-size:0.8rem;color:var(--accent);min-width:65px;text-align:right;">${grossArea.toFixed(2)}</span>
+        <input type="number" class="fm-ncp" value="${ncp}" step="1" min="0" max="100" placeholder="NC%" style="width:55px;padding:0.25rem 0.3rem;border-radius:0.35rem;border:1px solid #fca5a5;text-align:center;font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);" title="Non-Conformity %">
+        <input type="text" class="fm-ncr" value="${(fm.nonConfReason || '').replace(/"/g, '&quot;')}" placeholder="Reason if any" style="flex:0.6;min-width:80px;padding:0.25rem 0.4rem;border-radius:0.35rem;border:1px solid #fca5a5;font-size:0.72rem;background:var(--bg-primary);color:var(--text-primary);">
+        <span style="font-size:0.72rem;color:var(--text-muted);">→</span>
+        <span class="fm-net-area" style="font-weight:600;font-size:0.8rem;color:#16a34a;min-width:65px;text-align:right;">${netArea.toFixed(2)}</span>
+      </div>
+    `;
+  }).join('');
+
+  // Bind events
+  container.querySelectorAll('.floor-measurement-row').forEach(row => {
+    const id = row.dataset.id;
+    const fm = measures.find(m => m.id === id);
+    if (!fm) return;
+    const lInp = row.querySelector('.fm-l');
+    const bInp = row.querySelector('.fm-b');
+    const ncpInp = row.querySelector('.fm-ncp');
+    const ncrInp = row.querySelector('.fm-ncr');
+    const areaSpan = row.querySelector('.fm-area');
+    const netAreaSpan = row.querySelector('.fm-net-area');
+    const update = () => {
+      fm.l = parseFloat(lInp.value) || 0;
+      fm.b = parseFloat(bInp.value) || 0;
+      fm.nonConfPct = parseFloat(ncpInp.value) || 0;
+      fm.nonConfReason = ncrInp.value || '';
+      const grossArea = fm.l * fm.b;
+      const netArea = grossArea * (1 - fm.nonConfPct / 100);
+      fm.area = grossArea;
+      fm.netArea = netArea;
+      areaSpan.textContent = grossArea.toFixed(2);
+      netAreaSpan.textContent = netArea.toFixed(2);
+      // Update totals
+      const grossTotal = measures.reduce((sum, m) => sum + ((m.l || 0) * (m.b || 0)), 0);
+      const netTotal = measures.reduce((sum, m) => {
+        const g = (m.l || 0) * (m.b || 0);
+        return sum + g * (1 - (m.nonConfPct || 0) / 100);
+      }, 0);
+      const totalEl = document.getElementById('staircase-total-residual-area');
+      if (totalEl) totalEl.textContent = `${netTotal.toFixed(2)} sqm (gross: ${grossTotal.toFixed(2)} sqm)`;
+      activeEntry.staircaseTotalArea = netTotal;
+      calculateAndRenderTotals();
+    };
+    lInp.addEventListener('input', update);
+    bInp.addEventListener('input', update);
+    ncpInp.addEventListener('input', update);
+    ncrInp.addEventListener('input', update);
+  });
+
+  // Update total
+  const grossTotal = measures.reduce((sum, m) => sum + ((m.l || 0) * (m.b || 0)), 0);
+  const netTotal = measures.reduce((sum, m) => {
+    const g = (m.l || 0) * (m.b || 0);
+    return sum + g * (1 - (m.nonConfPct || 0) / 100);
+  }, 0);
+  const totalEl = document.getElementById('staircase-total-residual-area');
+  if (totalEl) totalEl.textContent = `${netTotal.toFixed(2)} sqm (gross: ${grossTotal.toFixed(2)} sqm)`;
+  activeEntry.staircaseTotalArea = netTotal;
+}
+
+function prefillStaircaseFromItems() {
+  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
+  const buildingItems = (activeEntry.items || []).filter(i => i.type === 'plinth-area' && buildingTitles.includes(i.title));
+  if (buildingItems.length === 0) return;
+  const totalArea = buildingItems.reduce((acc, curr) => acc + (curr.totalAreaSqm || 0), 0);
+  const avgRate = Math.round(buildingItems.reduce((acc, curr) => acc + (curr.rate || 0), 0) / buildingItems.length);
+  const totalFloors = parseInt(document.getElementById('staircase-floors')?.value) || 2;
+  const rateEl = document.getElementById('staircase-rate');
+  const resEl = document.getElementById('staircase-residual-amt');
+  if (rateEl && rateEl.value === '0') rateEl.value = avgRate;
+
+  // Populate floor measurements, distributing total area evenly across floors
+  const floorLabels = ['Ground Floor', '1st Floor', '2nd Floor', '3rd Floor', '4th Floor'];
+  const hasRealData = (activeEntry.staircaseFloorMeasurements || []).some(fm => (fm.l || 0) > 0 || (fm.b || 0) > 0);
+  if (!hasRealData) {
+    const perFloorArea = totalArea / totalFloors;
+    const approxSide = Math.sqrt(perFloorArea);
+    activeEntry.staircaseFloorMeasurements = [];
+    for (let i = 0; i < totalFloors; i++) {
+      activeEntry.staircaseFloorMeasurements.push({
+        id: 'FM_' + Date.now() + '_' + i,
+        floorLabel: floorLabels[i] || (i + 1) + 'th Floor',
+        l: approxSide,
+        b: approxSide,
+        area: perFloorArea,
+        nonConfPct: 0,
+        nonConfReason: 'Non-conformity due to CPWD norms'
+      });
+    }
+    renderStaircaseFloorMeasurements();
+  }
+
+      const floorMeasures = activeEntry.staircaseFloorMeasurements || [];
+      const residualArea = floorMeasures.reduce((sum, fm) => {
+        const g = (fm.l || 0) * (fm.b || 0);
+        return sum + g * (1 - (fm.nonConfPct || 0) / 100);
+      }, 0);
+  if (resEl && resEl.value === '0') {
+    const residualValue = residualArea * avgRate;
+    resEl.value = Math.round(residualValue);
+  }
+}
+
+function autoGenerateStaircaseNote(entry) {
+  const method = entry.staircaseMethod || 'adverse-pct';
+  let note = '';
+  const totalFloors = entry.staircaseFloors || 2;
+  const affectedFloors = Math.max(0, totalFloors - 1);
+  if (method === 'adverse-pct') {
+    const affLabels = { mild: 'Mild', medium: 'Medium', adverse: 'Adverse' };
+    const affLabel = affLabels[entry.staircaseAffectionLevel] || 'Mild';
+    note += `Injurious Affection under Section 94 of RFCTLARR Act, 2013 — `;
+    note += `The existing staircase serving the ${totalFloors}-storey building is proposed to be acquired, `;
+    note += `rendering ${affectedFloors} upper floor(s) inaccessible with no alternate means of vertical circulation. `;
+    note += `Compensation under Approach 1 (Adverse Percentage of Residual Area) is adopted, `;
+    note += `wherein the residual building value is assessed and an affection level of "${affLabel}" `;
+    note += `(${entry.staircaseAffectionPct}%) is applied based on the degree of impairment caused by the acquisition. `;
+    note += `The assessed compensation is Rs. ${formatIndianCurrency(entry.staircaseFloorValue)} `;
+    note += `(Rupees ${numberToIndianWords(entry.staircaseFloorValue)} only).`;
+  } else if (method === 'restoration') {
+    note += `Injurious Affection under Section 94 of RFCTLARR Act, 2013 — `;
+    note += `The existing staircase serving the ${totalFloors}-storey building is proposed to be acquired, `;
+    note += `rendering ${affectedFloors} upper floor(s) inaccessible. `;
+    note += `Compensation under Approach 2 (Cost of Restoration) is adopted, `;
+    note += `being the reasonable cost of constructing an alternate RCC staircase to restore access to the affected floors. `;
+    note += `The assessed restoration cost is Rs. ${formatIndianCurrency(entry.staircaseRestorationGrandTotal)} `;
+    note += `(Rupees ${numberToIndianWords(entry.staircaseRestorationGrandTotal)} only).`;
+  }
+  entry.staircaseNote = note;
+  return note;
 }
 
 function autoGenerateSketcherShapes(entry) {
@@ -2784,6 +3233,38 @@ function loadEntryToEditor() {
   document.getElementById('sanitary-deduct-pct').value = activeEntry.sanitaryDeductPct;
   document.getElementById('electrification-controls').style.display = activeEntry.addElectrification ? 'flex' : 'none';
   document.getElementById('sanitary-controls').style.display = activeEntry.addSanitary ? 'flex' : 'none';
+
+  const toggleStair = document.getElementById('toggle-staircase');
+  if (toggleStair) {
+    toggleStair.checked = activeEntry.addStaircase || false;
+    document.getElementById('staircase-controls').style.display = activeEntry.addStaircase ? 'block' : 'none';
+    // Method
+    const methodRadios = document.querySelectorAll('input[name="staircase-method"]');
+    methodRadios.forEach(r => { r.checked = r.value === (activeEntry.staircaseMethod || 'adverse-pct'); });
+    // Adverse pct fields
+    if (document.getElementById('staircase-floors')) document.getElementById('staircase-floors').value = activeEntry.staircaseFloors || 2;
+    if (document.getElementById('staircase-rate')) document.getElementById('staircase-rate').value = activeEntry.staircaseRate || 0;
+    if (document.getElementById('staircase-residual-amt')) document.getElementById('staircase-residual-amt').value = activeEntry.staircaseResidualAmt || 0;
+    // Floor measurements
+    if (!activeEntry.staircaseFloorMeasurements) activeEntry.staircaseFloorMeasurements = [];
+    renderStaircaseFloorMeasurements();
+    // Affection level
+    const affRadios = document.querySelectorAll('input[name="staircase-affection"]');
+    affRadios.forEach(r => { r.checked = r.value === (activeEntry.staircaseAffectionLevel || 'mild'); });
+    if (document.getElementById('staircase-affection-custom')) document.getElementById('staircase-affection-custom').value = activeEntry.staircaseAffectionPct || 0;
+    // Restoration items
+    const restContainer = document.getElementById('staircase-restoration-container');
+    if (restContainer) {
+      restContainer.innerHTML = '';
+      (activeEntry.staircaseRestorationItems || []).forEach(item => renderStaircaseRestorationRow(item));
+    }
+    if (document.getElementById('staircase-foundation-sqm')) document.getElementById('staircase-foundation-sqm').value = activeEntry.staircaseFoundationSqm || 0;
+    if (document.getElementById('staircase-foundation-rate')) document.getElementById('staircase-foundation-rate').value = activeEntry.staircaseFoundationRate || 0;
+    if (document.getElementById('staircase-nonconf-pct')) document.getElementById('staircase-nonconf-pct').value = activeEntry.staircaseNonConfPct || 0;
+    if (document.getElementById('staircase-nonconf-reason')) document.getElementById('staircase-nonconf-reason').value = activeEntry.staircaseNonConfReason || '';
+    // Show correct method panel
+    updateStaircaseMethodVisibility();
+  }
 
   const itemsBody = document.getElementById('estimate-items-body');
   itemsBody.innerHTML = '';
@@ -4415,6 +4896,20 @@ function calculateAndRenderTotals() {
   activeEntry.addSanitary = document.getElementById('toggle-sanitary').checked;
   activeEntry.sanitaryPct = parseFloat(document.getElementById('sanitary-pct').value) || 0;
   activeEntry.sanitaryDeductPct = parseFloat(document.getElementById('sanitary-deduct-pct').value) || 0;
+  activeEntry.addStaircase = document.getElementById('toggle-staircase') ? document.getElementById('toggle-staircase').checked : false;
+  if (activeEntry.addStaircase) {
+    activeEntry.staircaseMethod = document.querySelector('input[name="staircase-method"]:checked')?.value || 'adverse-pct';
+    activeEntry.staircaseFloors = parseInt(document.getElementById('staircase-floors')?.value) || 2;
+    activeEntry.staircaseTotalArea = activeEntry.staircaseFloorMeasurements.reduce((sum, fm) => sum + ((fm.l || 0) * (fm.b || 0)), 0);
+    activeEntry.staircaseRate = parseFloat(document.getElementById('staircase-rate')?.value) || 0;
+    activeEntry.staircaseResidualAmt = parseFloat(document.getElementById('staircase-residual-amt')?.value) || 0;
+    activeEntry.staircaseAffectionLevel = document.querySelector('input[name="staircase-affection"]:checked')?.value || 'mild';
+    activeEntry.staircaseAffectionPct = parseFloat(document.getElementById('staircase-affection-custom')?.value) || 0;
+    activeEntry.staircaseFoundationSqm = parseFloat(document.getElementById('staircase-foundation-sqm')?.value) || 0;
+    activeEntry.staircaseFoundationRate = parseFloat(document.getElementById('staircase-foundation-rate')?.value) || 0;
+    activeEntry.staircaseNonConfPct = parseFloat(document.getElementById('staircase-nonconf-pct')?.value) || 0;
+    activeEntry.staircaseNonConfReason = document.getElementById('staircase-nonconf-reason')?.value || '';
+  }
 
   const includedItems = activeEntry.items.filter(i => i.includeInValuation);
   
@@ -4519,10 +5014,134 @@ function calculateAndRenderTotals() {
     } else saniCostDisplay.textContent = '';
   }
 
+    // PART-B: Staircase / Injurious Affection compensation — Section 94 of RFCTLARR Act, 2013
+    if (activeEntry.addStaircase) {
+      const method = activeEntry.staircaseMethod || 'adverse-pct';
+
+      // Approach 1: Adverse Percentage of Residual Area
+      const totalFloors = activeEntry.staircaseFloors || 2;
+      const affectedFloors = Math.max(0, totalFloors - 1);
+      const adversePct = totalFloors > 0 ? (affectedFloors / totalFloors) * 100 : 0;
+      // Compute residual area from floor-wise LxB measurements with non-conformity deduction
+      const floorMeasures = activeEntry.staircaseFloorMeasurements || [];
+      const residualArea = floorMeasures.reduce((sum, fm) => {
+        const g = (fm.l || 0) * (fm.b || 0);
+        return sum + g * (1 - (fm.nonConfPct || 0) / 100);
+      }, 0);
+      const residualValue = residualArea * activeEntry.staircaseRate;
+      // Affection percentage
+      const affLevel = activeEntry.staircaseAffectionLevel || 'mild';
+      const defaultPcts = { mild: 2, medium: 5, adverse: 10 };
+      const affPct = affLevel === 'custom' ? (activeEntry.staircaseAffectionPct || 0) : (defaultPcts[affLevel] || 2);
+      const floorValue = Math.round(residualValue * (affPct / 100));
+      activeEntry.staircaseAdversePct = adversePct;
+      activeEntry.staircaseAffectedArea = residualArea;
+      activeEntry.staircaseFloorValue = floorValue;
+      activeEntry.staircaseAffectionLevel = affLevel;
+      activeEntry.staircaseAffectionPct = affPct;
+
+    // Approach 2: Cost of Restoration
+    const restItems = activeEntry.staircaseRestorationItems || [];
+    let restItemTotal = 0;
+    restItems.forEach(ri => { ri.cost = (ri.quantity || 0) * (ri.rate || 0); restItemTotal += ri.cost; });
+    const foundationCost = (activeEntry.staircaseFoundationSqm || 0) * (activeEntry.staircaseFoundationRate || 0);
+    const restSubtotal = restItemTotal + foundationCost;
+    const contingency = restSubtotal * 0.03;
+    const supervision = restSubtotal * 0.05;
+    const withOverheads = restSubtotal + contingency + supervision;
+    const nonConfDeduction = Math.round(withOverheads * ((activeEntry.staircaseNonConfPct || 0) / 100));
+    const restorationFinal = Math.round(withOverheads - nonConfDeduction);
+    activeEntry.staircaseRestorationTotal = restItemTotal;
+    activeEntry.staircaseFoundationSqm = activeEntry.staircaseFoundationSqm || 0;
+    activeEntry.staircaseFoundationRate = activeEntry.staircaseFoundationRate || 0;
+    activeEntry.staircaseRestorationSubtotal = restSubtotal;
+    activeEntry.staircaseRestorationWithOverheads = Math.round(withOverheads);
+    activeEntry.staircaseNonConfPct = activeEntry.staircaseNonConfPct || 0;
+    activeEntry.staircaseNonConfDeduction = nonConfDeduction;
+    activeEntry.staircaseRestorationGrandTotal = restorationFinal;
+
+    // Adopted compensation
+    if (method === 'adverse-pct') {
+      activeEntry.staircaseCost = floorValue;
+    } else if (method === 'restoration') {
+      activeEntry.staircaseCost = restorationFinal;
+    }
+    autoGenerateStaircaseNote(activeEntry);
+  } else {
+    activeEntry.staircaseAdversePct = 0;
+    activeEntry.staircaseAffectedArea = 0;
+    activeEntry.staircaseFloorValue = 0;
+    activeEntry.staircaseRestorationTotal = 0;
+    activeEntry.staircaseRestorationSubtotal = 0;
+    activeEntry.staircaseRestorationWithOverheads = 0;
+    activeEntry.staircaseRestorationGrandTotal = 0;
+    activeEntry.staircaseCost = 0;
+    activeEntry.staircaseNote = '';
+  }
+
+  // Update PART-B calculation display
+  const updateEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  if (activeEntry.addStaircase) {
+    const totalFloors = activeEntry.staircaseFloors || 2;
+    const affectedFloors = Math.max(0, totalFloors - 1);
+    const adversePct = activeEntry.staircaseAdversePct;
+    const affLevelLabels = { mild: 'Mild (2%)', medium: 'Medium (5%)', adverse: 'Adverse (10%)', custom: activeEntry.staircaseAffectionPct + '% (Custom)' };
+    const affLabel = affLevelLabels[activeEntry.staircaseAffectionLevel] || 'Mild (2%)';
+    // Auto-fill hint for residual amount
+    const resAutoEl = document.getElementById('staircase-residual-auto');
+    if (resAutoEl) {
+      const floorMeasures = activeEntry.staircaseFloorMeasurements || [];
+      const residualArea = floorMeasures.reduce((sum, fm) => {
+        const g = (fm.l || 0) * (fm.b || 0);
+        return sum + g * (1 - (fm.nonConfPct || 0) / 100);
+      }, 0);
+      const residualValue = residualArea * activeEntry.staircaseRate;
+      resAutoEl.textContent = residualArea > 0 && activeEntry.staircaseRate > 0 ? `(Auto: ${residualArea.toFixed(2)} sqm × Rs. ${formatIndianCurrency(Math.round(activeEntry.staircaseRate))}/sqm = Rs. ${formatIndianCurrency(Math.round(residualValue))})` : '';
+    }
+    // Approach 1 display
+    updateEl('calc-total-floors', totalFloors);
+    updateEl('calc-affected-floors', affectedFloors);
+
+    updateEl('calc-residual-area', activeEntry.staircaseAffectedArea.toFixed(2));
+    updateEl('calc-residual-value', formatIndianCurrency(Math.round(activeEntry.staircaseRate ? activeEntry.staircaseAffectedArea * activeEntry.staircaseRate : 0)));
+    updateEl('calc-affection-label', affLabel);
+    updateEl('calc-affected-value', formatIndianCurrency(activeEntry.staircaseFloorValue));
+    // Approach 2 display
+    updateEl('calc-restoration-total', formatIndianCurrency(activeEntry.staircaseRestorationTotal));
+    updateEl('calc-foundation-cost', formatIndianCurrency(Math.round(activeEntry.staircaseRestorationSubtotal - activeEntry.staircaseRestorationTotal)));
+    updateEl('calc-foundation-added', formatIndianCurrency(Math.round(activeEntry.staircaseRestorationSubtotal - activeEntry.staircaseRestorationTotal)));
+    updateEl('calc-restoration-subtotal', formatIndianCurrency(Math.round(activeEntry.staircaseRestorationSubtotal)));
+    updateEl('calc-restoration-contingency', formatIndianCurrency(Math.round(activeEntry.staircaseRestorationSubtotal * 0.03)));
+    updateEl('calc-restoration-supervision', formatIndianCurrency(Math.round(activeEntry.staircaseRestorationSubtotal * 0.05)));
+    updateEl('calc-total-with-overheads', formatIndianCurrency(activeEntry.staircaseRestorationWithOverheads));
+    updateEl('calc-nonconf-deduction', formatIndianCurrency(activeEntry.staircaseNonConfDeduction || 0));
+    updateEl('calc-nonconf-final', formatIndianCurrency(activeEntry.staircaseNonConfDeduction || 0));
+    updateEl('calc-restoration-grand-total', formatIndianCurrency(activeEntry.staircaseRestorationGrandTotal));
+    // Common
+    updateEl('staircase-cost-display', formatIndianCurrency(activeEntry.staircaseCost));
+    // Method note
+    const noteEl = document.getElementById('staircase-method-note');
+    if (noteEl) {
+      const method = activeEntry.staircaseMethod || 'adverse-pct';
+      const methodNames = { 'adverse-pct': 'Approach 1 — Adverse Percentage of Residual Area', 'restoration': 'Approach 2 — Cost of Restoration (Itemised)' };
+      const methodName = methodNames[method] || method;
+      noteEl.innerHTML = `<strong>Approach Adopted:</strong> ${methodName}<br><small style="color:var(--text-muted); white-space:pre-wrap;">${activeEntry.staircaseNote || ''}</small>`;
+    }
+  } else {
+    ['calc-total-floors','calc-affected-floors','calc-residual-area','calc-residual-value',
+     'calc-affection-label','calc-affected-value','calc-restoration-total','calc-restoration-subtotal',
+     'calc-restoration-contingency','calc-restoration-supervision','calc-total-with-overheads',
+     'calc-nonconf-deduction','calc-nonconf-final','calc-restoration-grand-total','staircase-cost-display',
+     'calc-foundation-cost','calc-foundation-added'].forEach(id => updateEl(id, '-'));
+    const noteEl = document.getElementById('staircase-method-note');
+    if (noteEl) noteEl.innerHTML = '';
+  }
+
   const customServicesSum = (activeEntry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
   let grandTotal = activeEntry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
   if (activeEntry.addElectrification) grandTotal += activeEntry.electrificationCost;
   if (activeEntry.addSanitary) grandTotal += activeEntry.sanitaryCost;
+  if (activeEntry.addStaircase) grandTotal += activeEntry.staircaseCost;
   activeEntry.grandTotal = Math.round(grandTotal);
 
   const table = document.querySelector('.builder-table');
@@ -4568,6 +5187,18 @@ function calculateAndRenderTotals() {
     <tr>
       <td colspan="4" class="text-right">TOTAL EXCLUDED ITEMS (Direct Add) =</td>
       <td class="text-right bold" id="calc-total-excluded">Rs. 0.00</td>
+      <td></td>
+    </tr>
+    ` : ''}
+    ${activeEntry.addStaircase ? `
+    <tr>
+      <td colspan="4" class="text-right" style="font-size:0.82rem;">Add: PART-B — Injurious Affection (Section 94 RFCTLARR Act, 2013)</td>
+      <td class="text-right bold" style="color: #2563eb; font-size:0.82rem;">Rs. ${formatIndianCurrency(activeEntry.staircaseCost)}</td>
+      <td></td>
+    </tr>
+    <tr style="font-size:0.75rem; color:var(--text-muted);">
+      <td colspan="4" class="text-right" style="padding-top:0; white-space:normal;">${activeEntry.staircaseNote || ''}</td>
+      <td></td>
       <td></td>
     </tr>
     ` : ''}
@@ -7459,6 +8090,23 @@ function openPrintPreview(entryId) {
   if (!activeProject) return;
   const rawEntry = activeProject.entries.find(e => e.id === entryId);
   if (!rawEntry) return;
+  // Sync latest calculated values from activeEntry if same entry
+  if (activeEntry && activeEntry.id === entryId) {
+    Object.assign(rawEntry, {
+      staircaseNote: activeEntry.staircaseNote,
+      staircaseCost: activeEntry.staircaseCost,
+      staircaseAdversePct: activeEntry.staircaseAdversePct,
+      staircaseAffectedArea: activeEntry.staircaseAffectedArea,
+      staircaseFloorValue: activeEntry.staircaseFloorValue,
+      staircaseRestorationTotal: activeEntry.staircaseRestorationTotal,
+      staircaseRestorationSubtotal: activeEntry.staircaseRestorationSubtotal,
+      staircaseRestorationWithOverheads: activeEntry.staircaseRestorationWithOverheads,
+      staircaseNonConfDeduction: activeEntry.staircaseNonConfDeduction,
+      staircaseRestorationGrandTotal: activeEntry.staircaseRestorationGrandTotal,
+      staircaseFloorMeasurements: activeEntry.staircaseFloorMeasurements,
+      staircaseTotalArea: activeEntry.staircaseTotalArea
+    });
+  }
 
   // Initialize sketcher if not already loaded
   if (!sketcher) {
@@ -8259,7 +8907,8 @@ function initPrintPreviewEvents() {
   const btnClose = document.getElementById('prev-btn-close');
   if (btnClose) {
     btnClose.addEventListener('click', () => {
-      switchView('editor');
+      if (activeProject) openProjectDetails(activeProject.id);
+      else switchView('dashboard');
     });
   }
 
@@ -9843,6 +10492,28 @@ async function generateBulkEstimates() {
           sanitaryPct: 3,
           sanitaryDeductPct: 0,
           sanitaryCost: 0,
+          addStaircase: false,
+          staircaseMethod: 'adverse-pct',
+          staircaseFloors: 2,
+          staircaseTotalArea: 0,
+          staircaseRate: 0,
+          staircaseAdversePct: 0,
+          staircaseAffectedArea: 0,
+          staircaseFloorValue: 0,
+          staircaseAffectionLevel: 'mild',
+          staircaseAffectionPct: 2,
+          staircaseResidualAmt: 0,
+          staircaseRestorationItems: [],
+          staircaseRestorationTotal: 0,
+          staircaseFoundationSqm: 0,
+          staircaseFoundationRate: 0,
+          staircaseNonConfPct: 0,
+          staircaseNonConfReason: '',
+          staircaseRestorationSubtotal: 0,
+          staircaseRestorationWithOverheads: 0,
+          staircaseRestorationGrandTotal: 0,
+          staircaseCost: 0,
+          staircaseNote: '',
           sketcherData: [],
           status: needsReview ? 'needs-review' : 'draft',
           grandTotal: 0
@@ -10057,10 +10728,60 @@ function calculateBulkEntryTotals(entry) {
     entry.sanitaryCost = 0;
   }
 
+  // PART-B: Staircase / Injurious Affection compensation — Section 94
+  if (entry.addStaircase) {
+    const totalFloors = entry.staircaseFloors || 2;
+    const affectedFloors = Math.max(0, totalFloors - 1);
+    const method = entry.staircaseMethod || 'adverse-pct';
+    // Approach 1: Adverse Percentage
+    const adversePct = totalFloors > 0 ? (affectedFloors / totalFloors) * 100 : 0;
+    const residualArea = totalFloors > 0 ? (entry.staircaseTotalArea / totalFloors) : 0;
+    const residualValue = residualArea * (entry.staircaseRate || 0);
+    const affLevel = entry.staircaseAffectionLevel || 'mild';
+    const defaultPcts = { mild: 2, medium: 5, adverse: 10 };
+    const affPct = affLevel === 'custom' ? (entry.staircaseAffectionPct || 0) : (defaultPcts[affLevel] || 2);
+    const floorVal = Math.round(residualValue * (affPct / 100));
+    entry.staircaseAdversePct = adversePct;
+    entry.staircaseAffectedArea = residualArea;
+    entry.staircaseFloorValue = floorVal;
+    entry.staircaseAffectionLevel = affLevel;
+    entry.staircaseAffectionPct = affPct;
+    // Approach 2: Restoration
+    const restItems = entry.staircaseRestorationItems || [];
+    let restItemTotal = 0;
+    restItems.forEach(ri => { ri.cost = (ri.quantity || 0) * (ri.rate || 0); restItemTotal += ri.cost; });
+    const foundationCost = (entry.staircaseFoundationSqm || 0) * (entry.staircaseFoundationRate || 0);
+    const restSubtotal = restItemTotal + foundationCost;
+    const withOverheads = restSubtotal + restSubtotal * 0.03 + restSubtotal * 0.05;
+    const nonConfDeduction = Math.round(withOverheads * ((entry.staircaseNonConfPct || 0) / 100));
+    const restorationFinal = Math.round(withOverheads - nonConfDeduction);
+    entry.staircaseRestorationTotal = restItemTotal;
+    entry.staircaseRestorationSubtotal = restSubtotal;
+    entry.staircaseRestorationWithOverheads = Math.round(withOverheads);
+    entry.staircaseNonConfDeduction = nonConfDeduction;
+    entry.staircaseRestorationGrandTotal = restorationFinal;
+    // Adopted
+    if (method === 'adverse-pct') {
+      entry.staircaseCost = floorVal;
+    } else if (method === 'restoration') {
+      entry.staircaseCost = restorationFinal;
+    }
+  } else {
+    entry.staircaseAdversePct = 0;
+    entry.staircaseAffectedArea = 0;
+    entry.staircaseFloorValue = 0;
+    entry.staircaseRestorationTotal = 0;
+    entry.staircaseRestorationSubtotal = 0;
+    entry.staircaseRestorationWithOverheads = 0;
+    entry.staircaseRestorationGrandTotal = 0;
+    entry.staircaseCost = 0;
+  }
+
   const customServicesSum = (entry.customServices || []).reduce((acc, curr) => acc + (curr.cost || 0), 0);
   let grandTotal = entry.totalAfterDepreciation + totalExcludedCost + customServicesSum;
   if (entry.addElectrification) grandTotal += entry.electrificationCost;
   if (entry.addSanitary) grandTotal += entry.sanitaryCost;
+  if (entry.addStaircase) grandTotal += entry.staircaseCost;
   entry.grandTotal = Math.round(grandTotal);
 }
 
