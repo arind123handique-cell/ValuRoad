@@ -2,24 +2,31 @@
 // This produces 100% crisp vector PDFs with selectable/searchable text.
 
 export async function generateVectorPdf(container, filename, imgQuality, isPrint) {
-  let jsPDF = null;
-  if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
-    jsPDF = window.jspdf.jsPDF;
-  } else if (typeof window.jsPDF === 'function') {
-    jsPDF = window.jsPDF;
-  } else if (typeof window.jspdf === 'function') {
-    jsPDF = window.jspdf;
-  }
+  try {
+    console.log("generateVectorPdf called:", { filename, imgQuality, isPrint, container });
+    
+    let jsPDF = null;
+    if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+      jsPDF = window.jspdf.jsPDF;
+    } else if (typeof window.jsPDF === 'function') {
+      jsPDF = window.jsPDF;
+    } else if (typeof window.jspdf === 'function') {
+      jsPDF = window.jspdf;
+    }
 
-  if (!jsPDF) {
-    throw new Error("jsPDF library not found in global scope.");
-  }
+    if (!jsPDF) {
+      throw new Error("jsPDF library not found in global scope.");
+    }
 
-  // Get pages in preview
-  const pages = container.querySelectorAll('.pdf-page, .preview-paper');
-  if (pages.length === 0) {
-    throw new Error("No pages found to export.");
-  }
+    console.log("Resolved jsPDF constructor:", jsPDF);
+    console.log("autoTable plugin registered:", typeof jsPDF.prototype.autoTable === 'function');
+
+    // Get pages in preview
+    const pages = container.querySelectorAll('.pdf-page, .preview-paper');
+    console.log("Pages queried count:", pages.length);
+    if (pages.length === 0) {
+      throw new Error("No pages found to export.");
+    }
 
   // Get active configurations from DOM
   const sizeEl = document.getElementById('prev-page-size');
@@ -441,5 +448,9 @@ export async function generateVectorPdf(container, filename, imgQuality, isPrint
     window.open(blobUrl, '_blank');
   } else {
     pdf.save(filename);
+  }
+  } catch (err) {
+    console.error("Error in generateVectorPdf:", err);
+    throw err;
   }
 }
