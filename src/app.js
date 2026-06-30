@@ -6591,7 +6591,7 @@ export function getPdfTemplateSettings() {
     basisText: 'D.S.R for CPWD Building for the year 2021',
     orgName: '',
     subtitle: '',
-    margin: 8,
+    margin: 12.7,
     fontFamily: 'Arial, Helvetica, sans-serif',
     fontSize: 10.5,
     imgQuality: 0.98,
