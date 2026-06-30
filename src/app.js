@@ -7646,7 +7646,10 @@ function renderPreviewPages() {
     const canvasContainer = document.getElementById('print-preview-pages-canvas');
     const iframeContainer = document.getElementById('pdf-iframe-container');
     if (canvasContainer && iframeContainer) {
-      canvasContainer.style.display = 'block';
+      canvasContainer.style.position = 'static';
+      canvasContainer.style.visibility = 'visible';
+      canvasContainer.style.height = 'auto';
+      canvasContainer.style.overflow = 'visible';
       iframeContainer.style.display = 'none';
       
       btnTabInteractive.classList.add('active');
@@ -8329,7 +8332,10 @@ function initPrintPreviewEvents() {
 
   if (btnTabInteractive && btnTabPdfPreview && canvasContainer && iframeContainer) {
     btnTabInteractive.addEventListener('click', () => {
-      canvasContainer.style.display = 'block';
+      canvasContainer.style.position = 'static';
+      canvasContainer.style.visibility = 'visible';
+      canvasContainer.style.height = 'auto';
+      canvasContainer.style.overflow = 'visible';
       iframeContainer.style.display = 'none';
 
       btnTabInteractive.classList.add('active');
@@ -8349,7 +8355,12 @@ function initPrintPreviewEvents() {
     });
 
     btnTabPdfPreview.addEventListener('click', () => {
-      canvasContainer.style.display = 'none';
+      canvasContainer.style.position = 'absolute';
+      canvasContainer.style.left = '-9999px';
+      canvasContainer.style.top = '-9999px';
+      canvasContainer.style.visibility = 'hidden';
+      canvasContainer.style.height = '0';
+      canvasContainer.style.overflow = 'hidden';
       iframeContainer.style.display = 'block';
 
       btnTabPdfPreview.classList.add('active');
