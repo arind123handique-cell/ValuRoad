@@ -1053,8 +1053,9 @@ export class SiteSketcher {
           this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, lbl, off, s.fontSize, s.fontFamily, s, j);
         }
       }
+      let cx2=0,cy2=0;s.points.forEach(pt=>{cx2+=pt.x;cy2+=pt.y;});cx2/=s.points.length;cy2/=s.points.length;
       const lox = s.labelOffsetX || 0, loy = s.labelOffsetY || 0;
-      const csp2=this.w2s(cx + lox, cy + loy);
+      const csp2=this.w2s(cx2 + lox, cy2 + loy);
       const fs = s.fontSize || this.globalFontSizeBase;
       const ff = s.fontFamily || this.globalFontFamily;
       ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(fs * 1.1 * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
