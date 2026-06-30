@@ -688,8 +688,22 @@
 
              <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
 
+             <div style="display:flex;align-items:center;gap:0.3rem;">
+               <label style="font-size:0.72rem;color:var(--text-muted);">Canvas:</label>
+               <select id="sketch-canvas-size" title="Drawing canvas pixel size" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);">
+                 <option value="1200x750">1200×750</option>
+                 <option value="1400x900">1400×900</option>
+                 <option value="1600x1000">1600×1000</option>
+                 <option value="1920x1080">1920×1080 (HD)</option>
+                 <option value="1200x1697">A4 Portrait</option>
+                 <option value="1697x1200">A4 Landscape</option>
+               </select>
+             </div>
+
+             <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
+
              <div style="display:flex;align-items:center;gap:0.25rem;">
-               <button type="button" id="sketch-zoom-out-btn" title="Zoom Out" style="padding:0.22rem 0.4rem;height:auto;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);"><i data-lucide="zoom-out" style="width:13px;height:13px;"></i></button>
+                <button type="button" id="sketch-zoom-out-btn" title="Zoom Out" style="padding:0.22rem 0.4rem;height:auto;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);"><i data-lucide="zoom-out" style="width:13px;height:13px;"></i></button>
                <span id="sketcher-zoom-label" style="font-size:0.78rem;color:var(--text-secondary);min-width:45px;text-align:center;">100%</span>
                <button type="button" id="sketch-zoom-in-btn"  title="Zoom In"  style="padding:0.22rem 0.4rem;height:auto;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);"><i data-lucide="zoom-in" style="width:13px;height:13px;"></i></button>
                <button type="button" id="sketch-zoom-reset-btn" title="Reset (1:1)" style="padding:0.22rem 0.4rem;height:auto;font-size:0.72rem;font-weight:600;border:1px solid var(--border-color);border-radius:0.35rem;background:var(--bg-primary);">1:1</button>
@@ -702,15 +716,18 @@
                <i data-lucide="unlock" style="width:13px;height:13px;"></i> UNLOCKED
              </button>
 
-             <div style="display:flex;align-items:center;gap:0.3rem;">
-               <button type="button" id="sketch-a4-frame-btn" title="Toggle A4 Guide" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border:1px solid #94a3b8;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
-                 <i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF
-               </button>
-               <select id="sketch-a4-orient" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);display:none;">
-                 <option value="portrait">Portrait</option>
-                 <option value="landscape" selected>Landscape</option>
-               </select>
-             </div>
+              <div style="display:flex;align-items:center;gap:0.3rem;">
+                <button type="button" id="sketch-a4-frame-btn" title="Toggle A4 Guide" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border:1px solid #94a3b8;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
+                  <i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 OFF
+                </button>
+                <select id="sketch-a4-orient" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);display:none;">
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape" selected>Landscape</option>
+                </select>
+                <button type="button" id="sketch-fit-a4-btn" title="Fit drawing to A4 boundary" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#3b82f6;border:1px solid #3b82f6;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
+                  <i data-lucide="crop" style="width:13px;height:13px;"></i> FIT A4
+                </button>
+              </div>
 
              <span style="width:1px;background:var(--border-color);height:18px;margin:0 0.1rem;"></span>
 

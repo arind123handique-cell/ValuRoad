@@ -5014,9 +5014,10 @@ export function syncSketcherUIState() {
   // 3. Lock button state
   updateSketcherLockUI();
 
-  // 4. A4 Frame button & Orientation state
+  // 4. A4 Frame button & Orientation & Fit A4 state
   const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');
   const a4Orient   = document.getElementById('sketch-a4-orient');
+  const a4FitBtn   = document.getElementById('sketch-fit-a4-btn');
   if (a4FrameBtn) {
     a4FrameBtn.innerHTML = sketcher.showA4Frame 
       ? '<i data-lucide="file-text" style="width:13px;height:13px;"></i> A4 ON' 
@@ -5026,6 +5027,9 @@ export function syncSketcherUIState() {
     if (a4Orient) {
       a4Orient.style.display = sketcher.showA4Frame ? 'block' : 'none';
       a4Orient.value = sketcher.a4Orientation || 'landscape';
+    }
+    if (a4FitBtn) {
+      a4FitBtn.style.display = sketcher.showA4Frame ? 'inline-flex' : 'none';
     }
   }
 
@@ -5040,6 +5044,15 @@ export function syncSketcherUIState() {
   if (scaleSelect) {
     const ratioN = Math.round(5000 / sketcher.basePPM);
     scaleSelect.value = ratioN.toString();
+  }
+
+  // 7. Canvas size selector
+  const canvasSizeSel = document.getElementById('sketch-canvas-size');
+  if (canvasSizeSel) {
+    const val = `${sketcher.W}x${sketcher.H}`;
+    if (canvasSizeSel.value !== val) {
+      canvasSizeSel.value = val;
+    }
   }
 
   // 7. Grid Size dropdown
@@ -5270,9 +5283,10 @@ function setupSketcherToolbar() {
     });
   }
 
-  // ── A4 Frame & Orientation ──
+  // ── A4 Frame & Orientation & Fit A4 ──
   const a4FrameBtn = document.getElementById('sketch-a4-frame-btn');
   const a4Orient   = document.getElementById('sketch-a4-orient');
+  const a4FitBtn   = document.getElementById('sketch-fit-a4-btn');
   if (a4FrameBtn) {
     a4FrameBtn.addEventListener('click', () => {
       if (sketcher) {
@@ -5290,6 +5304,32 @@ function setupSketcherToolbar() {
         }
       });
     }
+    if (a4FitBtn) {
+      a4FitBtn.addEventListener('click', () => {
+        if (sketcher) {
+          if (!sketcher.showA4Frame) {
+            sketcher.showA4Frame = true;
+          }
+          sketcher.fitToA4();
+          syncSketcherUIState();
+        }
+      });
+    }
+  }
+
+  // ── Canvas size ──
+  const canvasSizeSel = document.getElementById('sketch-canvas-size');
+  if (canvasSizeSel) {
+    canvasSizeSel.addEventListener('change', () => {
+      if (sketcher) {
+        const parts = canvasSizeSel.value.split('x');
+        const w = parseInt(parts[0]);
+        const h = parseInt(parts[1]);
+        if (w && h) {
+          sketcher.setCanvasSize(w, h);
+        }
+      }
+    });
   }
 
   // ── Grid toggle ──

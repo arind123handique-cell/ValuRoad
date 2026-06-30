@@ -211,6 +211,7 @@ export class SiteSketcher {
 
     // ── wheel zoom ──
     this.canvas.addEventListener('wheel', (e) => {
+      if (this.isLocked) return;
       e.preventDefault();
       const sp = getSP(e);
       const wp = this.s2w(sp.x, sp.y);
@@ -228,18 +229,13 @@ export class SiteSketcher {
       const sp  = getSP(e);
       const raw = this.s2w(sp.x, sp.y);
 
+      if (this.isLocked) {
+        return;
+      }
+
       // pan: middle button or Space held or pan mode
       if (e.button === 1 || this.spaceDown || this.mode === 'pan') {
         this.isPanning = true; this.lastSP = sp; return;
-      }
-
-      if (this.isLocked) {
-        // If locked, we only allow panning and zoom mode, not drawing or selecting
-        if (this.mode === 'zoom') {
-          const factor = e.shiftKey ? 0.8 : 1.25;
-          this.zoomAt(sp.x, sp.y, factor);
-        }
-        return;
       }
 
       e.preventDefault();
@@ -1501,6 +1497,41 @@ export class SiteSketcher {
   }
   setFontFamily(family) {
     this.globalFontFamily = family || 'sans-serif';
+    this.draw();
+  }
+  setCanvasSize(w, h) {
+    this.W = w;
+    this.H = h;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.draw();
+  }
+  fitToA4(){
+    if (!this.shapes.length) { this.resetView(); return; }
+    const isPortrait = this.a4Orientation === 'portrait';
+    const a4w = isPortrait ? 0.210 : 0.297;
+    const a4h = isPortrait ? 0.297 : 0.210;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    const expand=(x,y)=>{minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);};
+    this.shapes.forEach(s=>{
+      if(s.x!==undefined){expand(s.x,s.y);expand(s.x+(s.w||0),s.y+(s.h||0));}
+      if(s.x1!==undefined){expand(s.x1,s.y1);expand(s.x2,s.y2);}
+      if(s.points)s.points.forEach(p=>expand(p.x,p.y));
+    });
+    if(minX===Infinity){minX=0;maxX=20;}
+    if(minY===Infinity){minY=0;maxY=20;}
+    const pad=0.5, rW=maxX-minX+pad*2, rH=maxY-minY+pad*2;
+    const newZoom=Math.min(this.MAX_ZOOM,Math.max(this.MIN_ZOOM,Math.min((this.W-80)/(rW*this.basePPM),(this.H-80)/(rH*this.basePPM))));
+    const drawW = rW * this.basePPM * newZoom;
+    const drawH = rH * this.basePPM * newZoom;
+    const a4PxW = a4w * this.basePPM * newZoom;
+    const a4PxH = a4h * this.basePPM * newZoom;
+    const extraZoom = Math.min((this.W-80)/a4PxW, (this.H-80)/a4PxH);
+    const finalZoom = newZoom * extraZoom;
+    this.zoom = Math.min(this.MAX_ZOOM, Math.max(this.MIN_ZOOM, finalZoom));
+    this.panX = (this.W - (maxX+minX)*this.basePPM*this.zoom) / 2;
+    this.panY = (this.H - (maxY+minY)*this.basePPM*this.zoom) / 2 - (this.H - a4h*this.basePPM*this.zoom)/2;
+    if(this.onZoomChange)this.onZoomChange(this.zoom);
     this.draw();
   }
   exportImage(){
