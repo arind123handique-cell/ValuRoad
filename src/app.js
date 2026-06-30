@@ -7947,6 +7947,7 @@ function exportPreviewedDocument(isPrint = false, returnBlobUrl = false) {
     })
     .catch(err => {
       console.error("Mixed orientation PDF generation failed, falling back:", err);
+      alert("PDF Compiler Error (Preview): " + err.message + "\nStack: " + err.stack);
       document.body.removeChild(tempContainer);
       
       if (returnBlobUrl) {

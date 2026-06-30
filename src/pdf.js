@@ -1139,6 +1139,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // Generate page-by-page to allow true mixed portrait & landscape orientations
   generateMixedPdf(container, opt.filename, tpl.imgQuality, isPrint).catch(err => {
     console.error("Custom page-by-page PDF generation failed, using standard fallback:", err);
+    alert("PDF Compiler Error: " + err.message + "\nStack: " + err.stack);
     if (isPrint === true || isPrint === 'true') {
       html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
         const blobUrl = URL.createObjectURL(blob);
