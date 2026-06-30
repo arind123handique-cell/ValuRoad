@@ -1501,7 +1501,7 @@ function exportSingleEstimateToExcel(entryId) {
         <tr class="service-item-row" style="font-size:0.8rem; color:#475569;">
           <td colspan="6" style="padding-left:15px; text-align:justify;">
             <div style="margin-bottom:4px; font-style:italic;">${note}</div>
-            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; border-left:3px solid #2563eb; font-family:monospace; font-size:0.78rem; line-height:1.7;">
+            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; font-family:monospace; font-size:0.78rem; line-height:1.7;">
               ${calcLines}
             </div>
           </td>
@@ -1515,16 +1515,13 @@ function exportSingleEstimateToExcel(entryId) {
       restItems.forEach(ri => {
         const hasLxB = ri.unit === 'sqm' && (ri.l || 0) > 0 && (ri.b || 0) > 0;
         const lxbStr = hasLxB ? ` [L×B: ${(ri.l || 0).toFixed(2)} m × ${(ri.b || 0).toFixed(2)} m]` : '';
-        calcLines += `${ri.description || 'Item'}: ${(ri.quantity || 0).toFixed(2)} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
+        calcLines += `${ri.description || 'Item'}: ${(ri.quantity || 0).toFixed(2)} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
       });
       calcLines += `<br>`;
       calcLines += `Subtotal (Construction Items) = Rs. ${formatIndianCurrency(Math.round(entry.staircaseRestorationTotal || 0))}<br>`;
       if (foundationCost > 0) {
         calcLines += `Foundation Strengthening: ${(entry.staircaseFoundationSqm || 0).toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(entry.staircaseFoundationRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(foundationCost))}<br>`;
       }
-      calcLines += `Subtotal (Construction + Foundation) = Rs. ${formatIndianCurrency(Math.round(restSubtotal))}<br>`;
-      calcLines += `Add: Contingencies @ 3% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.03))}<br>`;
-      calcLines += `Add: Supervision Charges @ 5% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.05))}<br>`;
       calcLines += `Total with Overheads = Rs. ${formatIndianCurrency(entry.staircaseRestorationWithOverheads)}<br>`;
       if ((entry.staircaseNonConfPct || 0) > 0) {
         calcLines += `Less: Non-Conformity Deduction @ ${entry.staircaseNonConfPct}% (${entry.staircaseNonConfReason || 'Not specified'}) = Rs. ${formatIndianCurrency(entry.staircaseNonConfDeduction || 0)}<br>`;
@@ -1538,7 +1535,7 @@ function exportSingleEstimateToExcel(entryId) {
         <tr class="service-item-row" style="font-size:0.8rem; color:#475569;">
           <td colspan="6" style="padding-left:15px; text-align:justify;">
             <div style="margin-bottom:4px; font-style:italic;">${note}</div>
-            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; border-left:3px solid #2563eb; font-family:monospace; font-size:0.78rem; line-height:1.7;">
+            <div style="padding:5px 8px; background:#f0f4f8; border-radius:4px; font-family:monospace; font-size:0.78rem; line-height:1.7;">
               ${calcLines}
             </div>
           </td>
@@ -5046,16 +5043,13 @@ function calculateAndRenderTotals() {
     restItems.forEach(ri => { ri.cost = (ri.quantity || 0) * (ri.rate || 0); restItemTotal += ri.cost; });
     const foundationCost = (activeEntry.staircaseFoundationSqm || 0) * (activeEntry.staircaseFoundationRate || 0);
     const restSubtotal = restItemTotal + foundationCost;
-    const contingency = restSubtotal * 0.03;
-    const supervision = restSubtotal * 0.05;
-    const withOverheads = restSubtotal + contingency + supervision;
-    const nonConfDeduction = Math.round(withOverheads * ((activeEntry.staircaseNonConfPct || 0) / 100));
-    const restorationFinal = Math.round(withOverheads - nonConfDeduction);
+    const nonConfDeduction = Math.round(restSubtotal * ((activeEntry.staircaseNonConfPct || 0) / 100));
+    const restorationFinal = Math.round(restSubtotal - nonConfDeduction);
     activeEntry.staircaseRestorationTotal = restItemTotal;
     activeEntry.staircaseFoundationSqm = activeEntry.staircaseFoundationSqm || 0;
     activeEntry.staircaseFoundationRate = activeEntry.staircaseFoundationRate || 0;
     activeEntry.staircaseRestorationSubtotal = restSubtotal;
-    activeEntry.staircaseRestorationWithOverheads = Math.round(withOverheads);
+    activeEntry.staircaseRestorationWithOverheads = restSubtotal;
     activeEntry.staircaseNonConfPct = activeEntry.staircaseNonConfPct || 0;
     activeEntry.staircaseNonConfDeduction = nonConfDeduction;
     activeEntry.staircaseRestorationGrandTotal = restorationFinal;
@@ -10752,12 +10746,11 @@ function calculateBulkEntryTotals(entry) {
     restItems.forEach(ri => { ri.cost = (ri.quantity || 0) * (ri.rate || 0); restItemTotal += ri.cost; });
     const foundationCost = (entry.staircaseFoundationSqm || 0) * (entry.staircaseFoundationRate || 0);
     const restSubtotal = restItemTotal + foundationCost;
-    const withOverheads = restSubtotal + restSubtotal * 0.03 + restSubtotal * 0.05;
-    const nonConfDeduction = Math.round(withOverheads * ((entry.staircaseNonConfPct || 0) / 100));
-    const restorationFinal = Math.round(withOverheads - nonConfDeduction);
+    const nonConfDeduction = Math.round(restSubtotal * ((entry.staircaseNonConfPct || 0) / 100));
+    const restorationFinal = Math.round(restSubtotal - nonConfDeduction);
     entry.staircaseRestorationTotal = restItemTotal;
     entry.staircaseRestorationSubtotal = restSubtotal;
-    entry.staircaseRestorationWithOverheads = Math.round(withOverheads);
+    entry.staircaseRestorationWithOverheads = restSubtotal;
     entry.staircaseNonConfDeduction = nonConfDeduction;
     entry.staircaseRestorationGrandTotal = restorationFinal;
     // Adopted

@@ -733,7 +733,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       calcLines += `Affection Level = ${affPct}%<br>`;
       calcLines += `<b>Compensation = Rs. ${formatIndianCurrency(Math.round(residualValue))} × ${affPct}% = Rs. ${formatIndianCurrency(report.staircaseCost)}</b>`;
       partBHtml += `
-        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px; border-left: 2px solid #2563eb;">
+        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px;">
           ${calcLines}
         </div>
       `;
@@ -745,23 +745,20 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       restItems.forEach(ri => {
         const hasLxB = ri.unit === 'sqm' && (ri.l || 0) > 0 && (ri.b || 0) > 0;
         const lxbStr = hasLxB ? ` [L×B: ${(ri.l || 0).toFixed(2)} m × ${(ri.b || 0).toFixed(2)} m]` : '';
-        calcLines += `${ri.description || 'Item'}: ${(ri.quantity || 0).toFixed(2)} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
+        calcLines += `${ri.description || 'Item'}: ${(ri.quantity || 0).toFixed(2)} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
       });
       calcLines += `<br>`;
       calcLines += `Subtotal (Construction Items) = Rs. ${formatIndianCurrency(Math.round(report.staircaseRestorationTotal || 0))}<br>`;
       if (foundationCost > 0) {
         calcLines += `Foundation Strengthening: ${(report.staircaseFoundationSqm || 0).toFixed(2)} sqm @ Rs. ${formatIndianCurrency(Math.round(report.staircaseFoundationRate || 0))}/sqm = Rs. ${formatIndianCurrency(Math.round(foundationCost))}<br>`;
       }
-      calcLines += `Subtotal (Construction + Foundation) = Rs. ${formatIndianCurrency(Math.round(restSubtotal))}<br>`;
-      calcLines += `Add: Contingencies @ 3% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.03))}<br>`;
-      calcLines += `Add: Supervision Charges @ 5% = Rs. ${formatIndianCurrency(Math.round(restSubtotal * 0.05))}<br>`;
       calcLines += `Total with Overheads = Rs. ${formatIndianCurrency(report.staircaseRestorationWithOverheads)}<br>`;
       if ((report.staircaseNonConfPct || 0) > 0) {
         calcLines += `Less: Non-Conformity Deduction @ ${report.staircaseNonConfPct}% (${report.staircaseNonConfReason || ''}) = Rs. ${formatIndianCurrency(report.staircaseNonConfDeduction || 0)}<br>`;
       }
       calcLines += `<b>Final Restoration Compensation = Rs. ${formatIndianCurrency(report.staircaseRestorationGrandTotal)}</b>`;
       partBHtml += `
-        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px; border-left: 2px solid #2563eb;">
+        <div style="margin-left: 10mm; margin-top: 3px; font-size: 9pt; color: #1e293b; line-height: 1.7; font-family: 'Courier New', monospace; background: #f8fafc; padding: 4px 8px;">
           ${calcLines}
         </div>
       `;
