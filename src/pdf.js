@@ -1205,7 +1205,7 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
                           pageEl.classList.contains('landscape') || 
                           (rect.width > rect.height);
       
-      alert(`[PAGE DEBUG - Page ${i + 1}]\nClasses: ${pageEl.className}\nWidth: ${rect.width}px\nHeight: ${rect.height}px\nIsLandscape: ${isLandscape}`);
+      alert(`[PAGE DEBUG] Page ${i + 1} of ${pages.length}\nClasses: ${pageEl.className}\nWidth: ${rect.width}px\nHeight: ${rect.height}px\nIsLandscape: ${isLandscape}`);
 
       // Force pageEl to maintain its exact dimensions during screenshot
       const originalPageWidth = pageEl.style.width;
