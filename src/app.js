@@ -7405,6 +7405,7 @@ function setupBackupRestore() {
 }
 
 // ── Print Preview & Page Customizer ──────────────────────────────────────
+const SITE_PLAN_MARGIN_MM = 4;
 let currentPreviewEntry = null;
 let previewStyles = {
   whole: { family: 'Arial, Helvetica, sans-serif', size: '10.5' },
@@ -7507,12 +7508,14 @@ function updatePreviewStyles() {
   const papers = document.querySelectorAll('#print-preview-pages-canvas .preview-paper');
   papers.forEach(paper => {
     const isLandscapePage = paper.getAttribute('data-landscape') === 'true';
+    const isSitePlanPage = paper.getAttribute('data-site-plan') === 'true';
     paper.className = 'preview-paper';
+    if (isSitePlanPage) paper.classList.add('site-plan');
     paper.classList.add(`size-${size}`);
     if (orient === 'landscape' || isLandscapePage) {
       paper.classList.add('landscape');
     }
-    paper.style.setProperty('--preview-margin', `${margin}mm`);
+    paper.style.setProperty('--preview-margin', `${isSitePlanPage ? SITE_PLAN_MARGIN_MM : margin}mm`);
     paper.style.setProperty('--preview-zoom', zoom);
 
     // Apply styles for different parts via CSS variables
@@ -7531,6 +7534,7 @@ function updatePreviewStyles() {
     paper.style.setProperty('--preview-seals-font-family', previewStyles.seals.family);
     paper.style.setProperty('--preview-seals-font-size', `${previewStyles.seals.size}pt`);
   });
+  if (typeof window.updatePreviewPageIndicator === 'function') window.updatePreviewPageIndicator();
 }
 
 function renderPreviewRuler() {
@@ -7646,10 +7650,10 @@ function renderPreviewPages() {
     const canvasContainer = document.getElementById('print-preview-pages-canvas');
     const iframeContainer = document.getElementById('pdf-iframe-container');
     if (canvasContainer && iframeContainer) {
-      canvasContainer.style.position = 'static';
-      canvasContainer.style.visibility = 'visible';
-      canvasContainer.style.height = 'auto';
-      canvasContainer.style.overflow = 'visible';
+      canvasContainer.style.removeProperty('position');
+      canvasContainer.style.removeProperty('height');
+      canvasContainer.style.removeProperty('overflow');
+      canvasContainer.style.removeProperty('visibility');
       iframeContainer.style.display = 'none';
       
       btnTabInteractive.classList.add('active');
@@ -7722,7 +7726,8 @@ function renderPreviewPages() {
   for (let i = 1; i < pages.length; i++) {
     allPagesList.push({
       html: pages[i].innerHTML,
-      isLandscape: pages[i].classList.contains('pdf-landscape') || pages[i].classList.contains('landscape')
+      isLandscape: pages[i].classList.contains('pdf-landscape') || pages[i].classList.contains('landscape'),
+      isSitePlan: pages[i].classList.contains('pdf-site-plan-page')
     });
   }
 
@@ -7734,6 +7739,10 @@ function renderPreviewPages() {
     if (pageObj.isLandscape) {
       paper.setAttribute('data-landscape', 'true');
       paper.classList.add('landscape');
+    }
+    if (pageObj.isSitePlan) {
+      paper.setAttribute('data-site-plan', 'true');
+      paper.classList.add('site-plan');
     }
     
     // Inject the raw page inner contents
@@ -7811,7 +7820,8 @@ function refreshPreviewFromDOM() {
 
   const otherPagesData = otherPages.map(paper => ({
     html: paper.innerHTML,
-    isLandscape: paper.getAttribute('data-landscape') === 'true'
+    isLandscape: paper.getAttribute('data-landscape') === 'true',
+    isSitePlan: paper.getAttribute('data-site-plan') === 'true'
   }));
 
   // Clear and rebuild canvas
@@ -7836,6 +7846,10 @@ function refreshPreviewFromDOM() {
     if (page.isLandscape) {
       paper.setAttribute('data-landscape', 'true');
       paper.classList.add('landscape');
+    }
+    if (page.isSitePlan) {
+      paper.setAttribute('data-site-plan', 'true');
+      paper.classList.add('site-plan');
     }
     paper.innerHTML = page.html;
     canvas.appendChild(paper);
@@ -7890,12 +7904,14 @@ function exportPreviewedDocument(isPrint = false, returnBlobUrl = false) {
       `--preview-seals-font-size: ${previewStyles.seals.size}pt`
     ].join('; ');
 
-    const pageStyle = `padding: ${margin}mm; ${styles}; page-break-after: avoid !important; break-after: avoid !important;`;
-    
     const isLandscape = paper.getAttribute('data-landscape') === 'true';
+    const isSitePlan = paper.getAttribute('data-site-plan') === 'true';
+    const pageMargin = isSitePlan ? SITE_PLAN_MARGIN_MM : margin;
+    const pageStyle = `padding: ${pageMargin}mm; ${styles}; page-break-after: avoid !important; break-after: avoid !important;`;
     const landscapeClass = isLandscape ? ' pdf-landscape' : '';
+    const sitePlanClass = isSitePlan ? ' pdf-site-plan-page' : '';
     
-    combinedHtml += `<div class="pdf-page${landscapeClass} size-${size}" style="${pageStyle}">${clone.innerHTML}</div>`;
+    combinedHtml += `<div class="pdf-page${landscapeClass}${sitePlanClass} size-${size}" style="${pageStyle}">${clone.innerHTML}</div>`;
   });
 
   const filename = (() => {
@@ -8207,6 +8223,62 @@ function initPrintPreviewEvents() {
     });
   }
 
+  // Page Navigation
+  const btnPagePrev = document.getElementById('prev-btn-page-prev');
+  const btnPageNext = document.getElementById('prev-btn-page-next');
+  const pageIndicator = document.getElementById('prev-page-indicator');
+  let currentPageNum = 1;
+  let navThrottleTimer = null;
+
+  function updatePageIndicator() {
+    const canvas = document.getElementById('print-preview-pages-canvas');
+    if (!canvas) return;
+    const papers = canvas.querySelectorAll('.preview-paper');
+    const total = papers.length;
+    if (pageIndicator) pageIndicator.textContent = currentPageNum + ' / ' + total;
+    if (btnPagePrev) btnPagePrev.disabled = currentPageNum <= 1;
+    if (btnPageNext) btnPageNext.disabled = currentPageNum >= total;
+  }
+
+  function scrollToPage(pageNum) {
+    const canvas = document.getElementById('print-preview-pages-canvas');
+    if (!canvas) return;
+    const papers = canvas.querySelectorAll('.preview-paper');
+    if (pageNum < 1 || pageNum > papers.length) return;
+    currentPageNum = pageNum;
+    const target = papers[pageNum - 1];
+    const offset = target.offsetTop - canvas.offsetTop;
+    canvas.scrollTop = Math.max(0, offset - 16);
+    updatePageIndicator();
+  }
+
+  if (btnPagePrev) {
+    btnPagePrev.addEventListener('click', () => scrollToPage(currentPageNum - 1));
+  }
+  if (btnPageNext) {
+    btnPageNext.addEventListener('click', () => scrollToPage(currentPageNum + 1));
+  }
+
+  // Update page indicator on scroll (throttled)
+  const navCanvas = document.getElementById('print-preview-pages-canvas');
+  if (navCanvas) {
+    navCanvas.addEventListener('scroll', () => {
+      if (navThrottleTimer) return;
+      navThrottleTimer = setTimeout(() => { navThrottleTimer = null; }, 100);
+      const papers = navCanvas.querySelectorAll('.preview-paper');
+      const scrollCenter = navCanvas.scrollTop + navCanvas.clientHeight / 2;
+      let bestIdx = 0;
+      for (let i = 0; i < papers.length; i++) {
+        const paperMid = papers[i].offsetTop + papers[i].offsetHeight / 2;
+        if (paperMid < scrollCenter) bestIdx = i;
+      }
+      currentPageNum = bestIdx + 1;
+      if (pageIndicator) pageIndicator.textContent = currentPageNum + ' / ' + papers.length;
+    });
+  }
+
+  window.updatePreviewPageIndicator = updatePageIndicator;
+
   // Pointer drag-and-drop vertical positioning for signatures and page breaks
   const canvas = document.getElementById('print-preview-pages-canvas');
   if (canvas) {
@@ -8332,10 +8404,10 @@ function initPrintPreviewEvents() {
 
   if (btnTabInteractive && btnTabPdfPreview && canvasContainer && iframeContainer) {
     btnTabInteractive.addEventListener('click', () => {
-      canvasContainer.style.position = 'static';
-      canvasContainer.style.visibility = 'visible';
-      canvasContainer.style.height = 'auto';
-      canvasContainer.style.overflow = 'visible';
+      canvasContainer.style.removeProperty('position');
+      canvasContainer.style.removeProperty('height');
+      canvasContainer.style.removeProperty('overflow');
+      canvasContainer.style.removeProperty('visibility');
       iframeContainer.style.display = 'none';
 
       btnTabInteractive.classList.add('active');

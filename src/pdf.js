@@ -1,4 +1,7 @@
 import { getPdfTemplateSettings } from './app.js';
+
+const SITE_PLAN_MARGIN_MM = 4;
+
 // Utility to format number into Indian Currency Style (e.g. 30,14,993.00)
 export function formatIndianCurrency(num) {
   if (isNaN(num) || num === null) return '0.00';
@@ -1067,14 +1070,14 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-   <div class="pdf-page pdf-landscape size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+   <div class="pdf-page pdf-landscape pdf-site-plan-page size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; justify-content: space-between; padding: ${SITE_PLAN_MARGIN_MM}mm; overflow: hidden;">
      ${headerHtml}
-     <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
+     <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 2mm; margin-bottom: 2mm; padding: 2mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
        ${sketcherImage
-         ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: 130mm; object-fit: contain;" />`
-         : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
+          ? `<img src="${sketcherImage}" style="width: 100%; height: 100%; object-fit: contain;" />`
+          : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
      </div>
-     <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; margin-top: auto; padding-bottom: 5mm;">
+     <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; flex-shrink: 0; padding-bottom: 1mm;">
        LINE PLAN / SITE LAYOUT<br>
        (Not to Scale)
      </div>
@@ -1174,7 +1177,21 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
   if (!jsPDF) {
     throw new Error("jsPDF library not found in global scope.");
   }
-  const html2canvas = window.html2canvas;
+  async function renderPageToCanvas(pageEl, options) {
+    if (typeof window.html2canvas === 'function') {
+      return window.html2canvas(pageEl, options);
+    }
+
+    if (typeof window.html2pdf === 'function') {
+      return window.html2pdf()
+        .set({ html2canvas: options })
+        .from(pageEl)
+        .toCanvas()
+        .get('canvas');
+    }
+
+    throw new Error("html2canvas renderer not found.");
+  }
 
   const pages = container.querySelectorAll('.pdf-page, .preview-paper');
   if (pages.length === 0) {
@@ -1209,7 +1226,7 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
       const originalPageHeight = pageEl.style.height;
 
       // Capture exact canvas dimensions
-      const canvas = await html2canvas(pageEl, {
+      const canvas = await renderPageToCanvas(pageEl, {
         scale: 2,
         useCORS: true,
         logging: false,

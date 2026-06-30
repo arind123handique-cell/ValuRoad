@@ -2352,6 +2352,7 @@ body {
 /* Document Canvas */
 .a4-canvas-container {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 2rem;
   display: flex;
@@ -2477,6 +2478,7 @@ body:has(#view-pdf-template.active) main {
 
 .preview-canvas-container {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 2.5rem 2rem;
   display: flex;
@@ -2605,6 +2607,38 @@ body:has(#view-pdf-template.active) main {
 .preview-paper.landscape.size-a3,
 .pdf-page.pdf-landscape.size-a3 {
   width: 420mm;
+  min-height: 297mm;
+}
+
+.preview-paper.site-plan,
+.pdf-page.pdf-site-plan-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.preview-paper.site-plan.size-a4,
+.pdf-page.pdf-site-plan-page.size-a4 {
+  height: 210mm;
+  min-height: 210mm;
+}
+
+.preview-paper.site-plan.size-letter,
+.pdf-page.pdf-site-plan-page.size-letter {
+  height: 216mm;
+  min-height: 216mm;
+}
+
+.preview-paper.site-plan.size-legal,
+.pdf-page.pdf-site-plan-page.size-legal {
+  height: 216mm;
+  min-height: 216mm;
+}
+
+.preview-paper.site-plan.size-a3,
+.pdf-page.pdf-site-plan-page.size-a3 {
+  height: 297mm;
   min-height: 297mm;
 }
 
