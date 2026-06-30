@@ -745,7 +745,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       restItems.forEach(ri => {
         const hasLxB = ri.unit === 'sqm' && (ri.l || 0) > 0 && (ri.b || 0) > 0;
         const lxbStr = hasLxB ? ` [L×B: ${(ri.l || 0).toFixed(2)} m × ${(ri.b || 0).toFixed(2)} m]` : '';
-        calcLines += `${ri.description || 'Item'}: ${ri.quantity || 0} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
+        calcLines += `${ri.description || 'Item'}: ${(ri.quantity || 0).toFixed(2)} ${ri.unit || 'nos'}${lxbStr} @ Rs. ${formatIndianCurrency(Math.round(ri.rate || 0))}/unit = Rs. ${formatIndianCurrency(Math.round(ri.cost || 0))}<br>`;
       });
       calcLines += `<br>`;
       calcLines += `Subtotal (Construction Items) = Rs. ${formatIndianCurrency(Math.round(report.staircaseRestorationTotal || 0))}<br>`;
