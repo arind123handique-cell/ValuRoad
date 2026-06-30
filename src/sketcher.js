@@ -1051,7 +1051,7 @@ export class SiteSketcher {
           const lbl = (s.customEdgeDims && s.customEdgeDims[j]) ? s.customEdgeDims[j] : `${len.toFixed(2)}m`;
           let off = (s.customEdgeOffsets && s.customEdgeOffsets[j] !== undefined) ? s.customEdgeOffsets[j] : 0.8;
           const prevI = (j - 1 + s.points.length) % s.points.length;
-          const nextI = (j + 1) % s.points.length;
+          const nextI = (j + 2) % s.points.length;
           const pPrev = s.points[prevI];
           const pNext = s.points[nextI];
           const v1x1 = p1.x - pPrev.x, v1y1 = p1.y - pPrev.y;
