@@ -8259,7 +8259,7 @@ function initPrintPreviewEvents() {
   const btnClose = document.getElementById('prev-btn-close');
   if (btnClose) {
     btnClose.addEventListener('click', () => {
-      switchView('dashboard');
+      switchView('editor');
     });
   }
 
