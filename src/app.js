@@ -1,6 +1,6 @@
 import { DSR_CURATED } from './dsr_curated.js';
 import { SiteSketcher } from './sketcher.js';
-import { exportToPDF, formatIndianCurrency, numberToIndianWords } from './pdf.js';
+import { exportToPDF, formatIndianCurrency, numberToIndianWords, generateMixedPdf } from './pdf.js';
 import { 
   auth, 
   loginUser, 
@@ -7526,9 +7526,10 @@ function updatePreviewStyles() {
 
   const papers = document.querySelectorAll('#print-preview-pages-canvas .preview-paper');
   papers.forEach(paper => {
+    const isLandscapePage = paper.getAttribute('data-landscape') === 'true';
     paper.className = 'preview-paper';
     paper.classList.add(`size-${size}`);
-    if (orient === 'landscape') {
+    if (orient === 'landscape' || isLandscapePage) {
       paper.classList.add('landscape');
     }
     paper.style.setProperty('--preview-margin', `${margin}mm`);
@@ -7701,19 +7702,28 @@ function renderPreviewPages() {
   const paginatedEstimateHtmls = paginateContent(childrenArray, pageSize, pageOrient, pageMargin, styles);
 
   // Now append all pages (paginated estimate pages, followed by other pages like Line Plan and Photos)
-  const allPageHtmls = [...paginatedEstimateHtmls];
+  const allPagesList = [];
+  paginatedEstimateHtmls.forEach(html => {
+    allPagesList.push({ html: html, isLandscape: false });
+  });
   for (let i = 1; i < pages.length; i++) {
-    allPageHtmls.push(pages[i].innerHTML);
+    allPagesList.push({
+      html: pages[i].innerHTML,
+      isLandscape: pages[i].classList.contains('pdf-landscape')
+    });
   }
 
-  allPageHtmls.forEach((pageHtml, idx) => {
+  allPagesList.forEach((pageObj, idx) => {
     const paper = document.createElement('div');
     paper.className = 'preview-paper';
     paper.setAttribute('contenteditable', 'true');
     paper.setAttribute('spellcheck', 'false');
+    if (pageObj.isLandscape) {
+      paper.setAttribute('data-landscape', 'true');
+    }
     
     // Inject the raw page inner contents
-    paper.innerHTML = pageHtml;
+    paper.innerHTML = pageObj.html;
     
     canvas.appendChild(paper);
   });
@@ -7767,31 +7777,53 @@ function exportPreviewedDocument(isPrint = false) {
 
     const pageStyle = `padding: ${margin}mm; ${styles};`;
     
-    combinedHtml += `<div class="pdf-page" style="${pageStyle}">${clone.innerHTML}</div>`;
+    const isLandscape = paper.getAttribute('data-landscape') === 'true';
+    const landscapeClass = isLandscape ? ' pdf-landscape' : '';
+    
+    combinedHtml += `<div class="pdf-page${landscapeClass}" style="${pageStyle}">${clone.innerHTML}</div>`;
   });
+
+  const filename = (() => {
+    const cleanName = (currentPreviewEntry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+    return `Estimate_${cleanName}_${currentPreviewEntry.id}.pdf`;
+  })();
 
   const opt = {
     margin: [margin, margin, margin, margin],
-    filename: (() => {
-      const cleanName = (currentPreviewEntry.clientName || 'Owner').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-      return `Estimate_${cleanName}_${currentPreviewEntry.id}.pdf`;
-    })(),
+    filename: filename,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: 'mm', format: size, orientation: orient }
   };
 
-  if (isPrint) {
-    html2pdf().from(combinedHtml).set(opt).toPdf().outputPdf('blob').then((blob) => {
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-    }).catch(err => {
-      console.error("Error printing preview:", err);
+  // Create temporary offscreen element in DOM to capture pages via html2canvas
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'absolute';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.top = '-9999px';
+  tempContainer.innerHTML = combinedHtml;
+  document.body.appendChild(tempContainer);
+
+  generateMixedPdf(tempContainer, filename, 0.98, isPrint)
+    .then(() => {
+      document.body.removeChild(tempContainer);
+      markEntryPrinted(currentPreviewEntry.id);
+    })
+    .catch(err => {
+      console.error("Mixed orientation PDF generation failed, falling back:", err);
+      document.body.removeChild(tempContainer);
+      if (isPrint) {
+        html2pdf().from(combinedHtml).set(opt).toPdf().outputPdf('blob').then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+        }).catch(fallbackErr => {
+          console.error("Error generating print PDF in fallback:", fallbackErr);
+        });
+      } else {
+        html2pdf().from(combinedHtml).set(opt).save();
+      }
+      markEntryPrinted(currentPreviewEntry.id);
     });
-  } else {
-    html2pdf().from(combinedHtml).set(opt).save();
-  }
-  markEntryPrinted(currentPreviewEntry.id);
 }
 
 function insertPageBreakAtCursor() {

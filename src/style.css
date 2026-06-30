@@ -1211,7 +1211,6 @@ main {
   position: fixed;
   left: 0;
   top: 0;
-  width: 210mm; /* A4 width */
   z-index: -9999;
   opacity: 0;
   pointer-events: none;
@@ -1219,6 +1218,9 @@ main {
 
 /* Document Page Wrapper */
 .pdf-page {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
   padding: 15mm;
   background-color: #ffffff;
   color: #000000;
@@ -1226,6 +1228,13 @@ main {
   font-size: 11pt;
   line-height: 1.4;
   page-break-after: always;
+}
+
+.pdf-page.pdf-landscape {
+  width: 297mm;
+  min-height: 210mm;
+  box-sizing: border-box;
+  padding: 15mm;
 }
 
 .pdf-page:last-child {

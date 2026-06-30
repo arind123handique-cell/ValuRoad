@@ -1067,20 +1067,18 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-   <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; padding: 0 !important; min-height: 297mm; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; box-sizing: border-box;">
-     <div style="width: 297mm; height: 210mm; transform: rotate(90deg); transform-origin: center; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 15mm; flex-shrink: 0;">
-       ${headerHtml}
-       <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 3mm; margin-bottom: 3mm; padding: 3mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
-         ${sketcherImage
-           ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: 110mm; object-fit: contain;" />`
-           : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
-       </div>
-       <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; padding-bottom: 2mm;">
-         LINE PLAN / SITE LAYOUT<br>
-         <span style="font-size: 9pt; font-weight: normal; color: #475569;">(Not to Scale)</span>
-       </div>
-       ${sitePlanProfileHtml}
+   <div class="pdf-page pdf-landscape" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+     ${headerHtml}
+     <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
+       ${sketcherImage
+         ? `<img src="${sketcherImage}" style="width: 100%; height: auto; max-height: 130mm; object-fit: contain;" />`
+         : '<div style="color: #64748b; font-style: italic;">No drawing sketched</div>'}
      </div>
+     <div style="text-align: center; font-weight: bold; font-size: 11pt; line-height: 1.3; margin-top: auto; padding-bottom: 5mm;">
+       LINE PLAN / SITE LAYOUT<br>
+       (Not to Scale)
+     </div>
+     ${sitePlanProfileHtml}
    </div>
   `;
 
@@ -1137,17 +1135,20 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     return html;
   }
 
-  if (isPrint === true || isPrint === 'true') {
-    html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-    }).catch(err => {
-      console.error("Error generating print PDF:", err);
-    });
-  } else {
-    // Generate PDF and trigger download
-    html2pdf().from(html).set(opt).save();
-  }
+  // Generate page-by-page to allow true mixed portrait & landscape orientations
+  generateMixedPdf(container, opt.filename, tpl.imgQuality, isPrint).catch(err => {
+    console.error("Custom page-by-page PDF generation failed, using standard fallback:", err);
+    if (isPrint === true || isPrint === 'true') {
+      html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      }).catch(fallbackErr => {
+        console.error("Error generating print PDF in fallback:", fallbackErr);
+      });
+    } else {
+      html2pdf().from(html).set(opt).save();
+    }
+  });
   } catch (err) {
   console.error("Critical error in exportToPDF:", err);
   return `<div class="pdf-page" style="padding: 20mm; color: #b91c1c; font-family: sans-serif;">
@@ -1157,4 +1158,53 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     <p style="margin-top: 10px; font-size: 10pt; color: #475569;">This usually happens if some data in the project is invalid or if a calculation failed.</p>
   </div>`;
   }
+}
+
+// Custom page-by-page generator to support mixed portrait/landscape PDF orientations
+export async function generateMixedPdf(container, filename, imgQuality, isPrint) {
+  const { jsPDF } = window.jspdf || window;
+  const html2canvas = window.html2canvas;
+
+  const pages = container.querySelectorAll('.pdf-page, .preview-paper');
+  if (pages.length === 0) {
+    throw new Error("No pages found to export.");
   }
+
+  let pdf = null;
+
+  for (let i = 0; i < pages.length; i++) {
+    const pageEl = pages[i];
+    // Landscape if has pdf-landscape class or landscape class
+    const isLandscape = pageEl.classList.contains('pdf-landscape') || pageEl.classList.contains('landscape');
+
+    const canvas = await html2canvas(pageEl, {
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
+
+    if (!pdf) {
+      pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+    } else {
+      pdf.addPage('a4', isLandscape ? 'landscape' : 'portrait');
+    }
+
+    const pdfWidth = isLandscape ? 297 : 210;
+    const pdfHeight = isLandscape ? 210 : 297;
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  }
+
+  if (isPrint === true || isPrint === 'true') {
+    const blob = pdf.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+  } else {
+    pdf.save(filename);
+  }
+}
