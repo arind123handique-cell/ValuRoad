@@ -7775,7 +7775,7 @@ function exportPreviewedDocument(isPrint = false) {
       `--preview-seals-font-size: ${previewStyles.seals.size}pt`
     ].join('; ');
 
-    const pageStyle = `padding: ${margin}mm; ${styles};`;
+    const pageStyle = `padding: ${margin}mm; ${styles}; page-break-after: avoid !important; break-after: avoid !important;`;
     
     const isLandscape = paper.getAttribute('data-landscape') === 'true';
     const landscapeClass = isLandscape ? ' pdf-landscape' : '';

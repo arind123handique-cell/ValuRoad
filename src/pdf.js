@@ -1162,7 +1162,18 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
 // Custom page-by-page generator to support mixed portrait/landscape PDF orientations
 export async function generateMixedPdf(container, filename, imgQuality, isPrint) {
-  const { jsPDF } = window.jspdf || window;
+  let jsPDF = null;
+  if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
+    jsPDF = window.jspdf.jsPDF;
+  } else if (typeof window.jsPDF === 'function') {
+    jsPDF = window.jsPDF;
+  } else if (typeof window.jspdf === 'function') {
+    jsPDF = window.jspdf;
+  }
+
+  if (!jsPDF) {
+    throw new Error("jsPDF library not found in global scope.");
+  }
   const html2canvas = window.html2canvas;
 
   const pages = container.querySelectorAll('.pdf-page, .preview-paper');
