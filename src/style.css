@@ -2565,37 +2565,45 @@ body:has(#view-pdf-template.active) main {
 }
 
 /* Preset Page Sizes (Portrait) */
-.preview-paper.size-a4 {
+.preview-paper.size-a4,
+.pdf-page.size-a4 {
   width: 210mm;
   min-height: 297mm;
 }
-.preview-paper.size-letter {
+.preview-paper.size-letter,
+.pdf-page.size-letter {
   width: 216mm;
   min-height: 279mm;
 }
-.preview-paper.size-legal {
+.preview-paper.size-legal,
+.pdf-page.size-legal {
   width: 216mm;
   min-height: 356mm;
 }
-.preview-paper.size-a3 {
+.preview-paper.size-a3,
+.pdf-page.size-a3 {
   width: 297mm;
   min-height: 420mm;
 }
 
 /* Preset Page Sizes (Landscape) */
-.preview-paper.landscape.size-a4 {
+.preview-paper.landscape.size-a4,
+.pdf-page.pdf-landscape.size-a4 {
   width: 297mm;
   min-height: 210mm;
 }
-.preview-paper.landscape.size-letter {
+.preview-paper.landscape.size-letter,
+.pdf-page.pdf-landscape.size-letter {
   width: 279mm;
   min-height: 216mm;
 }
-.preview-paper.landscape.size-legal {
+.preview-paper.landscape.size-legal,
+.pdf-page.pdf-landscape.size-legal {
   width: 356mm;
   min-height: 216mm;
 }
-.preview-paper.landscape.size-a3 {
+.preview-paper.landscape.size-a3,
+.pdf-page.pdf-landscape.size-a3 {
   width: 420mm;
   min-height: 297mm;
 }

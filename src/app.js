@@ -7780,7 +7780,7 @@ function exportPreviewedDocument(isPrint = false) {
     const isLandscape = paper.getAttribute('data-landscape') === 'true';
     const landscapeClass = isLandscape ? ' pdf-landscape' : '';
     
-    combinedHtml += `<div class="pdf-page${landscapeClass}" style="${pageStyle}">${clone.innerHTML}</div>`;
+    combinedHtml += `<div class="pdf-page${landscapeClass} size-${size}" style="${pageStyle}">${clone.innerHTML}</div>`;
   });
 
   const filename = (() => {

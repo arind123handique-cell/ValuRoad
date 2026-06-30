@@ -1011,14 +1011,14 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
     
     if (isFirst) {
       estimatePagesHtml += `
-        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
+        <div class="pdf-page size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
           ${firstPageHeader}
           ${content}
         </div>
       `;
     } else {
       estimatePagesHtml += `
-        <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
+        <div class="pdf-page size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; font-size:${tpl.fontSize}pt; color: #000000; --preview-seals-font-size: ${sealsSize}; min-height: 270mm;">
           ${content}
         </div>
       `;
@@ -1067,7 +1067,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   `;
 
   html += `
-   <div class="pdf-page pdf-landscape" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+   <div class="pdf-page pdf-landscape size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
      ${headerHtml}
      <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; margin-top: 5mm; margin-bottom: 5mm; padding: 5mm; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;">
        ${sketcherImage
@@ -1085,7 +1085,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   // ── PAGE 3: SITE PHOTO EVIDENCE ──────────────────────────────────────────────
   if (report.photos && report.photos.length > 0) {
     html += `
-      <div class="pdf-page" style="font-family: Arial, Helvetica, sans-serif; color: #000000;">
+      <div class="pdf-page size-${pageSize}" style="font-family: Arial, Helvetica, sans-serif; color: #000000;">
         <h3 class="section-title" style="font-size: 14pt; font-weight: bold; margin-bottom: 15px; border-bottom: 1.5px solid #000000; padding-bottom: 4px;">SITE PHOTO EVIDENCE</h3>
         <div class="pdf-photo-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8mm; margin-top: 5mm;">
     `;
@@ -1196,18 +1196,40 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
 
     const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
 
+    // Determine format from classes
+    let format = 'a4';
+    if (pageEl.classList.contains('size-letter')) format = 'letter';
+    else if (pageEl.classList.contains('size-legal')) format = 'legal';
+    else if (pageEl.classList.contains('size-a3')) format = 'a3';
+
+    // Determine width and height in mm based on format and orientation
+    let pdfWidth = 210;
+    let pdfHeight = 297;
+
+    if (format === 'a4') {
+      pdfWidth = isLandscape ? 297 : 210;
+      pdfHeight = isLandscape ? 210 : 297;
+    } else if (format === 'letter') {
+      pdfWidth = isLandscape ? 279 : 216;
+      pdfHeight = isLandscape ? 216 : 279;
+    } else if (format === 'legal') {
+      pdfWidth = isLandscape ? 356 : 216;
+      pdfHeight = isLandscape ? 216 : 356;
+    } else if (format === 'a3') {
+      pdfWidth = isLandscape ? 420 : 297;
+      pdfHeight = isLandscape ? 297 : 420;
+    }
+
     if (!pdf) {
       pdf = new jsPDF({
         orientation: isLandscape ? 'landscape' : 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: format
       });
     } else {
-      pdf.addPage('a4', isLandscape ? 'landscape' : 'portrait');
+      pdf.addPage(format, isLandscape ? 'landscape' : 'portrait');
     }
 
-    const pdfWidth = isLandscape ? 297 : 210;
-    const pdfHeight = isLandscape ? 210 : 297;
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
   }
 
