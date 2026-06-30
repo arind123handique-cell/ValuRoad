@@ -7739,7 +7739,7 @@ function renderPreviewPages() {
   for (let i = 1; i < pages.length; i++) {
     allPagesList.push({
       html: pages[i].innerHTML,
-      isLandscape: pages[i].classList.contains('landscape') || pages[i].getAttribute('data-landscape') === 'true'
+      isLandscape: pages[i].classList.contains('pdf-landscape') || pages[i].classList.contains('landscape')
     });
   }
 
@@ -7852,6 +7852,7 @@ function refreshPreviewFromDOM() {
     paper.setAttribute('spellcheck', 'false');
     if (page.isLandscape) {
       paper.setAttribute('data-landscape', 'true');
+      paper.classList.add('landscape');
     }
     paper.innerHTML = page.html;
     canvas.appendChild(paper);
