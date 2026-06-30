@@ -7634,6 +7634,175 @@ function paginateContent(childrenArray, pageSize, pageOrient, pageMargin, styles
   return pagesData;
 }
 
+function createPageControlsOverlay(paper, isLandscape, marginVal) {
+  const overlay = document.createElement('div');
+  overlay.className = 'page-controls-overlay';
+  overlay.setAttribute('contenteditable', 'false');
+  overlay.style.cssText = `
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(4px);
+    padding: 4px 8px;
+    border-radius: 6px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    pointer-events: auto;
+    user-select: none;
+  `;
+
+  // Orientation toggle button
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'page-control-btn toggle-orientation-btn';
+  toggleBtn.title = 'Toggle Page Orientation';
+  toggleBtn.style.cssText = `
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+    outline: none;
+    transition: background 0.15s;
+    gap: 4px;
+  `;
+  toggleBtn.innerHTML = `
+    <i data-lucide="rotate-cw" style="width: 13px; height: 13px; display: inline-block; vertical-align: middle;"></i>
+    <span style="font-size: 11px; font-weight: 600; font-family: sans-serif; color: #ffffff;">Orient</span>
+  `;
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const currentLandscape = paper.getAttribute('data-landscape') === 'true';
+    const nextLandscape = !currentLandscape;
+
+    if (nextLandscape) {
+      paper.setAttribute('data-landscape', 'true');
+      paper.classList.add('landscape');
+    } else {
+      paper.removeAttribute('data-landscape');
+      paper.classList.remove('landscape');
+    }
+
+    // If it's an estimate page, we MUST re-paginate!
+    const isEstimate = !paper.querySelector('.pdf-photo-grid') && !paper.innerHTML.includes('LINE PLAN');
+    if (isEstimate) {
+      refreshPreviewFromDOM();
+    } else {
+      // If we are currently in the PDF tab, refresh the PDF Blob in the background!
+      const btnTabPdfPreview = document.getElementById('btn-tab-pdf-preview');
+      if (btnTabPdfPreview && btnTabPdfPreview.classList.contains('active')) {
+        btnTabPdfPreview.click();
+      }
+    }
+  });
+
+  // Divider
+  const divider = document.createElement('div');
+  divider.style.cssText = `width: 1px; height: 14px; background: rgba(255, 255, 255, 0.25);`;
+
+  // Margin group
+  const marginGroup = document.createElement('div');
+  marginGroup.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: sans-serif;
+  `;
+  marginGroup.innerHTML = `
+    <i data-lucide="expand" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i>
+    <span>Margin:</span>
+  `;
+
+  // Margin input
+  const marginInput = document.createElement('input');
+  marginInput.type = 'number';
+  marginInput.className = 'page-control-margin-input';
+  marginInput.min = '0';
+  marginInput.max = '50';
+  marginInput.value = marginVal;
+  marginInput.style.cssText = `
+    width: 34px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    border-radius: 4px;
+    padding: 1px 3px;
+    text-align: center;
+    font-size: 11px;
+    font-family: sans-serif;
+    outline: none;
+  `;
+
+  const updateMargin = () => {
+    const val = parseFloat(marginInput.value) || 0;
+    paper.setAttribute('data-margin', val);
+    paper.style.padding = `${val}mm`;
+
+    // If it's an estimate page, re-paginate!
+    const isEstimate = !paper.querySelector('.pdf-photo-grid') && !paper.innerHTML.includes('LINE PLAN');
+    if (isEstimate) {
+      refreshPreviewFromDOM();
+    } else {
+      const btnTabPdfPreview = document.getElementById('btn-tab-pdf-preview');
+      if (btnTabPdfPreview && btnTabPdfPreview.classList.contains('active')) {
+        btnTabPdfPreview.click();
+      }
+    }
+  };
+
+  marginInput.addEventListener('change', updateMargin);
+  marginInput.addEventListener('input', (e) => {
+    e.stopPropagation();
+  });
+  marginInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      marginInput.blur();
+    }
+  });
+
+  marginGroup.appendChild(marginInput);
+  
+  const unit = document.createElement('span');
+  unit.textContent = 'mm';
+  marginGroup.appendChild(unit);
+
+  overlay.appendChild(toggleBtn);
+  overlay.appendChild(divider);
+  overlay.appendChild(marginGroup);
+
+  // Initialize Lucide icons on the overlay
+  setTimeout(() => {
+    if (window.lucide) {
+      lucide.createIcons({
+        attrs: {
+          style: 'display: inline-block; vertical-align: middle;'
+        },
+        nameAttr: 'data-lucide',
+        root: overlay
+      });
+    }
+  }, 0);
+
+  return overlay;
+}
+
 function renderPreviewPages() {
   const canvas = document.getElementById('print-preview-pages-canvas');
   if (!canvas || !currentPreviewEntry) return;
@@ -7722,7 +7891,8 @@ function renderPreviewPages() {
   for (let i = 1; i < pages.length; i++) {
     allPagesList.push({
       html: pages[i].innerHTML,
-      isLandscape: pages[i].classList.contains('pdf-landscape') || pages[i].classList.contains('landscape')
+      isLandscape: pages[i].classList.contains('pdf-landscape') || pages[i].classList.contains('landscape'),
+      margin: parseFloat(pages[i].getAttribute('data-margin')) || undefined
     });
   }
 
@@ -7736,8 +7906,17 @@ function renderPreviewPages() {
       paper.classList.add('landscape');
     }
     
+    // Set individual page margin
+    const pageMarginVal = pageObj.margin !== undefined ? pageObj.margin : pageMargin;
+    paper.setAttribute('data-margin', pageMarginVal);
+    paper.style.padding = `${pageMarginVal}mm`;
+    
     // Inject the raw page inner contents
     paper.innerHTML = pageObj.html;
+    
+    // Add page setup floating controls overlay
+    const overlay = createPageControlsOverlay(paper, pageObj.isLandscape, pageMarginVal);
+    paper.appendChild(overlay);
     
     canvas.appendChild(paper);
   });
@@ -7809,10 +7988,16 @@ function refreshPreviewFromDOM() {
     return isLandscape || hasPhotos;
   });
 
-  const otherPagesData = otherPages.map(paper => ({
-    html: paper.innerHTML,
-    isLandscape: paper.getAttribute('data-landscape') === 'true'
-  }));
+  const otherPagesData = otherPages.map(paper => {
+    const clone = paper.cloneNode(true);
+    const overlay = clone.querySelector('.page-controls-overlay');
+    if (overlay) overlay.remove();
+    return {
+      html: clone.innerHTML,
+      isLandscape: paper.getAttribute('data-landscape') === 'true',
+      margin: parseFloat(paper.getAttribute('data-margin')) || margin
+    };
+  });
 
   // Clear and rebuild canvas
   canvas.innerHTML = '';
@@ -7823,7 +8008,16 @@ function refreshPreviewFromDOM() {
     paper.className = 'preview-paper';
     paper.setAttribute('contenteditable', 'true');
     paper.setAttribute('spellcheck', 'false');
+    
+    // Estimate pages default to global setup margin
+    paper.setAttribute('data-margin', margin);
+    paper.style.padding = `${margin}mm`;
+    
     paper.innerHTML = html;
+    
+    const overlay = createPageControlsOverlay(paper, false, margin);
+    paper.appendChild(overlay);
+    
     canvas.appendChild(paper);
   });
 
@@ -7837,7 +8031,15 @@ function refreshPreviewFromDOM() {
       paper.setAttribute('data-landscape', 'true');
       paper.classList.add('landscape');
     }
+    
+    paper.setAttribute('data-margin', page.margin);
+    paper.style.padding = `${page.margin}mm`;
+    
     paper.innerHTML = page.html;
+    
+    const overlay = createPageControlsOverlay(paper, page.isLandscape, page.margin);
+    paper.appendChild(overlay);
+    
     canvas.appendChild(paper);
   });
 
@@ -7875,6 +8077,8 @@ function exportPreviewedDocument(isPrint = false, returnBlobUrl = false) {
   papers.forEach((paper, idx) => {
     // Clone node to clean up any temporary elements
     const clone = paper.cloneNode(true);
+    const overlay = clone.querySelector('.page-controls-overlay');
+    if (overlay) overlay.remove();
     
     // Propagate custom CSS typography variables to exported pages
     const styles = [
@@ -7890,7 +8094,8 @@ function exportPreviewedDocument(isPrint = false, returnBlobUrl = false) {
       `--preview-seals-font-size: ${previewStyles.seals.size}pt`
     ].join('; ');
 
-    const pageStyle = `padding: ${margin}mm; ${styles}; page-break-after: avoid !important; break-after: avoid !important;`;
+    const pageMarginVal = parseFloat(paper.getAttribute('data-margin')) || margin;
+    const pageStyle = `padding: ${pageMarginVal}mm; ${styles}; page-break-after: avoid !important; break-after: avoid !important;`;
     
     const isLandscape = paper.getAttribute('data-landscape') === 'true';
     const landscapeClass = isLandscape ? ' pdf-landscape' : '';

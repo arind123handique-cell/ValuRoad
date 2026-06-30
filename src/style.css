@@ -2967,7 +2967,27 @@ body:has(#view-pdf-template.active) main {
 /* Hide interactive page breaks and drag handles during PDF compilation */
 .pdf-exporting .preview-page-break,
 .pdf-exporting .preview-page-break::after,
-.pdf-exporting .drag-handle {
+.pdf-exporting .drag-handle,
+.pdf-exporting .page-controls-overlay {
   display: none !important;
+}
+
+/* Page Setup Hover Overlay */
+.preview-paper {
+  position: relative;
+}
+.preview-paper:hover .page-controls-overlay {
+  opacity: 1 !important;
+}
+.page-control-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+.page-control-margin-input::-webkit-outer-spin-button,
+.page-control-margin-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.page-control-margin-input {
+  -moz-appearance: textfield;
 }
 
