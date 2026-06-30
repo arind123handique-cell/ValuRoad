@@ -1574,17 +1574,18 @@ function exportSingleEstimateToExcel(entryId) {
   document.body.removeChild(link);
 }
 
+export function runUnifiedPDFPrint(entry, isPrint = false) {
+  if (!entry) return Promise.resolve(null);
+  currentPreviewEntry = entry;
+  renderPreviewPages();
+  return exportPreviewedDocument(isPrint);
+}
+
 function printSingleEstimate(entryId) {
   if (!activeProject) return;
   const entry = activeProject.entries.find(e => e.id === entryId);
   if (!entry) return;
-  const pdfData = {
-    ...entry,
-    workName: activeProject.workName,
-    nbNote: activeProject.nbNote
-  };
-  exportToPDF(pdfData, entry.sketcherImage, true);
-  if (window.html2pdf) markEntryPrinted(entryId);
+  runUnifiedPDFPrint(entry, true);
 }
 
 function exportProjectToWord() {
@@ -6514,14 +6515,7 @@ function runPdfExport(entryId) {
     }
   }
 
-  const pdfData = {
-    ...entry,
-    workName: activeProject.workName,
-    nbNote: activeProject.nbNote
-  };
-
-  exportToPDF(pdfData, entry.sketcherImage);
-  if (window.html2pdf) markEntryPrinted(entryId);
+  runUnifiedPDFPrint(entry, false);
 }
 
 function saveActiveEntry_noExport() {
@@ -6538,15 +6532,7 @@ function saveActiveEntry_noExport() {
 
 function saveActiveEntryAndExportPDF() {
   saveActiveEntry_noExport();
-
-  const pdfData = {
-    ...activeEntry,
-    workName: activeProject.workName,
-    nbNote: activeProject.nbNote
-  };
-
-  exportToPDF(pdfData, activeEntry.sketcherImage);
-  if (window.html2pdf) markEntryPrinted(activeEntry.id);
+  runUnifiedPDFPrint(activeEntry, false);
 }
 
 // Save Modifications / Save & Finalize
@@ -6589,13 +6575,7 @@ document.getElementById('editor-export-pdf-btn').addEventListener('click', () =>
   if (!activeEntry || !activeProject) return;
   // Save sketcher image before exporting
   if (sketcher) activeEntry.sketcherImage = sketcher.exportImage();
-  const pdfData = {
-    ...activeEntry,
-    workName: activeProject.workName,
-    nbNote: activeProject.nbNote
-  };
-  exportToPDF(pdfData, activeEntry.sketcherImage);
-  if (window.html2pdf) markEntryPrinted(activeEntry.id);
+  runUnifiedPDFPrint(activeEntry, false);
 });
 
 // ── PDF Template Settings ────────────────────────────────────────────────────
