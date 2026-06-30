@@ -611,15 +611,23 @@
           <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <label class="check-label">
-                <input type="checkbox" id="toggle-electrification"> Add Electrification (Lump Sum)
+                <input type="checkbox" id="toggle-electrification"> Add Electrification (% of Buildings)
               </label>
-              <input type="number" id="electrification-cost" value="135000" style="width: 150px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); display: none;">
+              <div id="electrification-controls" style="display: none; align-items: center; gap: 0.5rem;">
+                <input type="number" id="electrification-pct" value="5" step="0.1" min="0" max="100" style="width: 80px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); text-align: center;">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">%</span>
+                <span id="electrification-cost-display" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-left: 0.5rem;"></span>
+              </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <label class="check-label">
-                <input type="checkbox" id="toggle-sanitary"> Add Water Supply & Sanitary (Lump Sum)
+                <input type="checkbox" id="toggle-sanitary"> Add Water Supply & Sanitary (% of Buildings)
               </label>
-              <input type="number" id="sanitary-cost" value="85000" style="width: 150px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); display: none;">
+              <div id="sanitary-controls" style="display: none; align-items: center; gap: 0.5rem;">
+                <input type="number" id="sanitary-pct" value="3" step="0.1" min="0" max="100" style="width: 80px; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); text-align: center;">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">%</span>
+                <span id="sanitary-cost-display" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; margin-left: 0.5rem;"></span>
+              </div>
             </div>
             
             <!-- Custom Service Items section -->
