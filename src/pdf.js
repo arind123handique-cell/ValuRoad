@@ -1181,63 +1181,99 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
     throw new Error("No pages found to export.");
   }
 
+  // Backup original styles of the container to restore later
+  const originalWidth = container.style.width;
+  const originalMaxWidth = container.style.maxWidth;
+  const originalMinWidth = container.style.minWidth;
+  const originalBoxSizing = container.style.boxSizing;
+
+  // Set ample width so that no portrait (210mm) or landscape (297mm) pages are squeezed or clipped
+  container.style.width = '500mm';
+  container.style.maxWidth = 'none';
+  container.style.minWidth = '500mm';
+  container.style.boxSizing = 'content-box';
+
   let pdf = null;
 
-  for (let i = 0; i < pages.length; i++) {
-    const pageEl = pages[i];
-    const isLandscape = pageEl.classList.contains('pdf-landscape') || pageEl.classList.contains('landscape');
+  try {
+    for (let i = 0; i < pages.length; i++) {
+      const pageEl = pages[i];
+      
+      // Determine landscape layout using classes or bounding box dimensions
+      const rect = pageEl.getBoundingClientRect();
+      const isLandscape = pageEl.classList.contains('pdf-landscape') || 
+                          pageEl.classList.contains('landscape') || 
+                          (rect.width > rect.height);
 
-    const canvas = await html2canvas(pageEl, {
-      scale: 2,
-      useCORS: true,
-      logging: false
-    });
+      // Force pageEl to maintain its exact dimensions during screenshot
+      const originalPageWidth = pageEl.style.width;
+      const originalPageHeight = pageEl.style.height;
 
-    const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
-
-    let format = 'a4';
-    if (pageEl.classList.contains('size-letter')) format = 'letter';
-    else if (pageEl.classList.contains('size-legal')) format = 'legal';
-    else if (pageEl.classList.contains('size-a3')) format = 'a3';
-
-    let pdfWidth = 210;
-    let pdfHeight = 297;
-
-    if (format === 'a4') {
-      pdfWidth = isLandscape ? 297 : 210;
-      pdfHeight = isLandscape ? 210 : 297;
-    } else if (format === 'letter') {
-      pdfWidth = isLandscape ? 279 : 216;
-      pdfHeight = isLandscape ? 216 : 279;
-    } else if (format === 'legal') {
-      pdfWidth = isLandscape ? 356 : 216;
-      pdfHeight = isLandscape ? 216 : 356;
-    } else if (format === 'a3') {
-      pdfWidth = isLandscape ? 420 : 297;
-      pdfHeight = isLandscape ? 297 : 420;
-    }
-
-    if (!pdf) {
-      pdf = new jsPDF({
-        orientation: isLandscape ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: format
+      // Capture exact canvas dimensions
+      const canvas = await html2canvas(pageEl, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: pageEl.offsetWidth,
+        height: pageEl.offsetHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.offsetWidth,
+        windowHeight: document.documentElement.offsetHeight
       });
-    } else {
-      pdf.addPage(format, isLandscape ? 'landscape' : 'portrait');
+
+      const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
+
+      let format = 'a4';
+      if (pageEl.classList.contains('size-letter')) format = 'letter';
+      else if (pageEl.classList.contains('size-legal')) format = 'legal';
+      else if (pageEl.classList.contains('size-a3')) format = 'a3';
+
+      let pdfWidth = 210;
+      let pdfHeight = 297;
+
+      if (format === 'a4') {
+        pdfWidth = isLandscape ? 297 : 210;
+        pdfHeight = isLandscape ? 210 : 297;
+      } else if (format === 'letter') {
+        pdfWidth = isLandscape ? 279 : 216;
+        pdfHeight = isLandscape ? 216 : 279;
+      } else if (format === 'legal') {
+        pdfWidth = isLandscape ? 356 : 216;
+        pdfHeight = isLandscape ? 216 : 356;
+      } else if (format === 'a3') {
+        pdfWidth = isLandscape ? 420 : 297;
+        pdfHeight = isLandscape ? 297 : 420;
+      }
+
+      if (!pdf) {
+        pdf = new jsPDF({
+          orientation: isLandscape ? 'landscape' : 'portrait',
+          unit: 'mm',
+          format: format
+        });
+      } else {
+        pdf.addPage(format, isLandscape ? 'landscape' : 'portrait');
+      }
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
     }
 
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-  }
-
-  if (isPrint === 'bloburl') {
-    const blob = pdf.output('blob');
-    return URL.createObjectURL(blob);
-  } else if (isPrint === true || isPrint === 'true') {
-    const blob = pdf.output('blob');
-    const blobUrl = URL.createObjectURL(blob);
-    window.open(blobUrl, '_blank');
-  } else {
-    pdf.save(filename);
+    if (isPrint === 'bloburl') {
+      const blob = pdf.output('blob');
+      return URL.createObjectURL(blob);
+    } else if (isPrint === true || isPrint === 'true') {
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } else {
+      pdf.save(filename);
+    }
+  } finally {
+    // Restore original container style properties
+    container.style.width = originalWidth;
+    container.style.maxWidth = originalMaxWidth;
+    container.style.minWidth = originalMinWidth;
+    container.style.boxSizing = originalBoxSizing;
   }
 }
