@@ -2260,6 +2260,15 @@ function setupEditor() {
   document.getElementById('electrification-deduct-pct').addEventListener('input', calculateAndRenderTotals);
   document.getElementById('sanitary-deduct-pct').addEventListener('input', calculateAndRenderTotals);
 
+  // Staircase technical note
+  const staircaseTechNote = document.getElementById('staircase-technical-note');
+  if (staircaseTechNote) {
+    staircaseTechNote.addEventListener('input', () => {
+      if (activeEntry) activeEntry.staircaseTechnicalNote = staircaseTechNote.value;
+      calculateAndRenderTotals();
+    });
+  }
+
   const toggleStair = document.getElementById('toggle-staircase');
   const stairControls = document.getElementById('staircase-controls');
   if (toggleStair) {
@@ -2648,6 +2657,7 @@ function initNewOwnerEntry() {
     sanitaryPct: 3,
     sanitaryDeductPct: 0,
     sanitaryCost: 0,
+    staircaseTechnicalNote: '',
     addStaircase: false,
     staircaseMethod: 'adverse-pct',
     // Approach 1: Adverse Percentage
@@ -3230,6 +3240,12 @@ function loadEntryToEditor() {
   document.getElementById('sanitary-deduct-pct').value = activeEntry.sanitaryDeductPct;
   document.getElementById('electrification-controls').style.display = activeEntry.addElectrification ? 'flex' : 'none';
   document.getElementById('sanitary-controls').style.display = activeEntry.addSanitary ? 'flex' : 'none';
+
+  // Staircase technical note
+  const techNoteEl = document.getElementById('staircase-technical-note');
+  if (techNoteEl) {
+    techNoteEl.value = activeEntry.staircaseTechnicalNote || '';
+  }
 
   const toggleStair = document.getElementById('toggle-staircase');
   if (toggleStair) {
@@ -4906,6 +4922,7 @@ function calculateAndRenderTotals() {
     activeEntry.staircaseFoundationRate = parseFloat(document.getElementById('staircase-foundation-rate')?.value) || 0;
     activeEntry.staircaseNonConfPct = parseFloat(document.getElementById('staircase-nonconf-pct')?.value) || 0;
     activeEntry.staircaseNonConfReason = document.getElementById('staircase-nonconf-reason')?.value || '';
+    activeEntry.staircaseTechnicalNote = document.getElementById('staircase-technical-note')?.value || '';
   }
 
   const includedItems = activeEntry.items.filter(i => i.includeInValuation);
@@ -5061,6 +5078,10 @@ function calculateAndRenderTotals() {
       activeEntry.staircaseCost = restorationFinal;
     }
     autoGenerateStaircaseNote(activeEntry);
+    // Use manual technical note if provided
+    if (activeEntry.staircaseTechnicalNote && activeEntry.staircaseTechnicalNote.trim()) {
+      activeEntry.staircaseNote = activeEntry.staircaseTechnicalNote.trim();
+    }
   } else {
     activeEntry.staircaseAdversePct = 0;
     activeEntry.staircaseAffectedArea = 0;
@@ -8088,6 +8109,7 @@ function openPrintPreview(entryId) {
   if (activeEntry && activeEntry.id === entryId) {
     Object.assign(rawEntry, {
       staircaseNote: activeEntry.staircaseNote,
+      staircaseTechnicalNote: activeEntry.staircaseTechnicalNote,
       staircaseCost: activeEntry.staircaseCost,
       staircaseAdversePct: activeEntry.staircaseAdversePct,
       staircaseAffectedArea: activeEntry.staircaseAffectedArea,

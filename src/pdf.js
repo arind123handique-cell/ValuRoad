@@ -617,10 +617,17 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   let serviceItemsHtml = '';
   const hasCustomServices = report.customServices && report.customServices.length > 0;
   if (report.addSanitary || report.addElectrification || hasCustomServices) {
+    const buildingBase = report.buildingBase || 0;
     serviceItemsHtml += `
       <div class="pdf-service-block" style="margin-top: 4mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45;">
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-          <div style="flex-grow: 1;">Service Item:</div>
+        <div class="pdf-row" style="font-weight: bold; margin-bottom: 3px;">
+          <div style="flex-grow: 1;">Service Items:</div>
+        </div>
+        <div class="pdf-row" style="margin-bottom: 2px; font-size: 9pt; color: #1e293b;">
+          <div style="margin-left: 10mm; flex-grow: 1;">Building Base (Plinth Area of Buildings) =</div>
+          <div style="width: 55mm; text-align: right; font-weight: normal; flex-shrink: 0;">
+            Rs. ${formatIndianCurrency(buildingBase)}
+          </div>
         </div>
     `;
     if (report.addSanitary) {
@@ -631,8 +638,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       serviceItemsHtml += `
         <div class="pdf-row" style="margin-bottom: 2px;">
           <div style="margin-left: 20mm; flex-grow: 1;">. Add for Sanitary & Water Supply Fittings</div>
-          <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            <span style="display: inline-block; width: 25mm; text-align: left; font-weight: normal;">@ ${sPct}% =</span>
+          <div style="width: 65mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <span style="display: inline-block; width: 35mm; text-align: left; font-weight: normal;">${formatIndianCurrency(buildingBase)} × ${sPct}% =</span>
             <span>Rs. ${formatIndianCurrency(sGross)}</span>
           </div>
         </div>
@@ -641,12 +648,20 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         serviceItemsHtml += `
           <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
             <div style="flex-grow: 1; padding-left: 20mm;">Less ${sDeductPct}% Non-conformity deduction</div>
-            <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <div style="width: 65mm; text-align: right; font-weight: bold; flex-shrink: 0;">
               = Rs. -${formatIndianCurrency(sDeductAmt)}
             </div>
           </div>
         `;
       }
+      serviceItemsHtml += `
+        <div class="pdf-row" style="margin-bottom: 2px; font-weight: bold; color: #000;">
+          <div style="margin-left: 30mm; flex-grow: 1;">Net Sanitary Cost =</div>
+          <div style="width: 65mm; text-align: right; flex-shrink: 0;">
+            Rs. ${formatIndianCurrency(report.sanitaryCost || 0)}
+          </div>
+        </div>
+      `;
     }
     if (report.addElectrification) {
       const eGross = report.electrificationCostGross || report.electrificationCost;
@@ -656,8 +671,8 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       serviceItemsHtml += `
         <div class="pdf-row" style="margin-bottom: 2px;">
           <div style="margin-left: 20mm; flex-grow: 1;">. Add for Electrification</div>
-          <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            <span style="display: inline-block; width: 25mm; text-align: left; font-weight: normal;">@ ${ePct}% =</span>
+          <div style="width: 65mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <span style="display: inline-block; width: 35mm; text-align: left; font-weight: normal;">${formatIndianCurrency(buildingBase)} × ${ePct}% =</span>
             <span>Rs. ${formatIndianCurrency(eGross)}</span>
           </div>
         </div>
@@ -666,12 +681,20 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
         serviceItemsHtml += `
           <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
             <div style="flex-grow: 1; padding-left: 20mm;">Less ${eDeductPct}% Non-conformity deduction</div>
-            <div style="width: 55mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            <div style="width: 65mm; text-align: right; font-weight: bold; flex-shrink: 0;">
               = Rs. -${formatIndianCurrency(eDeductAmt)}
             </div>
           </div>
         `;
       }
+      serviceItemsHtml += `
+        <div class="pdf-row" style="margin-bottom: 2px; font-weight: bold; color: #000;">
+          <div style="margin-left: 30mm; flex-grow: 1;">Net Electrification Cost =</div>
+          <div style="width: 65mm; text-align: right; flex-shrink: 0;">
+            Rs. ${formatIndianCurrency(report.electrificationCost || 0)}
+          </div>
+        </div>
+      `;
     }
     if (hasCustomServices) {
       report.customServices.forEach(cs => {
@@ -703,7 +726,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           </div>
         </div>
         <div style="margin-left: 5mm; font-size: 9pt; color: #1e293b; margin-bottom: 4px; text-align: justify; line-height: 1.5;">
-          <em>${note}</em>
+          <strong>Technical Note:</strong> <em>${note}</em>
         </div>
     `;
     if (method === 'adverse-pct') {
