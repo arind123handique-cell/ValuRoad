@@ -495,7 +495,7 @@ function renderLumpSumItem(item) {
   `;
 }
 
-export function exportToPDF(report, sketcherImage, isPrint = false) {
+export function exportToPDF(report, sketcherImage, isPrint = false, options = {}) {
   try {
     const tpl = getPdfTemplateSettings();
     console.log("DEBUG: exportToPDF: report.jmsSlNo =", report.jmsSlNo, "tpl.showJmsSlNo =", tpl.showJmsSlNo);
@@ -1180,6 +1180,18 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 
   let html = estimatePagesHtml;
 
+  // Skip site plan & photo pages when options.skipSitePlan is true (used by bulk export)
+  if (options.skipSitePlan) {
+    // Just return the estimate pages without site plan or photos
+    const container = document.getElementById('pdf-template');
+    if (container) {
+      container.innerHTML = html;
+    }
+    if (isPrint === 'preview') {
+      return html;
+    }
+    return html;
+  }
 
   // ── PAGE 2: LINE PLAN ────────────────────────────────────────────────────────
   const headerHtml = `
@@ -1289,7 +1301,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
   }
 
   // Generate page-by-page to allow true mixed portrait & landscape orientations
-  generateMixedPdf(container, opt.filename, tpl.imgQuality, isPrint).catch(err => {
+  generateMixedPdf(container, opt.filename, tpl.imgQuality, isPrint, options.progressCallback).catch(err => {
     console.error("Custom page-by-page PDF generation failed, using standard fallback:", err);
     if (isPrint === true || isPrint === 'true') {
       html2pdf().from(html).set(opt).toPdf().outputPdf('blob').then((blob) => {
@@ -1314,7 +1326,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
 }
 
 // Custom page-by-page generator to support mixed portrait/landscape PDF orientations
-export async function generateMixedPdf(container, filename, imgQuality, isPrint) {
+export async function generateMixedPdf(container, filename, imgQuality, isPrint, progressCallback, signal) {
   let jsPDF = null;
   if (window.jspdf && typeof window.jspdf.jsPDF === 'function') {
     jsPDF = window.jspdf.jsPDF;
@@ -1360,11 +1372,28 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
   container.style.minWidth = '500mm';
   container.style.boxSizing = 'content-box';
 
+  const bulkMode = !!progressCallback;
+  const _scale = bulkMode ? 1.5 : 2;
   let pdf = null;
 
   try {
     for (let i = 0; i < pages.length; i++) {
+      // Check for cancellation (abort signal from user clicking red cross)
+      if (signal && signal.aborted) {
+        return; // silently exit without saving
+      }
+
       const pageEl = pages[i];
+
+      // Report progress before the heavy html2canvas work
+      if (progressCallback) {
+        progressCallback(i + 1, pages.length);
+      }
+
+      // Check abort again right before the heavy render (user may have cancelled during progress callback)
+      if (signal && signal.aborted) {
+        return;
+      }
       
       // Determine landscape layout using classes or bounding box dimensions
       const rect = pageEl.getBoundingClientRect();
@@ -1377,7 +1406,7 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
 
       // Capture exact canvas dimensions
       const canvas = await renderPageToCanvas(pageEl, {
-        scale: 2,
+        scale: _scale,
         useCORS: true,
         logging: false,
         width: pageEl.offsetWidth,
@@ -1388,7 +1417,10 @@ export async function generateMixedPdf(container, filename, imgQuality, isPrint)
         windowHeight: document.documentElement.offsetHeight
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', imgQuality || 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', imgQuality || (bulkMode ? 0.85 : 0.95));
+
+      // Yield to let UI update between heavy html2canvas renders
+      await new Promise(r => setTimeout(r, 0));
 
       let format = 'a4';
       if (pageEl.classList.contains('size-letter')) format = 'letter';

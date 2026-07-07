@@ -1008,6 +1008,15 @@ function setupProjectDetails() {
     if (activeProject) printProjectOwnerList();
   });
 
+  const projBulkPdfBtn = document.getElementById('proj-export-bulk-pdf-btn');
+  if (projBulkPdfBtn) {
+    projBulkPdfBtn.addEventListener('click', () => {
+      if (activeProject) {
+        showBulkVillageModal();
+      }
+    });
+  }
+
   const projShowJms = document.getElementById('project-show-jms-sl');
   if (projShowJms) {
     projShowJms.addEventListener('change', (e) => {
@@ -1888,6 +1897,270 @@ function printProjectOwnerList() {
   printWindow.document.close();
 }
 
+
+// Show village selection modal for bulk PDF export
+function showBulkVillageModal() {
+  if (!activeProject || !activeProject.entries || activeProject.entries.length === 0) {
+    alert('No owner entries available to export.');
+    return;
+  }
+
+  // Gather unique villages
+  const villages = [...new Set(activeProject.entries.map(e => e.location || e.village || 'Unspecified'))].sort();
+  if (villages.length === 0) {
+    alert('No village data found in entries.');
+    return;
+  }
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'position:fixed;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;top:0;left:0;right:0;bottom:0;opacity:1;';
+
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.className = 'modal-content';
+  modal.style.cssText = 'max-width:420px;width:90%;background:var(--bg-primary);border-radius:0.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+
+  modal.innerHTML = `
+    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);">
+      <h3 style="margin:0;font-size:1.05rem;">Select Villages for Bulk PDF</h3>
+      <button class="close-btn" id="bulk-modal-close" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.25rem;"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body" style="padding:1rem 1.25rem;max-height:60vh;overflow-y:auto;">
+      <label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;margin-bottom:0.5rem;border-bottom:1px solid var(--border-color);cursor:pointer;font-weight:600;font-size:0.9rem;">
+        <input type="checkbox" id="bulk-select-all" checked style="width:16px;height:16px;cursor:pointer;">
+        Select All Villages
+      </label>
+      <!-- Toggle: Include Site Plans -->
+      <label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;margin-bottom:0.5rem;border-radius:0.35rem;cursor:pointer;font-size:0.88rem;background:var(--bg-secondary);border:1px solid var(--border-color);">
+        <input type="checkbox" id="bulk-include-siteplan" style="width:15px;height:15px;cursor:pointer;">
+        <span><i data-lucide="pencil-ruler" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:0.3rem;"></i> Include site plans with estimates</span>
+      </label>
+      <div id="bulk-village-list" style="display:flex;flex-direction:column;gap:0.25rem;">
+        ${villages.map(v => `
+          <label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;border-radius:0.35rem;cursor:pointer;font-size:0.88rem;transition:background 0.15s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
+            <input type="checkbox" class="bulk-village-cb" value="${v.replace(/"/g, '&quot;')}" checked style="width:15px;height:15px;cursor:pointer;">
+            <span>${v}</span>
+            <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);">${activeProject.entries.filter(e => (e.location || e.village || 'Unspecified') === v).length} entries</span>
+          </label>
+        `).join('')}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:0.5rem;padding:1rem 1.25rem;border-top:1px solid var(--border-color);">
+      <button class="btn-secondary" id="bulk-modal-cancel" style="padding:0.5rem 1rem;">Cancel</button>
+      <button class="btn-primary" id="bulk-modal-export" style="padding:0.5rem 1rem;background-color:#7c3aed;">Export Bulk PDF</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  if (window.lucide) lucide.createIcons();
+
+  // Select All toggle
+  const selectAll = modal.querySelector('#bulk-select-all');
+  const cbs = modal.querySelectorAll('.bulk-village-cb');
+  selectAll.addEventListener('change', () => {
+    cbs.forEach(cb => cb.checked = selectAll.checked);
+  });
+  cbs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      selectAll.checked = [...cbs].every(c => c.checked);
+    });
+  });
+
+  // Close handlers
+  const closeModal = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  modal.querySelector('#bulk-modal-close').addEventListener('click', closeModal);
+  modal.querySelector('#bulk-modal-cancel').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  // Export handler
+  modal.querySelector('#bulk-modal-export').addEventListener('click', () => {
+    const selected = [...cbs].filter(cb => cb.checked).map(cb => cb.value);
+    if (selected.length === 0) {
+      alert('Please select at least one village.');
+      return;
+    }
+    const includeSitePlan = document.getElementById('bulk-include-siteplan')?.checked || false;
+    closeModal();
+    exportProjectBulkPdf(selected, includeSitePlan);
+  });
+}
+
+// Bulk PDF export - all entries village-wise in a single PDF
+async function exportProjectBulkPdf(selectedVillages, includeSitePlan) {
+  if (!activeProject || !activeProject.entries || activeProject.entries.length === 0) {
+    alert('No owner entries available to export.');
+    return;
+  }
+
+  let entries = activeProject.entries;
+  if (selectedVillages && selectedVillages.length > 0) {
+    entries = entries.filter(e => selectedVillages.includes(e.location || e.village || 'Unspecified'));
+    if (entries.length === 0) {
+      alert('No entries found for the selected villages.');
+      return;
+    }
+  }
+
+  if (entries.length === 0) {
+    alert('No entries found to export.');
+    return;
+  }
+
+  // Confirm for large projects
+  if (entries.length > 15 && !confirm('Export ' + entries.length + ' estimate' + (entries.length > 1 ? 's' : '') + ' to a single PDF? This may take a minute or two.')) {
+    return;
+  }
+
+  // Group by location/village
+  const groups = {};
+  entries.forEach(e => {
+    const village = e.location || e.village || 'Unspecified';
+    if (!groups[village]) groups[village] = [];
+    groups[village].push(e);
+  });
+
+  // Sort villages alphabetically, sort entries by name within each village
+  const sortedVillages = Object.keys(groups).sort();
+  sortedVillages.forEach(v => {
+    groups[v].sort((a, b) => (a.clientName || '').localeCompare(b.clientName || ''));
+  });
+
+  // Create hidden container for all pages
+  const container = document.createElement('div');
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:500mm;max-width:none;min-width:500mm;box-sizing:content-box;';
+  document.body.appendChild(container);
+
+  try {
+    let processed = 0;
+    const total = entries.length;
+    showToast('Preparing bulk PDF: 0/' + total + '...', 'info');
+
+    for (const village of sortedVillages) {
+      const group = groups[village];
+
+      // Village separator page
+      const sepPage = document.createElement('div');
+      sepPage.className = 'pdf-page size-a4';
+      sepPage.style.cssText = 'padding:20mm;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;page-break-after:always;';
+      sepPage.innerHTML = '<div style="text-align:center;">' +
+        '<div style="font-size:18pt;font-weight:bold;color:#1e3a8a;margin-bottom:10px;">Village: ' + village + '</div>' +
+        '<div style="font-size:11pt;color:#475569;">' + group.length + ' owner estimate' + (group.length > 1 ? 's' : '') + '</div>' +
+        '</div>';
+      container.appendChild(sepPage);
+
+      // Generate PDF for each entry in this village
+      for (const entry of group) {
+        const report = Object.assign({}, entry, {
+          workName: activeProject.workName || '',
+          nbNote: activeProject.nbNote || ''
+        });
+
+        const html = exportToPDF(report, report.sketcherImage || null, 'preview', { skipSitePlan: !includeSitePlan });
+        
+        // Extract pages and add to container
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        temp.querySelectorAll('.pdf-page').forEach(page => {
+          container.appendChild(page);
+        });
+
+        processed++;
+        // Yield to event loop every 3 entries to keep UI responsive
+        if (processed % 3 === 0) {
+          await new Promise(r => setTimeout(r, 0));
+        }
+        if (processed % 5 === 0 || processed === total) {
+          showToast('Generating bulk PDF: ' + processed + '/' + total + '...', 'info');
+        }
+      }
+    }
+
+    // Generate the final PDF
+    const settings = getPdfTemplateSettings();
+    const cleanName = (activeProject.workName || 'Project').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+    const namePart = cleanName.substring(0, 25).replace(/_$/, '');
+    const filename = namePart + '_Bulk_Estimate.pdf';
+
+    // Count total pages across all entries for progress tracking
+    const pagesTotal = container.querySelectorAll('.pdf-page').length;
+
+    // Show loading overlay with progress bar + cancel (red cross) button
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
+    const removeOverlay = () => {
+      const ov = document.getElementById('bulk-pdf-progress-overlay');
+      if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'bulk-pdf-progress-overlay';
+    overlay.style.cssText = 'position:fixed;z-index:99999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;top:0;left:0;right:0;bottom:0;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-primary);border-radius:1rem;padding:2rem 2rem 1.5rem;max-width:400px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,0.4);position:relative;">
+        <button id="bulk-pdf-cancel-btn" title="Cancel PDF generation" style="position:absolute;top:0.5rem;right:0.5rem;width:28px;height:28px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:bold;transition:background 0.15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+          <i data-lucide="x" style="width:16px;height:16px;"></i>
+        </button>
+        <i data-lucide="file-stack" style="width:40px;height:40px;color:#7c3aed;margin-bottom:0.75rem;"></i>
+        <h3 style="margin:0 0 0.25rem 0;font-size:1.1rem;">Generating Bulk PDF</h3>
+        <p style="margin:0 0 1rem 0;font-size:0.85rem;color:var(--text-muted);" id="bulk-progress-status">Preparing pages...</p>
+        <div style="width:100%;height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
+          <div id="bulk-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:4px;transition:width 0.3s ease;"></div>
+        </div>
+        <p style="margin-top:0.6rem;font-size:0.78rem;color:var(--text-muted);" id="bulk-progress-text">0 / ${pagesTotal} pages</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    if (window.lucide) lucide.createIcons();
+
+    // Cancel button: abort and clean up
+    const cancelBtn = document.getElementById('bulk-pdf-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        abortController.abort();
+        removeOverlay();
+        showToast('Bulk PDF export cancelled by user.', 'info');
+      });
+    }
+
+    const progressCallback = (done, total) => {
+      if (signal.aborted) return;
+      const pct = Math.min(100, Math.round((done / total) * 100));
+      const bar = document.getElementById('bulk-progress-bar');
+      const text = document.getElementById('bulk-progress-text');
+      const status = document.getElementById('bulk-progress-status');
+      if (bar) bar.style.width = pct + '%';
+      if (text) text.textContent = done + ' / ' + total + ' pages';
+      if (status) status.textContent = done < total ? 'Rendering page ' + done + ' of ' + total + '...' : 'Finalizing PDF...';
+    };
+
+    await generateMixedPdf(container, filename, 0.7, false, progressCallback, signal);
+
+    // Remove overlay (if not already removed by cancel)
+    removeOverlay();
+
+    // Don't show success toast if user cancelled
+    if (!signal.aborted) {
+      showToast('Bulk PDF exported successfully - ' + sortedVillages.length + ' village(s), ' + total + ' estimate(s)', 'success');
+    }
+  } catch (err) {
+    if (signal.aborted) {
+      console.log('Bulk PDF generation cancelled by user.');
+    } else {
+      console.error('Bulk PDF export error:', err);
+      alert('Failed to generate bulk PDF: ' + err.message);
+    }
+  } finally {
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
+  }
+}
+
+
 function renderProjectDetails() {
   if (!activeProject) return;
   document.getElementById('project-details-work-title').innerText = activeProject.workName || 'Untitled Project';
@@ -1905,6 +2178,8 @@ function renderProjectDetails() {
     const settings = getPdfTemplateSettings();
     projectShowBasisEl.checked = settings.showBasis !== false;
   }}
+
+
 
   const tbody = document.getElementById('owner-entries-list-body');
   const emptyState = document.getElementById('owner-entries-empty-state');
