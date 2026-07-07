@@ -1020,6 +1020,17 @@ function setupProjectDetails() {
     });
   }
 
+  const projShowBasis = document.getElementById('project-show-basis');
+  if (projShowBasis) {
+    projShowBasis.addEventListener('change', (e) => {
+      const settings = getPdfTemplateSettings();
+      settings.showBasis = e.target.checked;
+      localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(settings));
+      if (auth.currentUser) {
+        saveUserPdfTemplate(auth.currentUser.uid, settings).catch(err => {});
+      }
+    });
+  }
   const searchInput = document.getElementById('owner-search-input');
   if (searchInput) {
     searchInput.addEventListener('input', renderProjectDetails);
@@ -1192,10 +1203,12 @@ function exportSingleEstimateToExcel(entryId) {
     <td colspan="5">${entry.constructionYear || 'N/A'} ${entry.constructionYearComment ? `(${entry.constructionYearComment})` : ''}</td>
   </tr>
   ` : ''}
+  ${tpl.showBasis !== false ? `
   <tr>
     <td class="meta-label">Basis:</td>
     <td colspan="5">This estimate is prepared on the basis of ${tpl.basisText}</td>
   </tr>
+  ` : ''}
   
   <!-- Empty row -->
   <tr><td colspan="6" style="border:none; height:15px;"></td></tr>
@@ -1334,7 +1347,7 @@ function exportSingleEstimateToExcel(entryId) {
 
       htmlContent += `
         <tr>
-          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} (As per approved rate)</td>
+          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} ${(item.title||'').includes('Temporary Building')||(item.title||'').includes('Temp Shed')?"Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat.":"(As per approved rate)"}</td>
           <td>=</td>
           <td class="text-right">Rs. ${formatIndianCurrency(rawCost)}</td>
         </tr>
@@ -1886,7 +1899,12 @@ function renderProjectDetails() {
   if (projectShowJmsEl) {
     const settings = getPdfTemplateSettings();
     projectShowJmsEl.checked = settings.showJmsSlNo !== false;
-  }
+  
+  const projectShowBasisEl = document.getElementById('project-show-basis');
+  if (projectShowBasisEl) {
+    const settings = getPdfTemplateSettings();
+    projectShowBasisEl.checked = settings.showBasis !== false;
+  }}
 
   const tbody = document.getElementById('owner-entries-list-body');
   const emptyState = document.getElementById('owner-entries-empty-state');
@@ -2497,7 +2515,7 @@ function setupEditor() {
           let unit = 'sqm';
           let title = s.label || 'Building Block';
           let rate = 0;
-          let description = 'Plinth area for building';
+          let description = '';
           let l = '';
           let b = '';
           let h = '';
@@ -3582,7 +3600,7 @@ function loadEntryToEditor() {
           const floors = parseInt(s.floors) || 1;
           
           for (let i = 0; i < floors; i++) {
-            let qty = 0, unit = 'sqm', title = s.label || 'Building Block', rate = 0, description = 'Plinth area for building', l = '', b = '', h = '';
+            let qty = 0, unit = 'sqm', title = s.label || 'Building Block', rate = 0, description = '', l = '', b = '', h = '';
 
             let floorName = "Ground Floor";
             if (i === 1) floorName = "1st Floor";
@@ -7275,6 +7293,7 @@ export function getPdfTemplateSettings() {
   } catch(e) {}
   return {
     basisText: 'D.S.R for CPWD Building for the year 2021',
+    showBasis: true,
     orgName: '',
     subtitle: '',
     margin: 12.7,
@@ -7305,7 +7324,8 @@ function setupPdfTemplate() {
     contractorPct:  document.getElementById('tpl-contractor-pct'),
     photosPerRow:   document.getElementById('tpl-photos-per-row'),
     photoHeight:    document.getElementById('tpl-photo-height'),
-    showJmsSlNo:    document.getElementById('tpl-show-jms-sl')
+    showJmsSlNo:    document.getElementById('tpl-show-jms-sl'),
+    showBasis:      document.getElementById('tpl-show-basis')
   };
   const saveBtn  = document.getElementById('pdf-template-save-btn');
   const preview  = document.getElementById('pdf-tpl-preview');
@@ -7371,6 +7391,7 @@ function setupPdfTemplate() {
       out.photosPerRow   = parseInt(fields.photosPerRow?.value)     || 2;
       out.photoHeight    = fields.photoHeight?.value                || '60mm';
       out.showJmsSlNo    = fields.showJmsSlNo ? fields.showJmsSlNo.checked : true;
+      out.showBasis      = fields.showBasis ? fields.showBasis.checked : true;
 
       localStorage.setItem(PDF_TEMPLATE_KEY, JSON.stringify(out));
       if (auth.currentUser) {
@@ -10549,7 +10570,7 @@ async function generateBulkEstimates() {
           id: 'ITEM_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 5),
           itemNo: itemNo,
           title: mappedCat,
-          description: 'Plinth area for building',
+          description: '',
           type: 'plinth-area',
           quantity: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? s.area_sqft : s.area_sqm,
           unit: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? 'sqf' : 'sqm',

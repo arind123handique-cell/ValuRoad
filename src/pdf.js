@@ -295,7 +295,7 @@ function renderQuantityRateItem(item) {
       <!-- Rate Line -->
       <div class="pdf-row" style="margin-bottom: 1px;">
         <div style="margin-left: 20mm; flex-grow: 1;">
-          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit} &nbsp;&nbsp;&nbsp;&nbsp; (As per approved rate)
+          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit} &nbsp;&nbsp;&nbsp;&nbsp; ${(item.title||'').includes('Temporary Building')||(item.title||'').includes('Temp Shed')?"Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat.":"(As per approved rate)"}
         </div>
         <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
           = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
@@ -352,10 +352,9 @@ function renderPlinthAreaItem(item) {
       <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
         <div style="flex-grow: 1;">${itemNoText} <span style="margin-left: 15mm;">${titleText}</span> ${depInfoHtml}</div>
       </div>
-      ${item.description ? `<div style="margin-left: 20mm; font-style: italic; color: #334155; margin-bottom: 3px; font-size: 10pt;">${item.description}</div>` : ''}
       
       <div style="margin-left: 20mm;">
-        <div style="margin-bottom: 2px;">Plinth area of the building:-</div>
+        <div style="margin-bottom: 2px;">Plinth area:-</div>
         
         <!-- Room Details -->
         ${item.rooms.map(r => {
@@ -418,7 +417,7 @@ function renderPlinthAreaItem(item) {
         <!-- Rate Line -->
         <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
           <div style="flex-grow: 1;">
-            @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit || 'sqm'} &nbsp;&nbsp;&nbsp;&nbsp; (As per approved rate)
+            @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit || 'sqm'} &nbsp;&nbsp;&nbsp;&nbsp; ${(item.title||'').includes('Temporary Building')||(item.title||'').includes('Temp Shed')?"Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat.":"(As per approved rate)"}
           </div>
           <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
             = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
@@ -624,7 +623,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
           <div style="flex-grow: 1;">Service Items:</div>
         </div>
         <div class="pdf-row" style="margin-bottom: 2px; font-size: 9pt; color: #1e293b;">
-          <div style="margin-left: 10mm; flex-grow: 1;">Building Base (Plinth Area of Buildings) =</div>
+          <div style="margin-left: 10mm; flex-grow: 1;">Building Base (Plinth Area) =</div>
           <div style="width: 55mm; text-align: right; font-weight: normal; flex-shrink: 0;">
             Rs. ${formatIndianCurrency(buildingBase)}
           </div>
@@ -1150,9 +1149,11 @@ export function exportToPDF(report, sketcherImage, isPrint = false) {
       </div>
       ` : ''}
     </div>
+    ${tpl.showBasis !== false ? `
     <div class="prep-basis" style="margin-top: 5mm; margin-bottom: 5mm; font-size: ${tpl.fontSize}pt; font-weight: 500; font-family: Arial, Helvetica, sans-serif; color: #000000;">
       This estimate is prepared on the basis of ${tpl.basisText}
     </div>
+    ` : ''}
   `;
 
   const subsequentPageHeader = '';
