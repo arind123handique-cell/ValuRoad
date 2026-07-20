@@ -8726,6 +8726,15 @@ function openPrintPreview(entryId) {
   document.getElementById('prev-font-family').value = previewStyles.whole.family;
   document.getElementById('prev-font-size').value = previewStyles.whole.size;
 
+  const sketchFontSizeSelect = document.getElementById('prev-sketch-font-size');
+  if (sketchFontSizeSelect) {
+    const savedSize = currentPreviewEntry.sketchFontSize || 17;
+    sketchFontSizeSelect.value = savedSize;
+    if (sketcher) {
+      sketcher.setFontSize(savedSize);
+    }
+  }
+
   renderPreviewPages();
 }
 
@@ -9410,6 +9419,35 @@ function initPrintPreviewEvents() {
         previewStyles[target].size = prevFontSize.value;
       }
       updatePreviewStyles();
+    });
+  }
+
+  const prevSketchFontSize = document.getElementById('prev-sketch-font-size');
+  if (prevSketchFontSize) {
+    prevSketchFontSize.addEventListener('change', (e) => {
+      if (!currentPreviewEntry) return;
+      const sizeVal = parseInt(e.target.value) || 17;
+      currentPreviewEntry.sketchFontSize = sizeVal;
+
+      if (sketcher) {
+        sketcher.setFontSize(sizeVal);
+        currentPreviewEntry.sketcherImage = sketcher.exportImage();
+      }
+
+      const projIdx = projects.findIndex(p => p.id === activeProject.id);
+      if (projIdx > -1) {
+        const entryIdx = projects[projIdx].entries.findIndex(e => e.id === currentPreviewEntry.id);
+        if (entryIdx > -1) {
+          projects[projIdx].entries[entryIdx].sketchFontSize = sizeVal;
+          projects[projIdx].entries[entryIdx].sketcherImage = currentPreviewEntry.sketcherImage;
+          saveProjects();
+          if (auth.currentUser) {
+            saveProjectEntry(activeProject.id, projects[projIdx].entries[entryIdx]).catch(e => {});
+          }
+        }
+      }
+
+      renderPreviewPages();
     });
   }
 

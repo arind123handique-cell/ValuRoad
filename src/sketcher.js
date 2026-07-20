@@ -1005,7 +1005,7 @@ export class SiteSketcher {
       ctx.strokeStyle='#334155'; ctx.lineWidth=Math.max(1.5,th*0.4);
       ctx.stroke();
       // dimension
-      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1), s.fontSize, s.fontFamily);
+      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1), s.fontSize, s.fontFamily, s);
 
     } else if (s.type==='building'||s.type==='custom-block') {
       const sp=this.w2s(s.x,s.y), sw=s.w*p, sh=s.h*p;
@@ -1138,7 +1138,7 @@ export class SiteSketcher {
       const fs = s.fontSize || this.globalFontSizeBase;
       const ff = s.fontFamily || this.globalFontFamily;
       ctx.font=`bold ${Math.max(8, Math.round(fs * 0.9 * z))}px ${ff}`;ctx.fillStyle='#065f46';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(s.label||'GATE WITH TORAN',cOx,cOy-6);ctx.textBaseline='alphabetic';
-      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1), s.fontSize, s.fontFamily);
+      if(s.dimLabel) this._drawLineDim(s.x1,s.y1,s.x2,s.y2,s.dimLabel,s.dimOffset||(-1), s.fontSize, s.fontFamily, s);
 
     } else if (s.type==='dimension') {
       this._drawDimAnnotation(s);
@@ -1188,7 +1188,8 @@ export class SiteSketcher {
     ctx.strokeStyle='#475569';ctx.fillStyle='#475569';ctx.lineWidth=1;
     const fs = objFS || this.globalFontSizeBase;
     const ff = objFF || this.globalFontFamily;
-    ctx.font=`${Math.max(8, Math.round(fs * 1.0 * this.zoom))}px ${ff}`;
+    const sizeFactor = (shape && shape.fontSizeFactor !== undefined) ? shape.fontSizeFactor : 1.0;
+    ctx.font=`${Math.max(8, Math.round(fs * sizeFactor * this.zoom))}px ${ff}`;
     const ax1=s1.x+nx*pxOff,ay1=s1.y+ny*pxOff,ax2=s2.x+nx*pxOff,ay2=s2.y+ny*pxOff;
     ctx.beginPath();ctx.moveTo(s1.x+nx*(pxOff-5),s1.y+ny*(pxOff-5));ctx.lineTo(s1.x+nx*(pxOff+5),s1.y+ny*(pxOff+5));
     ctx.moveTo(s2.x+nx*(pxOff-5),s2.y+ny*(pxOff-5));ctx.lineTo(s2.x+nx*(pxOff+5),s2.y+ny*(pxOff+5));ctx.stroke();
@@ -1207,7 +1208,7 @@ export class SiteSketcher {
     }
   }
 
-  _drawLineDim(wx1,wy1,wx2,wy2,label,worldOff, objFS, objFF) {
+  _drawLineDim(wx1,wy1,wx2,wy2,label,worldOff, objFS, objFF, shape) {
     if(!label)return;
     const s1=this.w2s(wx1,wy1),s2=this.w2s(wx2,wy2);
     const dx=s2.x-s1.x,dy=s2.y-s1.y,len=Math.hypot(dx,dy);
@@ -1217,7 +1218,8 @@ export class SiteSketcher {
     const ctx=this.ctx; ctx.save();
     const fs = objFS || this.globalFontSizeBase;
     const ff = objFF || this.globalFontFamily;
-    ctx.font=`bold ${Math.max(8, Math.round(fs * 1.0 * this.zoom))}px ${ff}`;
+    const sizeFactor = (shape && shape.fontSizeFactor !== undefined) ? shape.fontSizeFactor : 1.0;
+    ctx.font=`bold ${Math.max(8, Math.round(fs * sizeFactor * this.zoom))}px ${ff}`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     const tw=ctx.measureText(label).width+6;
     ctx.fillStyle='rgba(255,255,255,0.9)';ctx.fillRect(mx-tw/2,my-8,tw,16);
