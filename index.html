@@ -1735,6 +1735,32 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
       </div>
     </div>
 
+    <!-- VIEW 7.5: EDIT SKETCH TEXT MODAL -->
+    <div class="modal-overlay" id="edit-sketch-text-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 1rem;">
+      <div class="modal-content" style="max-width: 600px; width: 100%; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column; max-height: 85vh; overflow: hidden;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #e2e8f0; background: var(--bg-secondary);">
+          <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="type" style="width: 20px; height: 20px; color: #6366f1;"></i> Edit Site Plan Texts & Sizes
+          </h3>
+          <button type="button" class="close-btn" id="sketch-text-modal-close-btn" style="border: none; background: transparent; cursor: pointer; color: #64748b; font-size: 1.25rem;"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 1.5rem; overflow-y: auto; flex-grow: 1; background: var(--bg-primary);">
+          <p style="margin-top: 0; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);">Modify text contents and relative font sizes for all text labels and custom annotations placed on the site plan drawing.</p>
+          <div id="sketch-text-items-container" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Text rows will be dynamically populated here -->
+          </div>
+          <div id="sketch-text-empty-message" style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary); font-size: 0.9rem;">
+            <i data-lucide="info" style="width: 32px; height: 32px; margin: 0 auto 0.5rem auto; color: #94a3b8; display: block;"></i>
+            No editable text labels or shape annotations found on this site plan.
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; background: var(--bg-secondary);">
+          <button type="button" class="btn-secondary" id="sketch-text-modal-cancel-btn" style="padding: 0.5rem 1.25rem; font-size: 0.875rem;">Cancel</button>
+          <button type="button" class="btn-primary" id="sketch-text-modal-save-btn" style="padding: 0.5rem 1.5rem; font-size: 0.875rem; background: #6366f1; border-color: #6366f1;">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- VIEW 6: PDF TEMPLATE EDITOR -->
@@ -1995,6 +2021,9 @@ Item No. 16.1  Precast RCC posts  nos  @ Rs. 3648.00"></textarea>
         <div class="ribbon-controls">
           <button type="button" class="btn-secondary" id="prev-btn-pagebreak" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; height: auto;" title="Insert manual page break at cursor position">
             <i data-lucide="scissors" style="width:13px; height:13px;"></i> Insert Page Break
+          </button>
+          <button type="button" class="btn-secondary" id="prev-btn-edit-sketch-text" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; height: auto;" title="Edit Site Plan text labels and their font sizes">
+            <i data-lucide="type" style="width:13px; height:13px;"></i> Edit Sketch Text
           </button>
         </div>
       </div>

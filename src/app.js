@@ -9457,6 +9457,173 @@ function initPrintPreviewEvents() {
     });
   }
 
+  // Edit Sketch Text Modal handlers
+  const btnEditSketchText = document.getElementById('prev-btn-edit-sketch-text');
+  if (btnEditSketchText) {
+    btnEditSketchText.addEventListener('click', () => {
+      if (!currentPreviewEntry) return;
+      openEditSketchTextModal();
+    });
+  }
+
+  function openEditSketchTextModal() {
+    const modal = document.getElementById('edit-sketch-text-modal');
+    const container = document.getElementById('sketch-text-items-container');
+    const emptyMsg = document.getElementById('sketch-text-empty-message');
+    if (!modal || !container || !emptyMsg) return;
+
+    container.innerHTML = '';
+    emptyMsg.style.display = 'none';
+
+    const shapes = currentPreviewEntry.sketcherData || [];
+    const editableShapes = shapes.filter(s => 
+      s.type === 'text' || 
+      s.type === 'building' || 
+      s.type === 'custom-block' || 
+      s.type === 'gate' || 
+      s.type === 'plot'
+    );
+
+    if (editableShapes.length === 0) {
+      emptyMsg.style.display = 'block';
+    } else {
+      editableShapes.forEach(shape => {
+        const itemDiv = document.createElement('div');
+        itemDiv.style.display = 'flex';
+        itemDiv.style.gap = '0.5rem';
+        itemDiv.style.alignItems = 'center';
+        itemDiv.style.background = 'var(--bg-secondary)';
+        itemDiv.style.padding = '0.75rem';
+        itemDiv.style.borderRadius = '6px';
+        itemDiv.style.border = '1px solid var(--border-color)';
+        itemDiv.dataset.shapeId = shape.id;
+
+        const typeLabel = document.createElement('span');
+        typeLabel.style.fontWeight = '700';
+        typeLabel.style.fontSize = '0.75rem';
+        typeLabel.style.width = '100px';
+        typeLabel.style.color = 'var(--text-secondary)';
+        typeLabel.style.textTransform = 'uppercase';
+        typeLabel.textContent = shape.type;
+
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.className = 'ribbon-input';
+        textInput.style.flexGrow = '1';
+        textInput.style.height = '32px';
+        textInput.value = shape.type === 'text' ? (shape.text || '') : (shape.label || '');
+        textInput.placeholder = 'Enter text...';
+
+        const sizeSelect = document.createElement('select');
+        sizeSelect.style.height = '32px';
+        sizeSelect.style.width = '120px';
+        sizeSelect.style.padding = '0 0.5rem';
+        sizeSelect.style.borderRadius = '4px';
+        sizeSelect.style.border = '1px solid var(--border-color)';
+        sizeSelect.style.background = 'var(--bg-primary)';
+        sizeSelect.style.color = 'var(--text-primary)';
+        sizeSelect.style.fontSize = '0.85rem';
+
+        const sizeOptions = [
+          { name: 'Very Small (0.6)', val: 0.6 },
+          { name: 'Small (0.9)', val: 0.9 },
+          { name: 'Medium (1.1)', val: 1.1 },
+          { name: 'Normal (1.3)', val: 1.3 },
+          { name: 'Large (1.7)', val: 1.7 },
+          { name: 'Extra Large (2.2)', val: 2.2 },
+          { name: 'Huge (3.0)', val: 3.0 }
+        ];
+
+        const currentFactor = shape.fontSizeFactor !== undefined ? shape.fontSizeFactor : 1.3;
+        sizeOptions.forEach(opt => {
+          const elOpt = document.createElement('option');
+          elOpt.value = opt.val;
+          elOpt.textContent = opt.name;
+          if (Math.abs(opt.val - currentFactor) < 0.15) {
+            elOpt.selected = true;
+          }
+          sizeSelect.appendChild(elOpt);
+        });
+
+        itemDiv.appendChild(typeLabel);
+        itemDiv.appendChild(textInput);
+        itemDiv.appendChild(sizeSelect);
+        container.appendChild(itemDiv);
+      });
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  const btnSketchTextSave = document.getElementById('sketch-text-modal-save-btn');
+  if (btnSketchTextSave) {
+    btnSketchTextSave.addEventListener('click', () => {
+      if (!currentPreviewEntry) return;
+      const modal = document.getElementById('edit-sketch-text-modal');
+      const container = document.getElementById('sketch-text-items-container');
+      if (!modal || !container) return;
+
+      const rows = container.querySelectorAll('[data-shape-id]');
+      const shapes = currentPreviewEntry.sketcherData || [];
+
+      rows.forEach(row => {
+        const shapeId = parseInt(row.dataset.shapeId);
+        const inputVal = row.querySelector('input').value;
+        const factorVal = parseFloat(row.querySelector('select').value);
+
+        const shape = shapes.find(s => s.id === shapeId);
+        if (shape) {
+          if (shape.type === 'text') {
+            shape.text = inputVal;
+          } else {
+            shape.label = inputVal;
+          }
+          shape.fontSizeFactor = factorVal;
+        }
+      });
+
+      if (sketcher) {
+        sketcher.loadData(shapes);
+        currentPreviewEntry.sketcherImage = sketcher.exportImage();
+      }
+
+      const projIdx = projects.findIndex(p => p.id === activeProject.id);
+      if (projIdx > -1) {
+        const entryIdx = projects[projIdx].entries.findIndex(e => e.id === currentPreviewEntry.id);
+        if (entryIdx > -1) {
+          projects[projIdx].entries[entryIdx].sketcherData = JSON.parse(JSON.stringify(shapes));
+          projects[projIdx].entries[entryIdx].sketcherImage = currentPreviewEntry.sketcherImage;
+          saveProjects();
+          if (auth.currentUser) {
+            saveProjectEntry(activeProject.id, projects[projIdx].entries[entryIdx]).catch(e => {});
+          }
+        }
+      }
+
+      if (activeEntry && activeEntry.id === currentPreviewEntry.id) {
+        activeEntry.sketcherData = JSON.parse(JSON.stringify(shapes));
+        activeEntry.sketcherImage = currentPreviewEntry.sketcherImage;
+      }
+
+      modal.style.display = 'none';
+      renderPreviewPages();
+    });
+  }
+
+  const btnSketchTextCancel = document.getElementById('sketch-text-modal-cancel-btn');
+  if (btnSketchTextCancel) {
+    btnSketchTextCancel.addEventListener('click', () => {
+      document.getElementById('edit-sketch-text-modal').style.display = 'none';
+    });
+  }
+
+  const btnSketchTextClose = document.getElementById('sketch-text-modal-close-btn');
+  if (btnSketchTextClose) {
+    btnSketchTextClose.addEventListener('click', () => {
+      document.getElementById('edit-sketch-text-modal').style.display = 'none';
+    });
+  }
+
   // Page Navigation
   const btnPagePrev = document.getElementById('prev-btn-page-prev');
   const btnPageNext = document.getElementById('prev-btn-page-next');
