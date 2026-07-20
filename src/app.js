@@ -9461,21 +9461,31 @@ function initPrintPreviewEvents() {
   const btnEditSketchText = document.getElementById('prev-btn-edit-sketch-text');
   if (btnEditSketchText) {
     btnEditSketchText.addEventListener('click', () => {
-      if (!currentPreviewEntry) return;
+      console.log("Edit Sketch Text Button Clicked. currentPreviewEntry =", currentPreviewEntry);
+      if (!currentPreviewEntry) {
+        console.warn("Edit Sketch Text Button: currentPreviewEntry is not defined.");
+        return;
+      }
       openEditSketchTextModal();
     });
   }
 
   function openEditSketchTextModal() {
+    console.log("openEditSketchTextModal: opening modal...");
     const modal = document.getElementById('edit-sketch-text-modal');
     const container = document.getElementById('sketch-text-items-container');
     const emptyMsg = document.getElementById('sketch-text-empty-message');
-    if (!modal || !container || !emptyMsg) return;
+    if (!modal || !container || !emptyMsg) {
+      console.error("openEditSketchTextModal: modal elements not found in DOM!", { modal, container, emptyMsg });
+      return;
+    }
 
     container.innerHTML = '';
     emptyMsg.style.display = 'none';
 
     const shapes = currentPreviewEntry.sketcherData || [];
+    console.log("openEditSketchTextModal: parsed shapes from sketcherData:", shapes);
+
     const editableShapes = shapes.filter(s => 
       s.type === 'text' || 
       s.type === 'building' || 
@@ -9483,6 +9493,7 @@ function initPrintPreviewEvents() {
       s.type === 'gate' || 
       s.type === 'plot'
     );
+    console.log("openEditSketchTextModal: filtered editableShapes:", editableShapes);
 
     if (editableShapes.length === 0) {
       emptyMsg.style.display = 'block';
@@ -9553,6 +9564,7 @@ function initPrintPreviewEvents() {
     }
 
     modal.style.display = 'flex';
+    if (window.lucide) window.lucide.createIcons();
   }
 
   const btnSketchTextSave = document.getElementById('sketch-text-modal-save-btn');
