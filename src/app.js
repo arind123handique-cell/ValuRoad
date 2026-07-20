@@ -1320,31 +1320,57 @@ function exportSingleEstimateToExcel(entryId) {
               <td>Unit</td>
             </tr>
           `;
+          const titleLower = (item.title || '').toLowerCase();
+          const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
           rooms.forEach(r => {
-            htmlContent += `
-              <tr>
-                <td style="padding-left:15px;">${r.name || 'Room'}</td>
-                <td colspan="3">${parseFloat(r.l).toFixed(2)} m x ${parseFloat(r.w).toFixed(2)} m</td>
-                <td class="text-right">${parseFloat(r.areaSqm).toFixed(2)}</td>
-                <td>sqm</td>
-              </tr>
-            `;
+            if (isFeetOnlyType) {
+              const areaSqft = parseFloat(r.areaSqft || (r.l * r.w)).toFixed(2);
+              htmlContent += `
+                <tr>
+                  <td style="padding-left:15px;">${r.name || 'Room'}</td>
+                  <td colspan="3">${parseFloat(r.l).toFixed(2)} ft x ${parseFloat(r.w).toFixed(2)} ft</td>
+                  <td class="text-right">${areaSqft}</td>
+                  <td>sqf</td>
+                </tr>
+              `;
+            } else {
+              htmlContent += `
+                <tr>
+                  <td style="padding-left:15px;">${r.name || 'Room'}</td>
+                  <td colspan="3">${parseFloat(r.l).toFixed(2)} m x ${parseFloat(r.w).toFixed(2)} m</td>
+                  <td class="text-right">${parseFloat(r.areaSqm).toFixed(2)}</td>
+                  <td>sqm</td>
+                </tr>
+              `;
+            }
           });
-          htmlContent += `
-            <tr class="m-total-row">
-              <td colspan="4" class="text-right">Total Plinth Area</td>
-              <td class="text-right">${parseFloat(item.totalAreaSqm).toFixed(2)}</td>
-              <td>sqm</td>
-            </tr>
-          `;
-          if (item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) {
+
+          if (isFeetOnlyType) {
             htmlContent += `
               <tr class="m-total-row">
-                <td colspan="4" class="text-right">Total Plinth Area in sq.foot</td>
-                <td class="text-right">${parseFloat(item.totalAreaSqft).toFixed(2)}</td>
+                <td colspan="4" class="text-right">Total Plinth Area</td>
+                <td class="text-right">${parseFloat(item.totalAreaSqft || item.quantity).toFixed(2)}</td>
                 <td>sqf</td>
               </tr>
             `;
+          } else {
+            htmlContent += `
+              <tr class="m-total-row">
+                <td colspan="4" class="text-right">Total Plinth Area</td>
+                <td class="text-right">${parseFloat(item.totalAreaSqm).toFixed(2)}</td>
+                <td>sqm</td>
+              </tr>
+            `;
+            if (item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) {
+              htmlContent += `
+                <tr class="m-total-row">
+                  <td colspan="4" class="text-right">Total Plinth Area in sq.foot</td>
+                  <td class="text-right">${parseFloat(item.totalAreaSqft).toFixed(2)}</td>
+                  <td>sqf</td>
+                </tr>
+              `;
+            }
           }
         }
       }
@@ -1354,9 +1380,12 @@ function exportSingleEstimateToExcel(entryId) {
         ? (item.unit === 'sqf' ? item.totalAreaSqft : item.totalAreaSqm) * item.rate
         : (item.type === 'quantity-rate' ? item.quantity * item.rate : item.rate);
 
+      const titleLower = (item.title || '').toLowerCase();
+      const isZirat = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
       htmlContent += `
         <tr>
-          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} ${(item.title||'').includes('Temporary Building')||(item.title||'').includes('Temp Shed')?"Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat.":"(As per approved rate)"}</td>
+          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} ${isZirat ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}</td>
           <td>=</td>
           <td class="text-right">Rs. ${formatIndianCurrency(rawCost)}</td>
         </tr>
@@ -2760,6 +2789,7 @@ function setupEditor() {
     else if (inputStructType.value === 'assam')    inputLabel.value = 'Assam Type Building';
     else if (inputStructType.value === 'temp-building') inputLabel.value = 'Temporary Building';
     else if (inputStructType.value === 'temp-shed') inputLabel.value = 'Temp Shed';
+    else if (inputStructType.value === 'commercial') inputLabel.value = 'Commercial Building';
   });
 
   const roomColorInput = document.getElementById('prop-input-room-color');
@@ -2817,7 +2847,7 @@ function setupEditor() {
             rate = 20685.00;
           } else if (title === 'Assam Type Building') {
             rate = 15867.00;
-          } else if (title === 'Temporary Building' || title === 'Temp Shed') {
+          } else if (title === 'Temporary Building' || title === 'Temp Shed' || title === 'Commercial Building') {
             rate = 205.00;
             unit = 'sqf';
             qty = qty * 10.76391;
@@ -3228,7 +3258,7 @@ function renderStaircaseFloorMeasurements() {
 }
 
 function prefillStaircaseFromItems() {
-  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
+  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed", "Commercial Building"];
   const buildingItems = (activeEntry.items || []).filter(i => i.type === 'plinth-area' && buildingTitles.includes(i.title));
   if (buildingItems.length === 0) return;
   const totalArea = buildingItems.reduce((acc, curr) => acc + (curr.totalAreaSqm || 0), 0);
@@ -3316,6 +3346,7 @@ function autoGenerateSketcherShapes(entry) {
     if (t.includes('assam')) return 'assam';
     if (t.includes('temp shed') || t.includes('temp-shed') || t.includes('shed')) return 'temp-shed';
     if (t.includes('temporary') || t.includes('temp')) return 'temp-building';
+    if (t.includes('commercial') || t.includes('shop') || t.includes('hotel')) return 'commercial';
     return '';
   };
 
@@ -3440,9 +3471,81 @@ function autoGenerateSketcherShapes(entry) {
   return shapes;
 }
 
+export function migrateEntry(entry) {
+  if (!entry || !entry.items) return entry;
+  entry.items.forEach(item => {
+    const titleLower = (item.title || '').toLowerCase();
+    const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+    
+    if (isFeetOnlyType) {
+      console.log("migrateEntry: matched title:", item.title, "type:", item.type, "quantity:", item.quantity);
+      if (item.type === 'plinth-area') {
+        const sumRoomsArea = item.rooms ? item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0) : 0;
+        const denominator = sumRoomsArea || item.totalAreaSqm || 1;
+        const ratio = item.quantity / denominator;
+        const appearsMetric = (item.quantity > 0 && item.quantity < 35.0) || (ratio > 3.0) || (item.quantity === 0 && sumRoomsArea < 35.0);
+
+        console.log("migrateEntry: plinth-area item:", item.title, "sumRoomsArea:", sumRoomsArea, "ratio:", ratio, "appearsMetric:", appearsMetric);
+
+        if (appearsMetric) {
+          item.isRoomsFeet = true;
+          if (item.rooms) {
+            item.rooms.forEach(r => {
+              r.l = parseFloat((parseFloat(r.l) * 3.28084).toFixed(1));
+              r.w = parseFloat((parseFloat(r.w) * 3.28084).toFixed(1));
+              r.areaSqft = parseFloat((r.l * r.w).toFixed(2));
+              r.areaSqm = r.areaSqft * 0.092903;
+            });
+          }
+          item.totalAreaSqft = item.rooms.reduce((acc, curr) => acc + (curr.areaSqft || (curr.l * curr.w)), 0);
+          item.totalAreaSqm = item.totalAreaSqft * 0.092903;
+          
+          const qty = item.totalAreaSqft;
+          item.quantity = qty;
+          const rawCost = qty * item.rate;
+          item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+          item.totalCost = Math.round(rawCost - item.deductionAmount);
+        } else {
+          item.isRoomsFeet = true;
+        }
+      } else if (item.type === 'quantity-rate') {
+        const sumMeasurements = item.measurements ? item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0) : 0;
+        const denominator = sumMeasurements || 1;
+        const ratio = item.quantity / denominator;
+        const appearsMetric = (item.quantity > 0 && item.quantity < 35.0) || (ratio > 3.0) || (item.quantity === 0 && sumMeasurements < 35.0);
+
+        console.log("migrateEntry: quantity-rate item:", item.title, "sumMeasurements:", sumMeasurements, "ratio:", ratio, "appearsMetric:", appearsMetric);
+
+        if (appearsMetric) {
+          item.isRoomsFeet = true;
+          if (item.measurements) {
+            item.measurements.forEach(m => {
+              if (m.l && parseFloat(m.l) > 0) m.l = parseFloat((parseFloat(m.l) * 3.28084).toFixed(2));
+              if (m.b && parseFloat(m.b) > 0) m.b = parseFloat((parseFloat(m.b) * 3.28084).toFixed(2));
+              if (m.h && parseFloat(m.h) > 0) m.h = parseFloat((parseFloat(m.h) * 3.28084).toFixed(2));
+              m.subQty = calcMeasurementSubQty(m);
+            });
+          }
+          const totalQty = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
+          item.quantity = Number(totalQty.toFixed(3));
+          
+          const rawCost = item.quantity * item.rate;
+          item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+          item.totalCost = Math.round(rawCost - item.deductionAmount);
+        } else {
+          item.isRoomsFeet = true;
+        }
+      }
+    }
+  });
+  return entry;
+}
+
 function loadEntryToEditor() {
   if (!activeEntry) return;
   if (!activeEntry.items) activeEntry.items = [];
+
+  migrateEntry(activeEntry);
   if (!activeEntry.customServices) activeEntry.customServices = [];
   if (!activeEntry.status) activeEntry.status = 'draft';
 
@@ -3805,7 +3908,7 @@ function loadEntryToEditor() {
         const title = s.label || 'Building Block';
         
         // Handle predefined building types as Plinth Area Rooms
-        const predefinedTypes = ['RCC Structure', 'Assam Type Building', 'Temporary Building', 'Temp Shed'];
+        const predefinedTypes = ['RCC Structure', 'Assam Type Building', 'Temporary Building', 'Temp Shed', 'Commercial Building'];
         if ((s.type === 'building' || s.type === 'custom-block' || s.type === 'room') && 
             predefinedTypes.includes(title)) {
           
@@ -3823,7 +3926,7 @@ function loadEntryToEditor() {
             } else if (title === 'Assam Type Building') {
               plinthItem.rate = 15867.00;
               plinthItem.unit = 'sqm';
-            } else if (title === 'Temporary Building' || title === 'Temp Shed') {
+            } else if (title === 'Temporary Building' || title === 'Temp Shed' || title === 'Commercial Building') {
               plinthItem.rate = 205.00;
               plinthItem.unit = 'sqf';
             }
@@ -3850,13 +3953,30 @@ function loadEntryToEditor() {
               w = l;
             }
 
-            plinthItem.rooms.push({
-              id: Date.now() + Math.random(),
-              name: roomName,
-              l: parseFloat(l.toFixed(2)),
-              w: parseFloat(w.toFixed(2)),
-              areaSqm: parseFloat(area.toFixed(2))
-            });
+            const titleLower = (plinthItem.title || '').toLowerCase();
+            const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
+            if (isFeetOnlyType) {
+              l = l * 3.28084;
+              w = w * 3.28084;
+              const areaSqft = l * w;
+              plinthItem.rooms.push({
+                id: Date.now() + Math.random(),
+                name: roomName,
+                l: parseFloat(l.toFixed(2)),
+                w: parseFloat(w.toFixed(2)),
+                areaSqft: parseFloat(areaSqft.toFixed(2)),
+                areaSqm: parseFloat((areaSqft * 0.092903).toFixed(2))
+              });
+            } else {
+              plinthItem.rooms.push({
+                id: Date.now() + Math.random(),
+                name: roomName,
+                l: parseFloat(l.toFixed(2)),
+                w: parseFloat(w.toFixed(2)),
+                areaSqm: parseFloat(area.toFixed(2))
+              });
+            }
           }
 
           loadEntryToEditor();
@@ -4233,7 +4353,7 @@ function renderItemRow(item) {
       </div>
     `;
   } else if (item.type === 'plinth-area') {
-    const predefinedTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
+    const predefinedTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed", "Commercial Building"];
     const isOther = item.title && !predefinedTitles.includes(item.title);
     const selectedVal = isOther ? "Others" : (item.title || "RCC Structure");
 
@@ -4402,6 +4522,10 @@ function renderItemRow(item) {
         const rateInput = tr.querySelector('.item-rate-input');
         const unitSelect = tr.querySelector('.item-unit-select');
 
+        const oldUnit = (item.unit || '').toLowerCase();
+        const titleLower = val.toLowerCase();
+        const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
         if (val === 'RCC Structure') {
           item.rate = 20685.00;
           item.unit = 'sqm';
@@ -4414,6 +4538,34 @@ function renderItemRow(item) {
         } else if (val === 'Temp Shed') {
           item.rate = 205.00;
           item.unit = 'sqf';
+        } else if (val === 'Commercial Building') {
+          item.rate = 205.00;
+          item.unit = 'sqf';
+        }
+
+        const newUnit = (item.unit || '').toLowerCase();
+
+        if (item.type === 'plinth-area') {
+          const wasMetric = oldUnit === 'sqm' || oldUnit === '';
+          const isNowFeet = newUnit === 'sqf' || isFeetOnlyType;
+          
+          if (wasMetric && isNowFeet) {
+            // Convert rooms from m to ft
+            item.rooms.forEach(r => {
+              r.l = parseFloat((r.l * 3.28084).toFixed(3));
+              r.w = parseFloat((r.w * 3.28084).toFixed(3));
+              r.areaSqft = r.l * r.w;
+              r.areaSqm = r.areaSqft * 0.092903;
+            });
+          } else if (!wasMetric && !isNowFeet) {
+            // Convert rooms from ft to m
+            item.rooms.forEach(r => {
+              r.l = parseFloat((r.l / 3.28084).toFixed(3));
+              r.w = parseFloat((r.w / 3.28084).toFixed(3));
+              r.areaSqm = r.l * r.w;
+              r.areaSqft = r.areaSqm * 10.76391;
+            });
+          }
         }
 
         if (rateInput) rateInput.value = item.rate;
@@ -4499,9 +4651,33 @@ function renderItemRow(item) {
   const selectEl = tr.querySelector('.item-unit-select');
   if (selectEl) {
     selectEl.addEventListener('change', (e) => {
+      const oldUnit = (item.unit || '').toLowerCase();
+      const newUnit = e.target.value.toLowerCase();
       item.unit = e.target.value;
       if (item.type === 'plinth-area') {
+        if (oldUnit === 'sqm' && newUnit === 'sqf') {
+          // Convert rooms from m to ft
+          item.rooms.forEach(r => {
+            r.l = parseFloat((r.l * 3.28084).toFixed(3));
+            r.w = parseFloat((r.w * 3.28084).toFixed(3));
+            r.areaSqft = r.l * r.w;
+            r.areaSqm = r.areaSqft * 0.092903;
+          });
+        } else if (oldUnit === 'sqf' && newUnit === 'sqm') {
+          // Convert rooms from ft to m
+          item.rooms.forEach(r => {
+            r.l = parseFloat((r.l / 3.28084).toFixed(3));
+            r.w = parseFloat((r.w / 3.28084).toFixed(3));
+            r.areaSqm = r.l * r.w;
+            r.areaSqft = r.areaSqm * 10.76391;
+          });
+        }
+        renderPlinthRooms(item, tr);
         updatePlinthCalculations(item, tr);
+        const plinthDetailsLabel = tr.querySelector('.plinth-details span');
+        if (plinthDetailsLabel) {
+          plinthDetailsLabel.textContent = item.unit === 'sqf' ? 'Plinth room details (feet):' : 'Plinth room details (meters):';
+        }
       } else {
         updateRowTotal(item, tr);
       }
@@ -4635,6 +4811,17 @@ function updateDualDimensions(m, item, mtr) {
   const unit = (item.unit || '').toLowerCase();
   const isFeet = ['sqf', 'sqft', 'ft', 'rft'].some(u => unit.includes(u));
   const isMetric = ['sqm', 'cum', 'm', 'rm'].some(u => unit.includes(u));
+
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
+  if (isFeetOnlyType) {
+    lEl.innerText = '';
+    bEl.innerText = '';
+    hEl.innerText = '';
+    qEl.innerText = '';
+    return;
+  }
 
   if (!isFeet && !isMetric) {
     lEl.innerText = '';
@@ -4785,22 +4972,40 @@ function renderPlinthRooms(item, tr) {
   const container = tr.querySelector('.room-grid');
   container.innerHTML = '';
   
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+
   item.rooms.forEach((room) => {
     const div = document.createElement('div');
     div.className = 'room-row';
-    const l_ft = (room.l * 3.28084).toFixed(1);
-    const w_ft = (room.w * 3.28084).toFixed(1);
-    const areaSqft = (room.areaSqm * 10.76391).toFixed(2);
 
-    div.innerHTML = `
-      <input type="text" class="room-name" value="${room.name}" style="flex-grow: 2;" placeholder="Room name">
-      <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (m)" step="0.01">
-      <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
-      <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (m)" step="0.01">
-      <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">(${l_ft}' x ${w_ft}')</span>
-      <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${areaSqft} sqft</span></span>
-      <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
-    `;
+    if (isSqf) {
+      // Inputs are in feet
+      const areaSqft = (room.areaSqft || (room.l * room.w)).toFixed(2);
+      div.innerHTML = `
+        <input type="text" class="room-name" value="${room.name}" style="flex-grow: 2;" placeholder="Room name">
+        <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (ft)" step="0.01">
+        <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
+        <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (ft)" step="0.01">
+        <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${areaSqft} sqf</span>
+        <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
+      `;
+    } else {
+      // Standard metric inputs
+      const l_ft = (room.l * 3.28084).toFixed(1);
+      const w_ft = (room.w * 3.28084).toFixed(1);
+      const areaSqft = (room.areaSqm * 10.76391).toFixed(2);
+      div.innerHTML = `
+        <input type="text" class="room-name" value="${room.name}" style="flex-grow: 2;" placeholder="Room name">
+        <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (m)" step="0.01">
+        <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
+        <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (m)" step="0.01">
+        <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">(${l_ft}' x ${w_ft}')</span>
+        <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${areaSqft} sqft</span></span>
+        <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
+      `;
+    }
 
     container.appendChild(div);
 
@@ -4811,14 +5016,20 @@ function renderPlinthRooms(item, tr) {
     const recalculateRoom = () => {
       room.l = parseFloat(div.querySelector('.room-l').value) || 0;
       room.w = parseFloat(div.querySelector('.room-w').value) || 0;
-      room.areaSqm = room.l * room.w;
       
-      const lf = (room.l * 3.28084).toFixed(1);
-      const wf = (room.w * 3.28084).toFixed(1);
-      const asf = (room.areaSqm * 10.76391).toFixed(2);
-      
-      div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
-      div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${asf} sqft</span>`;
+      if (isSqf) {
+        room.areaSqft = room.l * room.w;
+        room.areaSqm = room.areaSqft * 0.092903;
+        div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqft.toFixed(2)} sqf`;
+      } else {
+        room.areaSqm = room.l * room.w;
+        const lf = (room.l * 3.28084).toFixed(1);
+        const wf = (room.w * 3.28084).toFixed(1);
+        const asf = (room.areaSqm * 10.76391).toFixed(2);
+        
+        div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
+        div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${asf} sqft</span>`;
+      }
       
       updatePlinthCalculations(item, tr);
     };
@@ -4838,28 +5049,50 @@ function renderPlinthRooms(item, tr) {
 
 function addPlinthRoom(item, tr) {
   const nextNo = item.rooms.length + 1;
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+
   item.rooms.push({
     id: Date.now() + Math.random(),
     name: 'Room ' + nextNo,
-    l: 3.0,
-    w: 3.0,
-    areaSqm: 9.0
+    l: isSqf ? 10.0 : 3.0,
+    w: isSqf ? 10.0 : 3.0,
+    areaSqm: isSqf ? 9.2903 : 9.0,
+    areaSqft: isSqf ? 100.0 : 96.875
   });
   renderPlinthRooms(item, tr);
   updatePlinthCalculations(item, tr);
 }
 
 function updatePlinthCalculations(item, tr) {
-  item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + curr.areaSqm, 0);
-  item.totalAreaSqft = item.totalAreaSqm * 10.76391;
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+
+  if (isSqf) {
+    item.totalAreaSqft = item.rooms.reduce((acc, curr) => acc + (curr.areaSqft || (curr.l * curr.w)), 0);
+    item.totalAreaSqm = item.totalAreaSqft * 0.092903;
+  } else {
+    item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + curr.areaSqm, 0);
+    item.totalAreaSqft = item.totalAreaSqm * 10.76391;
+  }
   
-  const isSqf = (item.unit || '').toLowerCase() === 'sqf';
   const qty = isSqf ? item.totalAreaSqft : item.totalAreaSqm;
   const rawCost = qty * item.rate;
   item.deductionPct = parseFloat(tr.querySelector('.plinth-deduct-pct').value) || 0;
   item.deductionAmount = Math.round(rawCost * (item.deductionPct / 100));
   item.totalCost = Math.round(rawCost - item.deductionAmount);
-
+  
+  const totalDisplay = tr.querySelector('.plinth-total-display');
+  if (totalDisplay) {
+    if (isSqf) {
+      totalDisplay.innerHTML = `Total Area: ${item.totalAreaSqft.toFixed(2)} sqf`;
+    } else {
+      totalDisplay.innerHTML = `Total Area: ${item.totalAreaSqm.toFixed(2)} sqm (${item.totalAreaSqft.toFixed(2)} sqft)`;
+    }
+  }
+  
   tr.querySelector('.item-qty-input').value = qty.toFixed(2);
   tr.querySelector('.item-cost-display').innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
   calculateAndRenderTotals();
@@ -5273,7 +5506,7 @@ function calculateAndRenderTotals() {
 
   // Calculate building base for electrification/sanitary percentage
   // Sum totalCost of all included plinth-area items whose title is a building type (not "Others")
-  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
+  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed", "Commercial Building"];
   const buildingBase = Math.round(includedItems
     .filter(i => i.type === 'plinth-area' && buildingTitles.includes(i.title))
     .reduce((acc, curr) => acc + curr.totalCost, 0));
@@ -10158,25 +10391,37 @@ Extraction and Splitting Rules:
               cat = 'Commercial Building';
             }
 
-            const l = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
-            const b = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
-            const areaSqft = l * b;
-            const areaSqm = areaSqft * 0.092903;
+            const l_m = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
+            const b_m = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+            
+            let l_ft = l_m;
+            let b_ft = b_m;
+            let areaSqft = l_m * b_m;
+            let areaSqm = areaSqft * 0.092903;
 
-            let rate = 205.00;
-            if (cat === 'RCC Structure') rate = 20685.00;
-            else if (cat === 'Assam Type Building') rate = 15867.00;
-            else if (cat === 'Commercial Building') rate = 20685.00;
+            if (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') {
+              // Convert raw meters to feet
+              l_ft = l_m * 3.28084;
+              b_ft = b_m * 3.28084;
+              areaSqft = l_ft * b_ft;
+              areaSqm = l_m * b_m;
+            } else {
+              // For metric structures, keep l_m and b_m as meters
+              areaSqm = l_m * b_m;
+              l_ft = l_m * 3.28084;
+              b_ft = b_m * 3.28084;
+              areaSqft = l_ft * b_ft;
+            }
 
-            const qty = (cat === 'Temporary Building' || cat === 'Temp Shed') ? areaSqft : areaSqm;
+            const qty = (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') ? areaSqft : areaSqm;
             const totalCost = Math.round(qty * rate);
 
             return {
               id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
               description: desc || cat,
               category: cat,
-              length_ft: l,
-              breadth_ft: b,
+              length_ft: parseFloat(l_ft.toFixed(2)),
+              breadth_ft: parseFloat(b_ft.toFixed(2)),
               area_sqft: parseFloat(areaSqft.toFixed(2)),
               area_sqm: parseFloat(areaSqm.toFixed(2)),
               rate: rate,
@@ -10340,25 +10585,37 @@ Extraction and Splitting Rules:
             cat = 'Commercial Building';
           }
 
-          const l = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
-          const b = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
-          const areaSqft = l * b;
-          const areaSqm = areaSqft * 0.092903;
+          const l_m = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
+          const b_m = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+          
+          let l_ft = l_m;
+          let b_ft = b_m;
+          let areaSqft = l_m * b_m;
+          let areaSqm = areaSqft * 0.092903;
 
-          let rate = 205.00;
-          if (cat === 'RCC Structure') rate = 20685.00;
-          else if (cat === 'Assam Type Building') rate = 15867.00;
-          else if (cat === 'Commercial Building') rate = 20685.00;
+          if (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') {
+            // Convert raw meters to feet
+            l_ft = l_m * 3.28084;
+            b_ft = b_m * 3.28084;
+            areaSqft = l_ft * b_ft;
+            areaSqm = l_m * b_m;
+          } else {
+            // For metric structures, keep l_m and b_m as meters
+            areaSqm = l_m * b_m;
+            l_ft = l_m * 3.28084;
+            b_ft = b_m * 3.28084;
+            areaSqft = l_ft * b_ft;
+          }
 
-          const qty = (cat === 'Temporary Building' || cat === 'Temp Shed') ? areaSqft : areaSqm;
+          const qty = (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') ? areaSqft : areaSqm;
           const totalCost = Math.round(qty * rate);
 
           return {
             id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
             description: desc || cat,
             category: cat,
-            length_ft: l,
-            breadth_ft: b,
+            length_ft: parseFloat(l_ft.toFixed(2)),
+            breadth_ft: parseFloat(b_ft.toFixed(2)),
             area_sqft: parseFloat(areaSqft.toFixed(2)),
             area_sqm: parseFloat(areaSqm.toFixed(2)),
             rate: rate,
@@ -10565,8 +10822,8 @@ function renderBulkPreview() {
             <input type="number" class="struct-b-input" value="${struct.breadth_ft}" step="0.1" style="width: 100%; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 0.35rem; border: 1px solid var(--border-color); background-color: var(--bg-primary); color: var(--text-primary); text-align: right;">
           </div>
           <div style="width: 100px; text-align: right;">
-            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Area (sqft / sqm)</label>
-            <span style="font-size: 0.78rem; font-weight: 500;" class="struct-area-display">${struct.area_sqft} sqf<br>${struct.area_sqm} sqm</span>
+            <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Area</label>
+            <span style="font-size: 0.78rem; font-weight: 500;" class="struct-area-display">${(struct.category === 'Temporary Building' || struct.category === 'Temp Shed' || struct.category === 'Commercial Building') ? `${struct.area_sqft} sqf` : `${struct.area_sqft} sqf<br>${struct.area_sqm} sqm`}</span>
           </div>
           <div style="width: 90px;">
             <label style="font-size: 0.7rem; font-weight: 600; display: block; margin-bottom: 2px; color: var(--text-muted);">Rate (₹/unit)</label>
@@ -10605,10 +10862,14 @@ function renderBulkPreview() {
           struct.area_sqft = parseFloat((struct.length_ft * struct.breadth_ft).toFixed(2));
           struct.area_sqm = parseFloat((struct.area_sqft * 0.092903).toFixed(2));
 
-          card.querySelector('.struct-area-display').innerHTML = `${struct.area_sqft.toFixed(2)} sqf<br>${struct.area_sqm.toFixed(2)} sqm`;
+          if (struct.category === 'Temporary Building' || struct.category === 'Temp Shed' || struct.category === 'Commercial Building') {
+            card.querySelector('.struct-area-display').innerHTML = `${struct.area_sqft.toFixed(2)} sqf`;
+          } else {
+            card.querySelector('.struct-area-display').innerHTML = `${struct.area_sqft.toFixed(2)} sqf<br>${struct.area_sqm.toFixed(2)} sqm`;
+          }
 
           // Re-compute Cost
-          const qty = (struct.category === 'Temporary Building' || struct.category === 'Temp Shed') ? struct.area_sqft : struct.area_sqm;
+          const qty = (struct.category === 'Temporary Building' || struct.category === 'Temp Shed' || struct.category === 'Commercial Building') ? struct.area_sqft : struct.area_sqm;
           const rawCost = qty * struct.rate;
           const deductAmount = rawCost * (struct.deduction_pct / 100);
           struct.total_cost = Math.round(rawCost - deductAmount);
@@ -10631,7 +10892,7 @@ function renderBulkPreview() {
           else if (struct.category === 'Assam Type Building') struct.rate = 15867.00;
           else if (struct.category === 'Temporary Building') struct.rate = 205.00;
           else if (struct.category === 'Temp Shed') struct.rate = 205.00;
-          else if (struct.category === 'Commercial Building') struct.rate = 20685.00;
+          else if (struct.category === 'Commercial Building') struct.rate = 205.00;
 
           rateInput.value = struct.rate;
           recalculateCard();
@@ -10847,8 +11108,8 @@ async function generateBulkEstimates() {
           title: mappedCat,
           description: '',
           type: 'plinth-area',
-          quantity: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? s.area_sqft : s.area_sqm,
-          unit: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed') ? 'sqf' : 'sqm',
+          quantity: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? s.area_sqft : s.area_sqm,
+          unit: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? 'sqf' : 'sqm',
           rate: s.rate,
           totalCost: s.total_cost,
           includeInValuation: true,
@@ -10860,9 +11121,10 @@ async function generateBulkEstimates() {
             {
               id: Date.now() + Math.random(),
               name: s.description || mappedCat,
-              l: parseFloat((s.length_ft * 0.3048).toFixed(3)),
-              w: parseFloat((s.breadth_ft * 0.3048).toFixed(3)),
-              areaSqm: s.area_sqm
+              l: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? s.length_ft : parseFloat((s.length_ft * 0.3048).toFixed(3)),
+              w: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? s.breadth_ft : parseFloat((s.breadth_ft * 0.3048).toFixed(3)),
+              areaSqm: s.area_sqm,
+              areaSqft: s.area_sqft
             }
           ],
           totalAreaSqm: s.area_sqm,
@@ -11004,7 +11266,7 @@ function calculateBulkEntryTotals(entry) {
   entry.totalExcludedCost = totalExcludedCost;
 
   // Calculate building base for electrification/sanitary percentage
-  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed"];
+  const buildingTitles = ["RCC Structure", "Assam Type Building", "Temporary Building", "Temp Shed", "Commercial Building"];
   const buildingBase = Math.round(includedItems
     .filter(i => i.type === 'plinth-area' && buildingTitles.includes(i.title))
     .reduce((acc, curr) => acc + curr.totalCost, 0));

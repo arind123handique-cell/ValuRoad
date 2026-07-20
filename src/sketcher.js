@@ -1538,8 +1538,26 @@ export class SiteSketcher {
     const prev=this.selectedShape;
     this.selectedShape=null;
     this.isExporting=true;
+    
+    // Store original size
+    const origW = this.canvas.width;
+    const origH = this.canvas.height;
+    
+    // Upscale canvas to 3x for high-resolution print export
+    this.canvas.width = origW * 3;
+    this.canvas.height = origH * 3;
+    
+    // Apply 3x scale transformation
+    this.ctx.scale(3, 3);
+    
     this.draw();
+    
     const url=this.canvas.toDataURL('image/png');
+    
+    // Restore original size
+    this.canvas.width = origW;
+    this.canvas.height = origH;
+    
     this.isExporting=false;
     this.selectedShape=prev;
     this.draw();
