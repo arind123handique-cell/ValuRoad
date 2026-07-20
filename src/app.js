@@ -9626,6 +9626,21 @@ function initPrintPreviewEvents() {
     });
   }
 
+  const btnSketchTextApplyAll = document.getElementById('sketch-text-apply-all-btn');
+  if (btnSketchTextApplyAll) {
+    btnSketchTextApplyAll.addEventListener('click', () => {
+      const selectVal = document.getElementById('sketch-text-apply-all-select').value;
+      const container = document.getElementById('sketch-text-items-container');
+      if (container) {
+        const rowSelects = container.querySelectorAll('select');
+        rowSelects.forEach(sel => {
+          sel.value = selectVal;
+        });
+        console.log("Applied font size factor", selectVal, "to all text elements.");
+      }
+    });
+  }
+
   const btnSketchTextCancel = document.getElementById('sketch-text-modal-cancel-btn');
   if (btnSketchTextCancel) {
     btnSketchTextCancel.addEventListener('click', () => {
