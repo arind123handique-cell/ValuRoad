@@ -3696,6 +3696,8 @@ function loadEntryToEditor() {
   // Wire up grid/snap toggle callbacks
   sketcher.onGridToggle = () => syncGridAndSnapUI();
   sketcher.onSnapToggle = () => syncGridAndSnapUI();
+  sketcher.onObjectSnapToggle = () => syncGridAndSnapUI();
+  sketcher.onOrthoToggle = () => syncGridAndSnapUI();
 
   // Set zoom change listener
   const zoomLabel = document.getElementById('sketcher-zoom-label');
@@ -6163,6 +6165,12 @@ export function syncSketcherUIState() {
   
   const vSnap = document.getElementById('vtool-snap');
   if (vSnap) vSnap.classList.toggle('active', sketcher.snapGrid);
+
+  const vOsnap = document.getElementById('vtool-osnap');
+  if (vOsnap) vOsnap.classList.toggle('active', sketcher.snapEndpt);
+
+  const vOrtho = document.getElementById('vtool-ortho');
+  if (vOrtho) vOrtho.classList.toggle('active', sketcher.orthoMode);
   
   // 2. Bottom Status Bar Buttons Grid/Snap
   const gridBtn = document.getElementById('sketch-grid-toggle');
@@ -6181,6 +6189,24 @@ export function syncSketcherUIState() {
       : '<i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP OFF';
     snapBtn.style.color = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
     snapBtn.style.borderColor = sketcher.snapGrid ? '#22c55e' : '#94a3b8';
+  }
+
+  const osnapBtn = document.getElementById('sketch-osnap-toggle');
+  if (osnapBtn) {
+    osnapBtn.innerHTML = sketcher.snapEndpt
+      ? '<i data-lucide="crosshair" style="width:13px;height:13px;"></i> OSNAP ON'
+      : '<i data-lucide="crosshair" style="width:13px;height:13px;"></i> OSNAP OFF';
+    osnapBtn.style.color = sketcher.snapEndpt ? '#22c55e' : '#94a3b8';
+    osnapBtn.style.borderColor = sketcher.snapEndpt ? '#22c55e' : '#94a3b8';
+  }
+
+  const orthoBtn = document.getElementById('sketch-ortho-toggle');
+  if (orthoBtn) {
+    orthoBtn.innerHTML = sketcher.orthoMode
+      ? '<i data-lucide="corner-down-right" style="width:13px;height:13px;"></i> ORTHO ON'
+      : '<i data-lucide="corner-down-right" style="width:13px;height:13px;"></i> ORTHO OFF';
+    orthoBtn.style.color = sketcher.orthoMode ? '#22c55e' : '#94a3b8';
+    orthoBtn.style.borderColor = sketcher.orthoMode ? '#22c55e' : '#94a3b8';
   }
 
   // 3. Lock button state
@@ -6305,6 +6331,7 @@ function setupSketcherToolbar() {
   const vUndo = document.getElementById('vtool-undo');
   const vRedo = document.getElementById('vtool-redo');
   const vSave = document.getElementById('vtool-save');
+  const vExportDxf = document.getElementById('vtool-export-dxf');
   const vDel = document.getElementById('vtool-delete');
 
   if (vSave) vSave.addEventListener('click', async () => {
@@ -6328,6 +6355,28 @@ function setupSketcherToolbar() {
   if (vUndo) vUndo.addEventListener('click', () => { if (sketcher) sketcher.undo(); });
   if (vRedo) vRedo.addEventListener('click', () => { if (sketcher) sketcher.redo(); });
   if (vDel) vDel.addEventListener('click', () => { if (sketcher) sketcher.deleteSelected(); });
+
+  const vOsnapBtn = document.getElementById('vtool-osnap');
+  if (vOsnapBtn) vOsnapBtn.addEventListener('click', () => { if (sketcher) sketcher.toggleObjectSnap(); });
+
+  const vOrthoBtn = document.getElementById('vtool-ortho');
+  if (vOrthoBtn) vOrthoBtn.addEventListener('click', () => { if (sketcher) sketcher.toggleOrtho(); });
+  if (vExportDxf) vExportDxf.addEventListener('click', () => {
+    if (!sketcher) return;
+    const dxf = sketcher.exportDxf();
+    const nameParts = ['site-plan', activeEntry?.ownerName, activeProject?.name].filter(Boolean);
+    const filename = `${nameParts.join('-').replace(/[^a-z0-9_-]+/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'site-plan'}.dxf`;
+    const blob = new Blob([dxf], { type: 'application/dxf;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('AutoCAD DXF exported');
+  });
 
   const vGrid = document.getElementById('vtool-grid');
   const vSnap = document.getElementById('vtool-snap');
@@ -6517,6 +6566,22 @@ function setupSketcherToolbar() {
   if (snapBtn) {
     snapBtn.addEventListener('click', () => { 
       if (sketcher) sketcher.toggleSnap();
+    });
+  }
+
+  // ── OSNAP toggle (F3) ──
+  const osnapToggle = document.getElementById('sketch-osnap-toggle');
+  if (osnapToggle) {
+    osnapToggle.addEventListener('click', () => {
+      if (sketcher) sketcher.toggleObjectSnap();
+    });
+  }
+
+  // ── ORTHO toggle (F8) ──
+  const orthoToggle = document.getElementById('sketch-ortho-toggle');
+  if (orthoToggle) {
+    orthoToggle.addEventListener('click', () => {
+      if (sketcher) sketcher.toggleOrtho();
     });
   }
 
@@ -11599,4 +11664,3 @@ function calculateBulkEntryTotals(entry) {
   if (entry.addStaircase) grandTotal += entry.staircaseCost;
   entry.grandTotal = Math.round(grandTotal);
 }
-
