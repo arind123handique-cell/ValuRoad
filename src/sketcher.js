@@ -986,9 +986,13 @@ export class SiteSketcher {
       const csp=this.w2s(cx,cy);
       const fs = s.fontSize || this.globalFontSizeBase;
       const ff = s.fontFamily || this.globalFontFamily;
-      ctx.fillStyle='#1e293b'; ctx.font=`bold ${Math.max(8, Math.round(fs * 1.3 * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const sizeFactor = s.fontSizeFactor !== undefined ? s.fontSizeFactor : 1.3;
+      ctx.fillStyle='#1e293b'; ctx.font=`bold ${Math.max(8, Math.round(fs * sizeFactor * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(s.label||'Room',csp.x,csp.y-8);
-      if(s.areaSqm>0){ctx.font=`${Math.max(8, Math.round(fs * 1.0 * z))}px ${ff}`; ctx.fillStyle='#475569'; ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp.x,csp.y+8);}
+      if(s.areaSqm>0){
+        const areaSizeFactor = s.fontSizeFactor !== undefined ? s.fontSizeFactor * 0.77 : 1.0;
+        ctx.font=`${Math.max(8, Math.round(fs * areaSizeFactor * z))}px ${ff}`; ctx.fillStyle='#475569'; ctx.fillText(`${s.areaSqm.toFixed(2)} sqm`,csp.x,csp.y+8);
+      }
 
     } else if (s.type==='wall') {
       const s1=this.w2s(s.x1,s.y1), s2=this.w2s(s.x2,s.y2);
@@ -1054,7 +1058,8 @@ export class SiteSketcher {
       const csp2=this.w2s(cx2 + lox, cy2 + loy);
       const fs = s.fontSize || this.globalFontSizeBase;
       const ff = s.fontFamily || this.globalFontFamily;
-      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(fs * 1.1 * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const sizeFactor = s.fontSizeFactor !== undefined ? s.fontSizeFactor : 1.1;
+      ctx.fillStyle='#0f172a'; ctx.font=`bold ${Math.max(8, Math.round(fs * sizeFactor * z))}px ${ff}`; ctx.textAlign='center'; ctx.textBaseline='middle';
       const lblText = s.label||'Building';
       const ltw = ctx.measureText(lblText).width + 8;
       ctx.fillText(lblText,csp2.x,csp2.y);

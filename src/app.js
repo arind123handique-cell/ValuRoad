@@ -9533,7 +9533,11 @@ function initPrintPreviewEvents() {
       s.type === 'building' || 
       s.type === 'custom-block' || 
       s.type === 'gate' || 
-      s.type === 'plot'
+      s.type === 'plot' ||
+      s.type === 'room' ||
+      s.type === 'polygon-building' ||
+      s.type === 'boundary-wall' ||
+      s.type === 'wall'
     );
     console.log("openEditSketchTextModal: filtered editableShapes:", editableShapes);
 
@@ -9554,7 +9558,7 @@ function initPrintPreviewEvents() {
         const typeLabel = document.createElement('span');
         typeLabel.style.fontWeight = '700';
         typeLabel.style.fontSize = '0.75rem';
-        typeLabel.style.width = '100px';
+        typeLabel.style.width = '120px';
         typeLabel.style.color = 'var(--text-secondary)';
         typeLabel.style.textTransform = 'uppercase';
         typeLabel.textContent = shape.type;
@@ -9564,7 +9568,7 @@ function initPrintPreviewEvents() {
         textInput.className = 'ribbon-input';
         textInput.style.flexGrow = '1';
         textInput.style.height = '32px';
-        textInput.value = shape.type === 'text' ? (shape.text || '') : (shape.label || '');
+        textInput.value = shape.type === 'text' ? (shape.text || '') : ((shape.type === 'boundary-wall' || shape.type === 'wall') ? (shape.dimLabel || '') : (shape.label || ''));
         textInput.placeholder = 'Enter text...';
 
         const sizeSelect = document.createElement('select');
@@ -9587,7 +9591,7 @@ function initPrintPreviewEvents() {
           { name: 'Huge (3.0)', val: 3.0 }
         ];
 
-        const currentFactor = shape.fontSizeFactor !== undefined ? shape.fontSizeFactor : 1.3;
+        const currentFactor = shape.fontSizeFactor !== undefined ? shape.fontSizeFactor : (shape.type === 'room' ? 1.3 : (shape.type === 'polygon-building' ? 1.1 : (shape.type === 'gate' ? 0.9 : (shape.type === 'plot' ? 1.2 : 1.0))));
         sizeOptions.forEach(opt => {
           const elOpt = document.createElement('option');
           elOpt.value = opt.val;
@@ -9629,6 +9633,8 @@ function initPrintPreviewEvents() {
         if (shape) {
           if (shape.type === 'text') {
             shape.text = inputVal;
+          } else if (shape.type === 'boundary-wall' || shape.type === 'wall') {
+            shape.dimLabel = inputVal;
           } else {
             shape.label = inputVal;
           }
