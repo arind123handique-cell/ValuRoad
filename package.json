@@ -1,7 +1,7 @@
 {
   "name": "valuroad",
   "private": true,
-  "version": "2.1.0-pro",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
