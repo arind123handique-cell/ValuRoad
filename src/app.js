@@ -9361,6 +9361,10 @@ function exportPreviewedDocumentToWord() {
 }
 
 function initPrintPreviewEvents() {
+  console.log("initPrintPreviewEvents: initializing print preview events...");
+  const testBtn = document.getElementById('prev-btn-edit-sketch-text');
+  console.log("initPrintPreviewEvents: testBtn element found:", testBtn);
+
   const prevPageSize = document.getElementById('prev-page-size');
   const prevPageOrient = document.getElementById('prev-page-orient');
   const prevPageMargin = document.getElementById('prev-page-margin');
