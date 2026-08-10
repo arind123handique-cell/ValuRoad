@@ -529,7 +529,7 @@ export class SiteSketcher {
             // Free-move the label in world coordinates
             s.labelOffsetX = (s.labelOffsetX || 0) + (raw.x - this.dragStart.x);
             s.labelOffsetY = (s.labelOffsetY || 0) + (raw.y - this.dragStart.y);
-          } else if (s.type === 'polygon-building' || s.type === 'polygon') {
+          } else if (s.type === 'polygon-building' || s.type === 'polygon' || s.type === 'polyline') {
             const j = dim.edgeKey;
             const p1 = s.points[j], p2 = s.points[(j+1)%s.points.length];
             const dx = p2.x - p1.x, dy = p2.y - p1.y, l = Math.hypot(dx,dy) || 1;
@@ -660,7 +660,7 @@ export class SiteSketcher {
             const newVal = prompt('Edit dimension text (leave blank to revert to auto):', dim.label);
             if (newVal !== null) {
               const s = dim.shape;
-              if (s.type === 'polygon-building' || s.type === 'polygon') {
+              if (s.type === 'polygon-building' || s.type === 'polygon' || s.type === 'polyline') {
                 if (!s.customEdgeDims) s.customEdgeDims = {};
                 if (newVal.trim() === '') delete s.customEdgeDims[dim.edgeKey];
                 else s.customEdgeDims[dim.edgeKey] = newVal.trim();
@@ -690,6 +690,7 @@ export class SiteSketcher {
 
       if (this.mode==='wall' && this.wallChain.length >= 2) { this._commitWallChain(false); }
       else if ((this.mode==='room'||this.mode==='polybuilding') && this.polyChain.length >= 3) { this._commitPolyChain(); }
+      else if (this.mode==='polyline' && this.polyChain.length >= 2) { this.finishPolyline(false); }
     });
 
     window.addEventListener('keydown', (e) => {
@@ -1298,18 +1299,15 @@ export class SiteSketcher {
         if (s.closed) ctx.closePath();
         ctx.stroke();
         ctx.setLineDash([]);
+        // Draw dimension lines with arrows for each segment (draggable, editable)
         const endIdx = s.closed ? s.points.length : s.points.length - 1;
         for (let i = 0; i < endIdx; i++) {
           const p1 = s.points[i], p2 = s.points[(i + 1) % s.points.length];
           const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
           if (segLen > 0.05) {
-            const sp1 = this.w2s(p1.x, p1.y), sp2 = this.w2s(p2.x, p2.y);
-            const mx = (sp1.x + sp2.x) / 2, my = (sp1.y + sp2.y) / 2;
-            const fs = s.fontSize || this.globalFontSizeBase;
-            const ff = s.fontFamily || this.globalFontFamily;
-            ctx.font = `italic ${Math.max(8, Math.round(fs * 0.85 * z))}px ${ff}`;
-            ctx.fillStyle = s.color || '#64748b'; ctx.textAlign = 'center';
-            ctx.fillText(`${segLen.toFixed(2)}m`, mx, my - 6);
+            const lbl = (s.customEdgeDims && s.customEdgeDims[i]) ? s.customEdgeDims[i] : `${segLen.toFixed(2)}m`;
+            const off = (s.customEdgeOffsets && s.customEdgeOffsets[i] !== undefined) ? s.customEdgeOffsets[i] : 0.8;
+            this._drawBoxDim(p1.x, p1.y, p2.x, p2.y, lbl, off, s.fontSize, s.fontFamily, s, i);
           }
         }
       }
