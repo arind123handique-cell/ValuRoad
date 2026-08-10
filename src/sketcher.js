@@ -660,9 +660,14 @@ export class SiteSketcher {
             const newVal = prompt('Edit dimension text (leave blank to revert to auto):', dim.label);
             if (newVal !== null) {
               const s = dim.shape;
-              if (s.type === 'polygon-building' || s.type === 'polygon' || s.type === 'polyline') {
+              if (s.type === 'polygon-building' || s.type === 'polygon') {
                 if (!s.customEdgeDims) s.customEdgeDims = {};
                 if (newVal.trim() === '') delete s.customEdgeDims[dim.edgeKey];
+                else s.customEdgeDims[dim.edgeKey] = newVal.trim();
+              } else if (s.type === 'polyline') {
+                if (!s.customEdgeDims) s.customEdgeDims = {};
+                // Empty string = hide the dim; type text = custom label; revert = restore with Ctrl+Z
+                if (newVal.trim() === '') s.customEdgeDims[dim.edgeKey] = '__hidden__';
                 else s.customEdgeDims[dim.edgeKey] = newVal.trim();
               } else if (s.type === 'building' || s.type === 'custom-block') {
                 if (dim.edgeKey === 'w') {
@@ -691,6 +696,36 @@ export class SiteSketcher {
       if (this.mode==='wall' && this.wallChain.length >= 2) { this._commitWallChain(false); }
       else if ((this.mode==='room'||this.mode==='polybuilding') && this.polyChain.length >= 3) { this._commitPolyChain(); }
       else if (this.mode==='polyline' && this.polyChain.length >= 2) { this.finishPolyline(false); }
+    });
+
+    // ── Right-click: toggle-delete a polyline segment dimension ──
+    this.canvas.addEventListener('contextmenu', (e) => {
+      if (this.isLocked) return;
+      const r = this.canvas.getBoundingClientRect();
+      const cx = (e.clientX - r.left) * (this.W / r.width);
+      const cy = (e.clientY - r.top)  * (this.H / r.height);
+      if (this.drawnDims) {
+        for (let i = this.drawnDims.length - 1; i >= 0; i--) {
+          const dim = this.drawnDims[i];
+          if (cx >= dim.x && cx <= dim.x + dim.w && cy >= dim.y && cy <= dim.y + dim.h) {
+            const s = dim.shape;
+            if (s.type === 'polyline') {
+              e.preventDefault();
+              this.pushHistory();
+              if (!s.customEdgeDims) s.customEdgeDims = {};
+              // Toggle: right-click hides; right-click again restores
+              if (s.customEdgeDims[dim.edgeKey] === '__hidden__') {
+                delete s.customEdgeDims[dim.edgeKey];
+              } else {
+                s.customEdgeDims[dim.edgeKey] = '__hidden__';
+              }
+              this._saveState();
+              this.draw();
+              return;
+            }
+          }
+        }
+      }
     });
 
     window.addEventListener('keydown', (e) => {
@@ -1299,10 +1334,12 @@ export class SiteSketcher {
         if (s.closed) ctx.closePath();
         ctx.stroke();
         ctx.setLineDash([]);
-        // Draw dimension lines with arrows for each segment (draggable, editable)
+        // Draw dimension lines with arrows for each segment (draggable, editable, right-click to delete)
         const endIdx = s.closed ? s.points.length : s.points.length - 1;
         for (let i = 0; i < endIdx; i++) {
           const p1 = s.points[i], p2 = s.points[(i + 1) % s.points.length];
+          // Skip hidden dims
+          if (s.customEdgeDims && s.customEdgeDims[i] === '__hidden__') continue;
           const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
           if (segLen > 0.05) {
             const lbl = (s.customEdgeDims && s.customEdgeDims[i]) ? s.customEdgeDims[i] : `${segLen.toFixed(2)}m`;
