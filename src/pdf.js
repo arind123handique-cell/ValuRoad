@@ -355,13 +355,23 @@ function renderPlinthAreaItem(item) {
   
   const titleLower = (item.title || '').toLowerCase();
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
-
-  const totalSqftVal = parseFloat(item.totalAreaSqft || (item.unit === 'sqf' ? item.quantity : (item.totalAreaSqm ? item.totalAreaSqm * 10.76391 : 0)) || 0);
-  const totalSqmVal = parseFloat(item.totalAreaSqm || (totalSqftVal * 0.092903) || 0);
-
   const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+
+  let totalSqftVal, totalSqmVal;
+  if (isSqfUnit) {
+    totalSqftVal = item.rooms && item.rooms.length > 0
+      ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
+      : parseFloat(item.totalAreaSqft || item.quantity || 0);
+    totalSqmVal = totalSqftVal * 0.092903;
+  } else {
+    totalSqmVal = item.rooms && item.rooms.length > 0
+      ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
+      : parseFloat(item.totalAreaSqm || item.quantity || 0);
+    totalSqftVal = totalSqmVal * 10.76391;
+  }
+
   let effectiveRate = item.rate;
-  if (isSqfUnit && item.rate === 2206) {
+  if (isSqfUnit && (item.rate === 2206 || !item.rate)) {
     effectiveRate = 205.00;
   }
   const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
@@ -392,16 +402,25 @@ function renderPlinthAreaItem(item) {
             const rawL = parseFloat(r.l) || 0;
             const rawW = parseFloat(r.w) || 0;
 
-            const roomSqm = (rawL * rawW);
-            const roomSqft = roomSqm * 10.76391;
+            let l_m, w_m, area_sqm, l_ft, w_ft, area_sqft;
 
-            const l_m = rawL.toFixed(2);
-            const w_m = rawW.toFixed(2);
-            const area_sqm = roomSqm.toFixed(2);
+            if (isSqfUnit) {
+              l_ft = rawL.toFixed(2);
+              w_ft = rawW.toFixed(2);
+              area_sqft = (rawL * rawW).toFixed(2);
 
-            const l_ft = (rawL * 3.28084).toFixed(1);
-            const w_ft = (rawW * 3.28084).toFixed(1);
-            const area_sqft = roomSqft.toFixed(2);
+              l_m = (rawL * 0.3048).toFixed(2);
+              w_m = (rawW * 0.3048).toFixed(2);
+              area_sqm = (parseFloat(area_sqft) * 0.092903).toFixed(2);
+            } else {
+              l_m = rawL.toFixed(2);
+              w_m = rawW.toFixed(2);
+              area_sqm = (rawL * rawW).toFixed(2);
+
+              l_ft = (rawL * 3.28084).toFixed(1);
+              w_ft = (rawW * 3.28084).toFixed(1);
+              area_sqft = (parseFloat(area_sqm) * 10.76391).toFixed(2);
+            }
 
             return `
               <div class="pdf-row" style="margin-bottom: 2px;">
