@@ -1371,17 +1371,24 @@ function exportSingleEstimateToExcel(entryId) {
         }
       }
 
-      // Rate Line
-      const rawCost = (item.type === 'plinth-area')
-        ? (item.unit === 'sqf' ? item.totalAreaSqft : item.totalAreaSqm) * item.rate
-        : (item.type === 'quantity-rate' ? item.quantity * item.rate : item.rate);
-
       const titleLower = (item.title || '').toLowerCase();
       const isZirat = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+      const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isZirat);
+
+      let effectiveRate = item.rate;
+      if (isSqfUnit && item.rate === 2206) {
+        effectiveRate = 205.00;
+        item.rate = 205.00;
+      }
+      const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'L/S');
+
+      const rawCost = (item.type === 'plinth-area')
+        ? (isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm) * effectiveRate
+        : (item.type === 'quantity-rate' ? item.quantity * effectiveRate : effectiveRate);
 
       htmlContent += `
         <tr>
-          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(item.rate)} / ${item.unit || 'L/S'} ${isZirat ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}</td>
+          <td style="padding-left:15px;" colspan="4">@ Rs. ${formatIndianCurrency(effectiveRate)} / ${displayRateUnit} ${isZirat ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}</td>
           <td>=</td>
           <td class="text-right">Rs. ${formatIndianCurrency(rawCost)}</td>
         </tr>
@@ -4547,21 +4554,21 @@ function renderItemRow(item) {
         const titleLower = val.toLowerCase();
         const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
 
+        if (isFeetOnlyType && !item.unit) {
+          item.unit = 'sqf';
+        }
+
+        const isSqfUnit = item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType;
+
         if (val === 'RCC Structure') {
-          item.rate = 20685.00;
-          item.unit = 'sqm';
+          item.rate = isSqfUnit ? 1922.00 : 20685.00;
+          if (!item.unit) item.unit = 'sqm';
         } else if (val === 'Assam Type Building') {
-          item.rate = 15867.00;
-          item.unit = 'sqm';
-        } else if (val === 'Temporary Building') {
-          item.rate = 2206.00;
-          item.unit = 'sqm';
-        } else if (val === 'Temp Shed') {
-          item.rate = 2206.00;
-          item.unit = 'sqm';
-        } else if (val === 'Commercial Building') {
-          item.rate = 2206.00;
-          item.unit = 'sqm';
+          item.rate = isSqfUnit ? 1474.00 : 15867.00;
+          if (!item.unit) item.unit = 'sqm';
+        } else if (val === 'Temporary Building' || val === 'Temp Shed' || val === 'Commercial Building') {
+          item.unit = item.unit || 'sqf';
+          item.rate = (item.unit === 'sqf' || item.unit === 'sqft') ? 205.00 : 2206.00;
         }
 
         if (item.type === 'plinth-area') {
@@ -4651,7 +4658,26 @@ function renderItemRow(item) {
   const selectEl = tr.querySelector('.item-unit-select');
   if (selectEl) {
     selectEl.addEventListener('change', (e) => {
+      const oldUnit = (item.unit || '').toLowerCase();
+      const newUnit = (e.target.value || '').toLowerCase();
       item.unit = e.target.value;
+
+      // Auto convert rates between sqm and sqf for preset/standard rates
+      if ((oldUnit === 'sqm' || !oldUnit) && (newUnit === 'sqf' || newUnit === 'sqft')) {
+        if (item.rate === 2206) item.rate = 205.00;
+        else if (item.rate === 15867) item.rate = 1474.00;
+        else if (item.rate === 20685) item.rate = 1922.00;
+        else if (item.rate > 0) item.rate = parseFloat((item.rate / 10.76391).toFixed(2));
+      } else if ((oldUnit === 'sqf' || oldUnit === 'sqft') && newUnit === 'sqm') {
+        if (item.rate === 205) item.rate = 2206.00;
+        else if (item.rate === 1474) item.rate = 15867.00;
+        else if (item.rate === 1922) item.rate = 20685.00;
+        else if (item.rate > 0) item.rate = parseFloat((item.rate * 10.76391).toFixed(2));
+      }
+
+      const rateInput = tr.querySelector('.item-rate-input');
+      if (rateInput) rateInput.value = item.rate;
+
       if (item.type === 'plinth-area') {
         updatePlinthCalculations(item, tr);
       } else {

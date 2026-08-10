@@ -298,14 +298,23 @@ function renderQuantityRateItem(item) {
       ${measurementRowsHtml}
       
       <!-- Rate Line -->
-      <div class="pdf-row" style="margin-bottom: 1px;">
-        <div style="margin-left: 20mm; flex-grow: 1;">
-          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
-        </div>
-        <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-          = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
-        </div>
-      </div>
+      ${(() => {
+        const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+        let effectiveRate = item.rate;
+        if (isSqfUnit && item.rate === 2206) effectiveRate = 205.00;
+        const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
+        const effectiveCost = item.quantity * effectiveRate;
+        return `
+          <div class="pdf-row" style="margin-bottom: 1px;">
+            <div style="margin-left: 20mm; flex-grow: 1;">
+              @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
+            </div>
+            <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+              = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveCost)}
+            </div>
+          </div>
+        `;
+      })()}
 
       <!-- Deduction Line -->
       ${hasDeduction ? `
@@ -431,14 +440,26 @@ function renderPlinthAreaItem(item) {
         })()}
         
         <!-- Rate Line -->
-        <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
-          <div style="flex-grow: 1;">
-            @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.rate)}/${item.unit || 'sqm'} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
-          </div>
-          <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
-          </div>
-        </div>
+        ${(() => {
+          const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+          let effectiveRate = item.rate;
+          if (isSqfUnit && item.rate === 2206) {
+            effectiveRate = 205.00;
+          }
+          const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
+          const effectiveCost = (isSqfUnit ? totalSqftVal : totalSqmVal) * effectiveRate;
+
+          return `
+            <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
+              <div style="flex-grow: 1;">
+                @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
+              </div>
+              <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+                = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveCost)}
+              </div>
+            </div>
+          `;
+        })()}
         
         <!-- Deduction Line (if deduction exists) -->
         ${item.deductionPct > 0 ? `
