@@ -357,18 +357,10 @@ function renderPlinthAreaItem(item, itemIndex = null) {
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
   const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
 
-  let totalSqftVal, totalSqmVal;
-  if (isSqfUnit) {
-    totalSqftVal = item.rooms && item.rooms.length > 0
-      ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
-      : parseFloat(item.totalAreaSqft || item.quantity || 0);
-    totalSqmVal = totalSqftVal * 0.092903;
-  } else {
-    totalSqmVal = item.rooms && item.rooms.length > 0
-      ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
-      : parseFloat(item.totalAreaSqm || item.quantity || 0);
-    totalSqftVal = totalSqmVal * 10.76391;
-  }
+  const totalSqmVal = item.rooms && item.rooms.length > 0
+    ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
+    : parseFloat(item.totalAreaSqm || item.quantity || 0);
+  const totalSqftVal = totalSqmVal * 10.76391;
 
   let effectiveRate = item.rate;
   if (isSqfUnit && (item.rate === 2206 || !item.rate)) {
