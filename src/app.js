@@ -4567,8 +4567,8 @@ function renderItemRow(item) {
           item.rate = isSqfUnit ? 1474.00 : 15867.00;
           if (!item.unit) item.unit = 'sqm';
         } else if (val === 'Temporary Building' || val === 'Temp Shed' || val === 'Commercial Building') {
-          item.unit = item.unit || 'sqf';
-          item.rate = (item.unit === 'sqf' || item.unit === 'sqft') ? 205.00 : 2206.00;
+          item.unit = 'sqf';
+          item.rate = 205.00;
         }
 
         if (item.type === 'plinth-area') {
@@ -4660,6 +4660,23 @@ function renderItemRow(item) {
     selectEl.addEventListener('change', (e) => {
       const oldUnit = (item.unit || '').toLowerCase();
       const newUnit = (e.target.value || '').toLowerCase();
+      const titleLower = (item.title || '').toLowerCase();
+      const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
+      if (isFeetOnlyType) {
+        item.unit = 'sqf';
+        item.rate = 205.00;
+        selectEl.value = 'sqf';
+        const rateInput = tr.querySelector('.item-rate-input');
+        if (rateInput) rateInput.value = '205';
+        if (item.type === 'plinth-area') {
+          updatePlinthCalculations(item, tr);
+        } else {
+          updateRowTotal(item, tr);
+        }
+        return;
+      }
+
       item.unit = e.target.value;
 
       // Auto convert rates between sqm and sqf for preset/standard rates
@@ -5058,22 +5075,49 @@ function updatePlinthCalculations(item, tr) {
   item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
   item.totalAreaSqft = item.totalAreaSqm * 10.76391;
 
-  const isSqf = (item.unit || '').toLowerCase() === 'sqf';
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+
+  if (isFeetOnlyType) {
+    item.unit = 'sqf';
+    if (!item.rate || item.rate === 2206) {
+      item.rate = 205.00;
+    }
+  }
+
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || (item.unit || '').toLowerCase() === 'sqft' || isFeetOnlyType;
+  if (isSqf) {
+    item.unit = 'sqf';
+  }
+
   const qty = isSqf ? item.totalAreaSqft : item.totalAreaSqm;
   const rawCost = qty * item.rate;
-  item.deductionPct = parseFloat(tr.querySelector('.plinth-deduct-pct').value) || 0;
-  item.deductionAmount = Math.round(rawCost * (item.deductionPct / 100));
+  const deductInput = tr ? tr.querySelector('.plinth-deduct-pct') : null;
+  if (deductInput) {
+    item.deductionPct = parseFloat(deductInput.value) || 0;
+  }
+  item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
   item.totalCost = Math.round(rawCost - item.deductionAmount);
   item.quantity = Number(qty.toFixed(2));
 
-  const totalDisplay = tr.querySelector('.plinth-total-display');
-  if (totalDisplay) {
-    totalDisplay.innerHTML = `Total Area: ${item.totalAreaSqm.toFixed(2)} sqm (${item.totalAreaSqft.toFixed(2)} sqft)`;
-  }
+  if (tr) {
+    const totalDisplay = tr.querySelector('.plinth-total-display');
+    if (totalDisplay) {
+      totalDisplay.innerHTML = `Total Area: ${item.totalAreaSqm.toFixed(2)} sqm (${item.totalAreaSqft.toFixed(2)} sqft)`;
+    }
 
-  const qtyInput = tr.querySelector('.item-qty-input');
-  if (qtyInput) qtyInput.value = qty.toFixed(2);
-  tr.querySelector('.item-cost-display').innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
+    const qtyInput = tr.querySelector('.item-qty-input');
+    if (qtyInput) qtyInput.value = qty.toFixed(2);
+
+    const unitSelect = tr.querySelector('.item-unit-select');
+    if (unitSelect && isFeetOnlyType) unitSelect.value = 'sqf';
+
+    const rateInput = tr.querySelector('.item-rate-input');
+    if (rateInput && isFeetOnlyType) rateInput.value = item.rate;
+
+    const costDisplay = tr.querySelector('.item-cost-display');
+    if (costDisplay) costDisplay.innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
+  }
   calculateAndRenderTotals();
 }
 
