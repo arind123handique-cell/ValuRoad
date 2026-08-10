@@ -674,12 +674,6 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
         <div class="pdf-row" style="font-weight: bold; margin-bottom: 3px;">
           <div style="flex-grow: 1;">Service Items:</div>
         </div>
-        <div class="pdf-row" style="margin-bottom: 2px; font-size: 9pt; color: #1e293b;">
-          <div style="margin-left: 10mm; flex-grow: 1;">Building Base (Plinth Area) =</div>
-          <div style="width: 55mm; text-align: right; font-weight: normal; flex-shrink: 0;">
-            Rs. ${formatIndianCurrency(buildingBase)}
-          </div>
-        </div>
     `;
     if (report.addSanitary) {
       const sGross = report.sanitaryCostGross || report.sanitaryCost;
