@@ -1,19 +1,19 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, collectionGroup } from "firebase/firestore";
+import { initializeFirestore, collection, getDocs, collectionGroup } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCy0Ag2-KyNxX0NymeReKLctiw71RYql1k",
-  authDomain: "road-val-v9zgrb.firebaseapp.com",
-  databaseURL: "https://road-val-v9zgrb-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "road-val-v9zgrb",
-  storageBucket: "road-val-v9zgrb.firebasestorage.app",
-  messagingSenderId: "41687836536",
-  appId: "1:41687836536:web:e79a5be2d06499ea8e0a8d",
-  measurementId: "G-4HXCDLC56M"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true
+});
 
 async function scan() {
   console.log("Scanning Firestore for projects...");
