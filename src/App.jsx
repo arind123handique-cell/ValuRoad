@@ -298,7 +298,7 @@ export default function App() {
                       <h4 style={{ margin: 0, fontWeight: '600', color: '#fff' }}>{proj.projectName || proj.name}</h4>
                       {proj.workName && (
                         <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.15rem' }}>
-                          Official Work: {proj.workName}
+                          Name of Work: {proj.workName}
                         </div>
                       )}
                       <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>

@@ -836,7 +836,7 @@ function renderProjects() {
       tr.innerHTML = `
         <td>
           <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">${displayName}</div>
-          ${subWorkName ? `<div style="font-size: 0.8rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 320px;" title="Official Name of Work: ${subWorkName.replace(/"/g, '&quot;')}">${subWorkName}</div>` : ''}
+          ${subWorkName ? `<div style="font-size: 0.8rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 320px;" title="Name of Work: ${subWorkName.replace(/"/g, '&quot;')}">${subWorkName}</div>` : ''}
           ${shareBadge}
         </td>
         <td>
@@ -2203,7 +2203,7 @@ function renderProjectDetails() {
   const detailsWorkSub = document.getElementById('project-details-work-sub');
   if (detailsWorkSub) {
     if (activeProject.workName && activeProject.workName !== displayName) {
-      detailsWorkSub.innerText = `Official Name of Work: ${activeProject.workName}`;
+      detailsWorkSub.innerText = `Name of Work: ${activeProject.workName}`;
       detailsWorkSub.style.display = 'block';
     } else {
       detailsWorkSub.style.display = 'none';
