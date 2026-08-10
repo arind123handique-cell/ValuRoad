@@ -402,25 +402,13 @@ function renderPlinthAreaItem(item, itemIndex = null) {
             const rawL = parseFloat(r.l) || 0;
             const rawW = parseFloat(r.w) || 0;
 
-            let l_m, w_m, area_sqm, l_ft, w_ft, area_sqft;
+            const l_m = rawL.toFixed(2);
+            const w_m = rawW.toFixed(2);
+            const area_sqm = (rawL * rawW).toFixed(2);
 
-            if (isSqfUnit) {
-              l_ft = rawL.toFixed(2);
-              w_ft = rawW.toFixed(2);
-              area_sqft = (rawL * rawW).toFixed(2);
-
-              l_m = (rawL * 0.3048).toFixed(2);
-              w_m = (rawW * 0.3048).toFixed(2);
-              area_sqm = (parseFloat(area_sqft) * 0.092903).toFixed(2);
-            } else {
-              l_m = rawL.toFixed(2);
-              w_m = rawW.toFixed(2);
-              area_sqm = (rawL * rawW).toFixed(2);
-
-              l_ft = (rawL * 3.28084).toFixed(1);
-              w_ft = (rawW * 3.28084).toFixed(1);
-              area_sqft = (parseFloat(area_sqm) * 10.76391).toFixed(2);
-            }
+            const l_ft = (rawL * 3.28084).toFixed(1);
+            const w_ft = (rawW * 3.28084).toFixed(1);
+            const area_sqft = (parseFloat(area_sqm) * 10.76391).toFixed(2);
 
             return `
               <div class="pdf-row" style="margin-bottom: 2px;">
