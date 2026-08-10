@@ -74,6 +74,15 @@ export class SiteSketcher {
     this.snapGrid = true;
     this.snapEndpt = true;
 
+    // ── note box ──
+    this.showNoteBox = true;
+    this.noteBoxPos  = { x: 40, y: 40 };
+    this.autoNotes   = [];
+    this.noteItems   = [];
+    this.lastNoteBoxRect = null;
+    this.isDraggingNoteBox = false;
+    this.noteBoxDragOffset = { x: 0, y: 0 };
+
     // ── callbacks (set externally) ──
     this.onSelectionChange = null;
     this.onHistoryChange   = null;
@@ -259,6 +268,15 @@ export class SiteSketcher {
       this.isDown = true;
       this.dragStart = raw;
       this.linearDragMoved = false;
+
+      if (this.showNoteBox && this.lastNoteBoxRect) {
+        const nr = this.lastNoteBoxRect;
+        if (sp.x >= nr.x && sp.x <= nr.x + nr.w && sp.y >= nr.y && sp.y <= nr.y + nr.h) {
+          this.isDraggingNoteBox = true;
+          this.noteBoxDragOffset = { x: sp.x - nr.x, y: sp.y - nr.y };
+          return;
+        }
+      }
 
       switch (this.mode) {
         case 'zoom': {
@@ -497,6 +515,15 @@ export class SiteSketcher {
       }
       this.previewPt = pt;
 
+      if (this.isDraggingNoteBox) {
+        this.noteBoxPos = {
+          x: Math.max(5, Math.min(this.W - 50, sp.x - this.noteBoxDragOffset.x)),
+          y: Math.max(5, Math.min(this.H - 50, sp.y - this.noteBoxDragOffset.y))
+        };
+        this.draw();
+        return;
+      }
+
       if (!this.isDown) { this.draw(); return; }
       e.preventDefault();
 
@@ -582,6 +609,12 @@ export class SiteSketcher {
 
     // ── mouse up ──
     const onUp = (e) => {
+      if (this.isDraggingNoteBox) {
+        this.isDraggingNoteBox = false;
+        this.draw();
+        return;
+      }
+
       if (this.isPanning) { this.isPanning=false; return; }
       if (this.isLocked) return;
       if (!this.isDown) return;
@@ -1010,6 +1043,11 @@ export class SiteSketcher {
     this.shapes.filter(s=>s.type==='room').forEach(s=>this._drawShape(s));
     // all other shapes
     this.shapes.filter(s=>s.type!=='room').forEach(s=>this._drawShape(s));
+
+    // Note box overlay
+    if (this.showNoteBox) {
+      this._drawNoteBox();
+    }
 
     // in-progress preview
     if (!this.isExporting) {
@@ -2181,5 +2219,113 @@ export class SiteSketcher {
       console.error(err);
       alert("Error merging blocks: " + err.message);
     }
+  }
+
+  setShowNoteBox(show) {
+    this.showNoteBox = !!show;
+    this.draw();
+  }
+
+  setNoteItems(items) {
+    if (Array.isArray(items)) {
+      this.noteItems = items;
+      this.draw();
+    }
+  }
+
+  setEstimateItems(items) {
+    if (!items || !Array.isArray(items)) return;
+    const activeItems = items.filter(it => it.includeInValuation !== false);
+    const notes = [];
+    activeItems.forEach(it => {
+      let title = (it.title || '').trim();
+      if (!title && it.description) {
+        title = it.description.trim();
+      }
+      if (!title) return;
+      title = title.replace(/^DSR\s+(?:Item\s*No\.?\s*)?[0-9]+(?:\.[0-9]+)*\s*[:-]?\s*/i, '');
+      title = title.replace(/^Item\s*[0-9]+\s*[:-]?\s*/i, '');
+      title = title.trim();
+      if (title.length > 0) {
+        title = title.charAt(0).toUpperCase() + title.slice(1);
+      }
+      if (title.length > 45) {
+        title = title.substring(0, 42) + '...';
+      }
+      notes.push(title);
+    });
+
+    this.autoNotes = [...new Set(notes)];
+    this.draw();
+  }
+
+  _drawNoteBox() {
+    const ctx = this.ctx;
+    const items = (this.noteItems && this.noteItems.length > 0)
+      ? this.noteItems
+      : (this.autoNotes || []);
+
+    if (items.length === 0) return;
+
+    ctx.save();
+
+    const titleFont = 'bold 15px sans-serif';
+    const bodyFont = '600 13px sans-serif';
+
+    ctx.font = titleFont;
+    let maxW = ctx.measureText('Note:').width;
+
+    ctx.font = bodyFont;
+    items.forEach((itemText, idx) => {
+      const lineText = `${idx + 1}. ${itemText}`;
+      const w = ctx.measureText(lineText).width;
+      if (w > maxW) maxW = w;
+    });
+
+    const boxW = Math.max(220, maxW + 32);
+    const lineH = 22;
+    const headerH = 26;
+    const boxH = headerH + items.length * lineH + 12;
+
+    const posX = this.noteBoxPos ? this.noteBoxPos.x : 40;
+    const posY = this.noteBoxPos ? this.noteBoxPos.y : 40;
+
+    this.lastNoteBoxRect = { x: posX, y: posY, w: boxW, h: boxH };
+
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 3;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1.5;
+
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(posX, posY, boxW, boxH, 6);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.stroke();
+    } else {
+      ctx.fillRect(posX, posY, boxW, boxH);
+      ctx.shadowColor = 'transparent';
+      ctx.strokeRect(posX, posY, boxW, boxH);
+    }
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = titleFont;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('Note:', posX + 16, posY + 10);
+
+    ctx.font = bodyFont;
+    ctx.fillStyle = '#1e293b';
+    items.forEach((itemText, idx) => {
+      const lineText = `${idx + 1}. ${itemText}`;
+      ctx.fillText(lineText, posX + 16, posY + headerH + 8 + idx * lineH);
+    });
+
+    ctx.restore();
   }
 }

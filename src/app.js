@@ -5719,6 +5719,10 @@ function calculateAndRenderTotals() {
 
   // Check for modifications to highlight
   checkForModifiedFields();
+
+  if (sketcher && activeEntry) {
+    sketcher.setEstimateItems(activeEntry.items);
+  }
 }
 
 function checkForModifiedFields() {
@@ -6122,6 +6126,9 @@ export function syncSketcherUIState() {
 
   const vOrtho = document.getElementById('vtool-ortho');
   if (vOrtho) vOrtho.classList.toggle('active', sketcher.orthoMode);
+
+  const vNotebox = document.getElementById('vtool-notebox');
+  if (vNotebox) vNotebox.classList.toggle('active', sketcher.showNoteBox);
   
   // 2. Bottom Status Bar Buttons Grid/Snap
   const gridBtn = document.getElementById('sketch-grid-toggle');
@@ -6338,6 +6345,18 @@ function setupSketcherToolbar() {
 
   if (vSnap) vSnap.addEventListener('click', () => {
     if (sketcher) sketcher.toggleSnap();
+  });
+
+  const vNotebox = document.getElementById('vtool-notebox');
+  if (vNotebox) vNotebox.addEventListener('click', () => {
+    if (sketcher) {
+      const nextState = !sketcher.showNoteBox;
+      sketcher.setShowNoteBox(nextState);
+      if (activeEntry) activeEntry.showNoteBox = nextState;
+      vNotebox.classList.toggle('active', nextState);
+      const prevChk = document.getElementById('prev-show-notebox');
+      if (prevChk) prevChk.checked = nextState;
+    }
   });
 
   // ── Draggable Toolbar Logic ──
@@ -8736,6 +8755,16 @@ function openPrintPreview(entryId) {
     prevShowJms.checked = tpl.showJmsSlNo !== false;
   }
 
+  const prevShowNotebox = document.getElementById('prev-show-notebox');
+  if (prevShowNotebox) {
+    const isShow = currentPreviewEntry.showNoteBox !== false;
+    prevShowNotebox.checked = isShow;
+    if (sketcher) {
+      sketcher.setShowNoteBox(isShow);
+      sketcher.setEstimateItems(currentPreviewEntry.items);
+    }
+  }
+
   const targetSelect = document.getElementById('prev-style-target');
   if (targetSelect) targetSelect.value = 'whole';
   
@@ -9485,6 +9514,19 @@ function initPrintPreviewEvents() {
       if (auth.currentUser) {
         saveUserPdfTemplate(auth.currentUser.uid, settings).catch(err => {});
       }
+      renderPreviewPages();
+    });
+  }
+
+  const prevShowNotebox = document.getElementById('prev-show-notebox');
+  if (prevShowNotebox) {
+    prevShowNotebox.addEventListener('change', (e) => {
+      const isShow = e.target.checked;
+      if (sketcher) sketcher.setShowNoteBox(isShow);
+      if (currentPreviewEntry) currentPreviewEntry.showNoteBox = isShow;
+      if (activeEntry) activeEntry.showNoteBox = isShow;
+      const vNotebox = document.getElementById('vtool-notebox');
+      if (vNotebox) vNotebox.classList.toggle('active', isShow);
       renderPreviewPages();
     });
   }
