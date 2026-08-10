@@ -5711,38 +5711,45 @@ function calculateAndRenderTotals() {
     tfoot = table.createTFoot();
   }
   tfoot.className = 'summary-rows';
+  const hasMainDepreciatedItems = mainDepreciatedItems && mainDepreciatedItems.length > 0 && activeEntry.totalA > 0;
+  const showContractorProfit = contractorPct > 0;
+
   tfoot.innerHTML = `
+    ${hasMainDepreciatedItems ? `
     <tr>
       <td colspan="4" class="text-right">TOTAL (A) [Subject to Dep.] =</td>
-      <td class="text-right bold" id="calc-total-a">Rs. 0.00</td>
+      <td class="text-right bold" id="calc-total-a">Rs. ${formatIndianCurrency(activeEntry.totalA)}</td>
       <td></td>
     </tr>
+    ${showContractorProfit ? `
     <tr>
-      <td colspan="4" class="text-right">Deduct 15% for Contractor's Profit =</td>
-      <td class="text-right" id="calc-deduct-profit" style="color: #b91c1c;">Rs. -0.00</td>
+      <td colspan="4" class="text-right">Deduct ${contractorPct}% for Contractor's Profit =</td>
+      <td class="text-right" id="calc-deduct-profit" style="color: #b91c1c;">Rs. -${formatIndianCurrency(activeEntry.contractorDeduction)}</td>
       <td></td>
     </tr>
     <tr>
       <td colspan="4" class="text-right">TOTAL (B) =</td>
-      <td class="text-right bold" id="calc-total-b">Rs. 0.00</td>
+      <td class="text-right bold" id="calc-total-b">Rs. ${formatIndianCurrency(activeEntry.totalB)}</td>
       <td></td>
     </tr>
+    ` : ''}
     ${activeEntry.enableDepreciation !== false ? `
     <tr>
-      <td colspan="4" class="text-right" id="calc-dep-label">Depreciation @ 2% per year =</td>
-      <td class="text-right" id="calc-dep-amount" style="color: #b91c1c;">Rs. -0.00</td>
+      <td colspan="4" class="text-right" id="calc-dep-label">Depreciation @ ${activeEntry.depreciationPct}% per year for ${age} years (${activeEntry.totalDepreciationPct}%) =</td>
+      <td class="text-right" id="calc-dep-amount" style="color: #b91c1c;">Rs. -${formatIndianCurrency(activeEntry.depreciationAmount)}</td>
       <td></td>
     </tr>
     <tr>
       <td colspan="4" class="text-right">TOTAL AFTER DEPRECIATION =</td>
-      <td class="text-right bold" id="calc-after-dep">Rs. 0.00</td>
+      <td class="text-right bold" id="calc-after-dep">Rs. ${formatIndianCurrency(activeEntry.totalAfterDepreciation)}</td>
       <td></td>
     </tr>
+    ` : ''}
     ` : ''}
     ${totalExcludedCost > 0 ? `
     <tr>
       <td colspan="4" class="text-right">TOTAL EXCLUDED ITEMS (Direct Add) =</td>
-      <td class="text-right bold" id="calc-total-excluded">Rs. 0.00</td>
+      <td class="text-right bold" id="calc-total-excluded">Rs. ${formatIndianCurrency(activeEntry.totalExcludedCost)}</td>
       <td></td>
     </tr>
     ` : ''}
@@ -5760,24 +5767,18 @@ function calculateAndRenderTotals() {
     ` : ''}
     <tr class="grand-total-row" style="background-color: var(--accent-light);">
       <td colspan="4" class="text-right" style="font-size: 1rem; color: var(--accent);">GRAND TOTAL =</td>
-      <td class="text-right bold" id="calc-grand-total" style="font-size: 1rem; color: var(--accent);">Rs. 0.00</td>
+      <td class="text-right bold" id="calc-grand-total" style="font-size: 1rem; color: var(--accent);">Rs. ${formatIndianCurrency(activeEntry.grandTotal)}</td>
       <td></td>
     </tr>
   `;
 
-  document.getElementById('calc-total-a').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalA);
-  document.getElementById('calc-deduct-profit').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.contractorDeduction);
-  document.getElementById('calc-total-b').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalB);
-  
-  if (activeEntry.enableDepreciation !== false) {
-    document.getElementById('calc-dep-label').innerHTML = `Depreciation @ ${activeEntry.depreciationPct}% per year for ${age} years (${activeEntry.totalDepreciationPct}%) =`;
-    document.getElementById('calc-dep-amount').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.depreciationAmount);
-    document.getElementById('calc-after-dep').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalAfterDepreciation);
-  }
-  if (totalExcludedCost > 0) {
-    document.getElementById('calc-total-excluded').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalExcludedCost);
-  }
-  document.getElementById('calc-grand-total').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.grandTotal);
+  if (document.getElementById('calc-total-a')) document.getElementById('calc-total-a').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalA);
+  if (document.getElementById('calc-deduct-profit')) document.getElementById('calc-deduct-profit').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.contractorDeduction);
+  if (document.getElementById('calc-total-b')) document.getElementById('calc-total-b').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalB);
+  if (document.getElementById('calc-dep-amount')) document.getElementById('calc-dep-amount').innerText = 'Rs. -' + formatIndianCurrency(activeEntry.depreciationAmount);
+  if (document.getElementById('calc-after-dep')) document.getElementById('calc-after-dep').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalAfterDepreciation);
+  if (document.getElementById('calc-total-excluded')) document.getElementById('calc-total-excluded').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.totalExcludedCost);
+  if (document.getElementById('calc-grand-total')) document.getElementById('calc-grand-total').innerText = 'Rs. ' + formatIndianCurrency(activeEntry.grandTotal);
 
   // Check for modifications to highlight
   checkForModifiedFields();

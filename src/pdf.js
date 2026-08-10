@@ -547,101 +547,104 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
 
   const contractorPct = report.contractorPct !== undefined ? report.contractorPct : (tpl.contractorPct !== undefined ? tpl.contractorPct : 15);
   const showContractorProfit = contractorPct > 0;
+  const hasMainDepreciatedItems = mainDepreciatedItems && mainDepreciatedItems.length > 0 && report.totalA > 0;
 
   let subtotalsHtml = '';
   
-  if (showContractorProfit) {
-    subtotalsHtml = `
-      <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
-        <!-- Line above TOTAL (A) -->
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-          <div style="width: 105mm; border-top: 1px solid #000;"></div>
-        </div>
-        
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (A) =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
-        </div>
-        
-        <div class="pdf-row" style="margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. ${contractorPct}% for Contractors Profit =</div>
-          <div style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.contractorDeduction)}</div>
-        </div>
-        
-        <!-- Line above TOTAL (B) -->
-        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
-          <div style="width: 105mm; border-top: 1px solid #000;"></div>
-        </div>
-        
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (B) =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalB)}</div>
-        </div>
-
-        ${report.enableDepreciation !== false ? `
-        <div class="pdf-row" style="margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
-            Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+  if (hasMainDepreciatedItems) {
+    if (showContractorProfit) {
+      subtotalsHtml = `
+        <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
+          <!-- Line above TOTAL (A) -->
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+            <div style="width: 105mm; border-top: 1px solid #000;"></div>
           </div>
-          <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
-            <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
-            <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+          
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (A) =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
           </div>
-        </div>
-
-        <!-- Line above TOTAL -->
-        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
-          <div style="width: 105mm; border-top: 1px solid #000;"></div>
-        </div>
-
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
-        </div>
-        ` : `
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
-        </div>
-        `}
-      </div>
-    `;
-  } else {
-    subtotalsHtml = `
-      <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
-        <!-- Line above TOTAL -->
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-          <div style="width: 105mm; border-top: 1px solid #000;"></div>
-        </div>
-        
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
-        </div>
-
-        ${report.enableDepreciation !== false ? `
-        <div class="pdf-row" style="margin-bottom: 2px;">
-          <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
-            Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+          
+          <div class="pdf-row" style="margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">Deduct. ${contractorPct}% for Contractors Profit =</div>
+            <div style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.contractorDeduction)}</div>
           </div>
-          <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
-            <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
-            <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+          
+          <!-- Line above TOTAL (B) -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+            <div style="width: 105mm; border-top: 1px solid #000;"></div>
           </div>
-        </div>
+          
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL (B) =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalB)}</div>
+          </div>
 
-        <!-- Line above TOTAL After Depreciation -->
-        <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
-          <div style="width: 105mm; border-top: 1px solid #000;"></div>
-        </div>
+          ${report.enableDepreciation !== false ? `
+          <div class="pdf-row" style="margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
+              Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+            </div>
+            <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
+              <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
+              <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+            </div>
+          </div>
 
-        <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
-          <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
-          <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+          <!-- Line above TOTAL -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+            <div style="width: 105mm; border-top: 1px solid #000;"></div>
+          </div>
+
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+          </div>
+          ` : `
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+          </div>
+          `}
         </div>
-        ` : ''}
-      </div>
-    `;
+      `;
+    } else {
+      subtotalsHtml = `
+        <div class="pdf-calc-block" style="margin-top: 5mm; margin-bottom: 5mm; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #000000;">
+          <!-- Line above TOTAL -->
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+            <div style="width: 105mm; border-top: 1px solid #000;"></div>
+          </div>
+          
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalA)}</div>
+          </div>
+
+          ${report.enableDepreciation !== false ? `
+          <div class="pdf-row" style="margin-bottom: 2px;">
+            <div style="flex-grow: 1; text-align: left; padding-left: 20mm; font-size: 10pt;">
+              Depreciation @${report.depreciationPct}% per year from (${report.valuationYear} - ${report.constructionYear}) = ${report.structureAge} years, i.e ${report.depreciationPct} x ${report.structureAge} =
+            </div>
+            <div style="width: 65mm; display: flex; justify-content: space-between; flex-shrink: 0; align-items: baseline;">
+              <span style="width: 20mm; text-align: right;">${report.totalDepreciationPct.toFixed(2)}% =</span>
+              <span style="width: 45mm; text-align: right;">Rs. -${formatIndianCurrency(report.depreciationAmount)}</span>
+            </div>
+          </div>
+
+          <!-- Line above TOTAL After Depreciation -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 2px; margin-bottom: 2px;">
+            <div style="width: 105mm; border-top: 1px solid #000;"></div>
+          </div>
+
+          <div class="pdf-row" style="font-weight: bold; margin-bottom: 4px;">
+            <div style="flex-grow: 1; text-align: right; padding-right: 10mm;">TOTAL After Depreciation =</div>
+            <div style="width: 45mm; text-align: right;">Rs. ${formatIndianCurrency(report.totalAfterDepreciation)}</div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
   }
 
   let serviceItemsHtml = '';
