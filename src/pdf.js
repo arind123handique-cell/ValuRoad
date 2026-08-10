@@ -73,19 +73,19 @@ export function numberToIndianWords(amount) {
   return `Rupees ${wordResult.trim()} only`;
 }
 
-function renderItem(item) {
+function renderItem(item, itemIndex = null) {
   if (item.type === 'quantity-rate') {
-    return renderQuantityRateItem(item);
+    return renderQuantityRateItem(item, itemIndex);
   } else if (item.type === 'plinth-area') {
-    return renderPlinthAreaItem(item);
+    return renderPlinthAreaItem(item, itemIndex);
   } else if (item.type === 'lump-sum') {
-    return renderLumpSumItem(item);
+    return renderLumpSumItem(item, itemIndex);
   }
   return '';
 }
 
-function renderQuantityRateItem(item) {
-  let itemNoText = item.itemNo;
+function renderQuantityRateItem(item, itemIndex = null) {
+  let itemNoText = itemIndex !== null ? 'Item No. ' + itemIndex : item.itemNo;
   if (!/item/i.test(itemNoText)) {
     itemNoText = 'Item No. ' + itemNoText;
   }
@@ -342,8 +342,8 @@ function renderQuantityRateItem(item) {
 }
 
 
-function renderPlinthAreaItem(item) {
-  let itemNoText = item.itemNo;
+function renderPlinthAreaItem(item, itemIndex = null) {
+  let itemNoText = itemIndex !== null ? 'Item No. ' + itemIndex : item.itemNo;
   if (!/item/i.test(itemNoText)) {
     itemNoText = 'Item No. ' + itemNoText;
   }
@@ -493,8 +493,8 @@ function renderPlinthAreaItem(item) {
   `;
 }
 
-function renderLumpSumItem(item) {
-  let itemNoText = item.itemNo;
+function renderLumpSumItem(item, itemIndex = null) {
+  let itemNoText = itemIndex !== null ? 'Item No. ' + itemIndex : item.itemNo;
   if (!/item/i.test(itemNoText)) {
     itemNoText = 'Item No. ' + itemNoText;
   }
@@ -558,14 +558,16 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
   const depreciatedItems = includedItems.filter(item => !item.excludeFromDepreciation);
   const excludedItems = includedItems.filter(item => item.excludeFromDepreciation);
 
+  let globalItemIndex = 1;
+
   let depreciatedItemsHtml = '';
   depreciatedItems.forEach(item => {
-    depreciatedItemsHtml += renderItem(item);
+    depreciatedItemsHtml += renderItem(item, globalItemIndex++);
   });
 
   let excludedItemsHtml = '';
   excludedItems.forEach(item => {
-    excludedItemsHtml += renderItem(item);
+    excludedItemsHtml += renderItem(item, globalItemIndex++);
   });
 
   const contractorPct = report.contractorPct !== undefined ? report.contractorPct : (tpl.contractorPct !== undefined ? tpl.contractorPct : 15);
@@ -1096,11 +1098,13 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
   // Build the list of printable blocks
   const blocks = [];
   
+  let blockItemIndex = 1;
+
   if (depreciatedItems.length > 0) {
     depreciatedItems.forEach(item => {
       blocks.push({
         type: 'item',
-        html: renderItem(item),
+        html: renderItem(item, blockItemIndex++),
         height: estimateItemHeight(item)
       });
     });
@@ -1117,7 +1121,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
   excludedItems.forEach(item => {
     blocks.push({
       type: 'item',
-      html: renderItem(item),
+      html: renderItem(item, blockItemIndex++),
       height: estimateItemHeight(item)
     });
   });
