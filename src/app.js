@@ -3504,63 +3504,53 @@ export function migrateEntry(entry) {
     const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
     
     if (isFeetOnlyType) {
-      console.log("migrateEntry: matched title:", item.title, "type:", item.type, "quantity:", item.quantity);
-      if (item.type === 'plinth-area') {
-        const sumRoomsArea = item.rooms ? item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0) : 0;
-        const denominator = sumRoomsArea || item.totalAreaSqm || 1;
-        const ratio = item.quantity / denominator;
-        const appearsMetric = (item.quantity > 0 && item.quantity < 35.0) || (ratio > 3.0) || (item.quantity === 0 && sumRoomsArea < 35.0);
+      if (item.type === 'plinth-area' && item.rooms) {
+        item.unit = 'sqf';
+        if (!item.rate || item.rate === 2206) item.rate = 205.00;
 
-        console.log("migrateEntry: plinth-area item:", item.title, "sumRoomsArea:", sumRoomsArea, "ratio:", ratio, "appearsMetric:", appearsMetric);
-
-        if (appearsMetric) {
-          item.isRoomsFeet = true;
-          if (item.rooms) {
-            item.rooms.forEach(r => {
-              r.l = parseFloat((parseFloat(r.l) * 3.28084).toFixed(1));
-              r.w = parseFloat((parseFloat(r.w) * 3.28084).toFixed(1));
-              r.areaSqft = parseFloat((r.l * r.w).toFixed(2));
-              r.areaSqm = r.areaSqft * 0.092903;
-            });
-          }
-          item.totalAreaSqft = item.rooms.reduce((acc, curr) => acc + (curr.areaSqft || (curr.l * curr.w)), 0);
-          item.totalAreaSqm = item.totalAreaSqft * 0.092903;
-          
-          const qty = item.totalAreaSqft;
-          item.quantity = qty;
-          const rawCost = qty * item.rate;
-          item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
-          item.totalCost = Math.round(rawCost - item.deductionAmount);
-        } else {
-          item.isRoomsFeet = true;
+        if (!item.isMigratedFeet) {
+          item.isMigratedFeet = true;
+          item.rooms.forEach(r => {
+            const l = parseFloat(r.l) || 0;
+            const w = parseFloat(r.w) || 0;
+            if (r.areaSqm && Math.abs((l * w) - r.areaSqm) < 0.1 && (l * w) < 100) {
+              r.l = parseFloat((l * 3.28084).toFixed(1));
+              r.w = parseFloat((w * 3.28084).toFixed(1));
+            }
+            r.areaSqft = parseFloat(((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)).toFixed(2));
+            r.areaSqm = r.areaSqft * 0.092903;
+          });
         }
-      } else if (item.type === 'quantity-rate') {
-        const sumMeasurements = item.measurements ? item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0) : 0;
-        const denominator = sumMeasurements || 1;
-        const ratio = item.quantity / denominator;
-        const appearsMetric = (item.quantity > 0 && item.quantity < 35.0) || (ratio > 3.0) || (item.quantity === 0 && sumMeasurements < 35.0);
+        
+        item.totalAreaSqft = item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.areaSqft) || (parseFloat(curr.l || 0) * parseFloat(curr.w || 0))), 0);
+        item.totalAreaSqm = item.totalAreaSqft * 0.092903;
+        item.quantity = Number(item.totalAreaSqft.toFixed(2));
+        
+        const rawCost = item.quantity * item.rate;
+        item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+        item.totalCost = Math.round(rawCost - item.deductionAmount);
+      } else if (item.type === 'quantity-rate' && item.measurements) {
+        item.unit = 'sqf';
+        if (!item.rate || item.rate === 2206) item.rate = 205.00;
 
-        console.log("migrateEntry: quantity-rate item:", item.title, "sumMeasurements:", sumMeasurements, "ratio:", ratio, "appearsMetric:", appearsMetric);
-
-        if (appearsMetric) {
-          item.isRoomsFeet = true;
-          if (item.measurements) {
-            item.measurements.forEach(m => {
+        if (!item.isMigratedFeet) {
+          item.isMigratedFeet = true;
+          item.measurements.forEach(m => {
+            const subQty = calcMeasurementSubQty(m);
+            if (m.subQty && Math.abs(subQty - m.subQty) < 0.1 && subQty < 100) {
               if (m.l && parseFloat(m.l) > 0) m.l = parseFloat((parseFloat(m.l) * 3.28084).toFixed(2));
               if (m.b && parseFloat(m.b) > 0) m.b = parseFloat((parseFloat(m.b) * 3.28084).toFixed(2));
               if (m.h && parseFloat(m.h) > 0) m.h = parseFloat((parseFloat(m.h) * 3.28084).toFixed(2));
               m.subQty = calcMeasurementSubQty(m);
-            });
-          }
-          const totalQty = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
-          item.quantity = Number(totalQty.toFixed(3));
-          
-          const rawCost = item.quantity * item.rate;
-          item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
-          item.totalCost = Math.round(rawCost - item.deductionAmount);
-        } else {
-          item.isRoomsFeet = true;
+            }
+          });
         }
+        const totalQty = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
+        item.quantity = Number(totalQty.toFixed(3));
+        
+        const rawCost = item.quantity * item.rate;
+        item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+        item.totalCost = Math.round(rawCost - item.deductionAmount);
       }
     }
   });
