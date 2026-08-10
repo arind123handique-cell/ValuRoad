@@ -5430,7 +5430,43 @@ function calculateAndRenderTotals() {
     activeEntry.staircaseTechnicalNote = document.getElementById('staircase-technical-note')?.value || '';
   }
 
-  const includedItems = activeEntry.items.filter(i => i.includeInValuation);
+  // Recalculate item costs and deductions for all items to ensure fresh math and correct Grand Total
+  activeEntry.items.forEach(item => {
+    const titleLower = (item.title || '').toLowerCase();
+    const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+    const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+
+    if (item.type === 'plinth-area') {
+      const roomSqm = (item.rooms || []).reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
+      item.totalAreaSqm = roomSqm;
+      item.totalAreaSqft = roomSqm * 10.76391;
+
+      if (isSqfUnit && item.rate === 2206) {
+        item.rate = 205.00;
+      }
+
+      const effectiveRate = item.rate;
+      const qty = isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm;
+      const rawCost = qty * effectiveRate;
+
+      const deductionPct = parseFloat(item.deductionPct) || 0;
+      item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
+      item.quantity = Number(qty.toFixed(2));
+    } else if (item.type === 'quantity-rate') {
+      if (isSqfUnit && item.rate === 2206) {
+        item.rate = 205.00;
+      }
+      const rawCost = (item.quantity || 0) * (item.rate || 0);
+      const deductionPct = parseFloat(item.deductionPct) || 0;
+      item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
+    } else if (item.type === 'lump-sum') {
+      item.totalCost = Math.round(item.rate || 0);
+    }
+  });
+
+  const includedItems = activeEntry.items.filter(i => i.includeInValuation !== false);
   
   // Categorize items
   const mainDepreciatedItems = includedItems.filter(i => !i.excludeFromDepreciation && !i.customDepreciation);
