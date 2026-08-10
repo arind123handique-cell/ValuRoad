@@ -10756,27 +10756,13 @@ Extraction and Splitting Rules:
               cat = 'Commercial Building';
             }
 
-            const l_m = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
-            const b_m = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+            const l_m = parseFloat(s.length_m || s.length || s.l || s.size_l || (s.length_ft ? s.length_ft / 3.28084 : 0) || 0);
+            const b_m = parseFloat(s.breadth_m || s.breadth || s.b || s.width || s.w || s.size_b || (s.breadth_ft ? s.breadth_ft / 3.28084 : 0) || 0);
             
-            let l_ft = l_m;
-            let b_ft = b_m;
-            let areaSqft = l_m * b_m;
-            let areaSqm = areaSqft * 0.092903;
-
-            if (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') {
-              // Convert raw meters to feet
-              l_ft = l_m * 3.28084;
-              b_ft = b_m * 3.28084;
-              areaSqft = l_ft * b_ft;
-              areaSqm = l_m * b_m;
-            } else {
-              // For metric structures, keep l_m and b_m as meters
-              areaSqm = l_m * b_m;
-              l_ft = l_m * 3.28084;
-              b_ft = b_m * 3.28084;
-              areaSqft = l_ft * b_ft;
-            }
+            const areaSqm = l_m * b_m;
+            const l_ft = l_m * 3.28084;
+            const b_ft = b_m * 3.28084;
+            const areaSqft = areaSqm * 10.76391;
 
             const qty = (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') ? areaSqft : areaSqm;
             const totalCost = Math.round(qty * rate);
@@ -10785,6 +10771,8 @@ Extraction and Splitting Rules:
               id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
               description: desc || cat,
               category: cat,
+              length_m: parseFloat(l_m.toFixed(2)),
+              breadth_m: parseFloat(b_m.toFixed(2)),
               length_ft: parseFloat(l_ft.toFixed(2)),
               breadth_ft: parseFloat(b_ft.toFixed(2)),
               area_sqft: parseFloat(areaSqft.toFixed(2)),
@@ -10950,27 +10938,13 @@ Extraction and Splitting Rules:
             cat = 'Commercial Building';
           }
 
-          const l_m = parseFloat(s.length_ft || s.length || s.l || s.size_l || 0);
-          const b_m = parseFloat(s.breadth_ft || s.breadth || s.b || s.width || s.w || s.size_b || 0);
+          const l_m = parseFloat(s.length_m || s.length || s.l || s.size_l || (s.length_ft ? s.length_ft / 3.28084 : 0) || 0);
+          const b_m = parseFloat(s.breadth_m || s.breadth || s.b || s.width || s.w || s.size_b || (s.breadth_ft ? s.breadth_ft / 3.28084 : 0) || 0);
           
-          let l_ft = l_m;
-          let b_ft = b_m;
-          let areaSqft = l_m * b_m;
-          let areaSqm = areaSqft * 0.092903;
-
-          if (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') {
-            // Convert raw meters to feet
-            l_ft = l_m * 3.28084;
-            b_ft = b_m * 3.28084;
-            areaSqft = l_ft * b_ft;
-            areaSqm = l_m * b_m;
-          } else {
-            // For metric structures, keep l_m and b_m as meters
-            areaSqm = l_m * b_m;
-            l_ft = l_m * 3.28084;
-            b_ft = b_m * 3.28084;
-            areaSqft = l_ft * b_ft;
-          }
+          const areaSqm = l_m * b_m;
+          const l_ft = l_m * 3.28084;
+          const b_ft = b_m * 3.28084;
+          const areaSqft = areaSqm * 10.76391;
 
           const qty = (cat === 'Temporary Building' || cat === 'Temp Shed' || cat === 'Commercial Building') ? areaSqft : areaSqm;
           const totalCost = Math.round(qty * rate);
@@ -10979,6 +10953,8 @@ Extraction and Splitting Rules:
             id: `STRUCT_${Date.now()}_${idx}_${sIdx}`,
             description: desc || cat,
             category: cat,
+            length_m: parseFloat(l_m.toFixed(2)),
+            breadth_m: parseFloat(b_m.toFixed(2)),
             length_ft: parseFloat(l_ft.toFixed(2)),
             breadth_ft: parseFloat(b_ft.toFixed(2)),
             area_sqft: parseFloat(areaSqft.toFixed(2)),
@@ -11486,8 +11462,8 @@ async function generateBulkEstimates() {
             {
               id: Date.now() + Math.random(),
               name: s.description || mappedCat,
-              l: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? s.length_ft : parseFloat((s.length_ft * 0.3048).toFixed(3)),
-              w: (mappedCat === 'Temporary Building' || mappedCat === 'Temp Shed' || mappedCat === 'Commercial Building') ? s.breadth_ft : parseFloat((s.breadth_ft * 0.3048).toFixed(3)),
+              l: s.length_m || (s.length_ft ? parseFloat((s.length_ft / 3.28084).toFixed(2)) : 0),
+              w: s.breadth_m || (s.breadth_ft ? parseFloat((s.breadth_ft / 3.28084).toFixed(2)) : 0),
               areaSqm: s.area_sqm,
               areaSqft: s.area_sqft
             }
