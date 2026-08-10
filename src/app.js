@@ -1325,11 +1325,10 @@ function exportSingleEstimateToExcel(entryId) {
               <td>Unit</td>
             </tr>
           `;
-          const titleLower = (item.title || '').toLowerCase();
-          const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+          const isSqf = (item.unit || '').toLowerCase() === 'sqf';
 
           rooms.forEach(r => {
-            if (isFeetOnlyType) {
+            if (isSqf) {
               const areaSqft = parseFloat(r.areaSqft || (r.l * r.w)).toFixed(2);
               htmlContent += `
                 <tr>
@@ -1340,18 +1339,19 @@ function exportSingleEstimateToExcel(entryId) {
                 </tr>
               `;
             } else {
+              const areaSqm = parseFloat(r.areaSqm || (r.l * r.w)).toFixed(2);
               htmlContent += `
                 <tr>
                   <td style="padding-left:15px;">${r.name || 'Room'}</td>
                   <td colspan="3">${parseFloat(r.l).toFixed(2)} m x ${parseFloat(r.w).toFixed(2)} m</td>
-                  <td class="text-right">${parseFloat(r.areaSqm).toFixed(2)}</td>
+                  <td class="text-right">${areaSqm}</td>
                   <td>sqm</td>
                 </tr>
               `;
             }
           });
 
-          if (isFeetOnlyType) {
+          if (isSqf) {
             htmlContent += `
               <tr class="m-total-row">
                 <td colspan="4" class="text-right">Total Plinth Area</td>
@@ -1363,19 +1363,10 @@ function exportSingleEstimateToExcel(entryId) {
             htmlContent += `
               <tr class="m-total-row">
                 <td colspan="4" class="text-right">Total Plinth Area</td>
-                <td class="text-right">${parseFloat(item.totalAreaSqm).toFixed(2)}</td>
+                <td class="text-right">${parseFloat(item.totalAreaSqm || item.quantity).toFixed(2)}</td>
                 <td>sqm</td>
               </tr>
             `;
-            if (item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) {
-              htmlContent += `
-                <tr class="m-total-row">
-                  <td colspan="4" class="text-right">Total Plinth Area in sq.foot</td>
-                  <td class="text-right">${parseFloat(item.totalAreaSqft).toFixed(2)}</td>
-                  <td>sqf</td>
-                </tr>
-              `;
-            }
           }
         }
       }
@@ -4563,14 +4554,14 @@ function renderItemRow(item) {
           item.rate = 15867.00;
           item.unit = 'sqm';
         } else if (val === 'Temporary Building') {
-          item.rate = 205.00;
-          item.unit = 'sqf';
+          item.rate = 2206.00;
+          item.unit = 'sqm';
         } else if (val === 'Temp Shed') {
-          item.rate = 205.00;
-          item.unit = 'sqf';
+          item.rate = 2206.00;
+          item.unit = 'sqm';
         } else if (val === 'Commercial Building') {
-          item.rate = 205.00;
-          item.unit = 'sqf';
+          item.rate = 2206.00;
+          item.unit = 'sqm';
         }
 
         const newUnit = (item.unit || '').toLowerCase();
@@ -4706,7 +4697,7 @@ function renderItemRow(item) {
         updatePlinthCalculations(item, tr);
         const plinthDetailsLabel = tr.querySelector('.plinth-details span');
         if (plinthDetailsLabel) {
-          plinthDetailsLabel.textContent = item.unit === 'sqf' ? 'Plinth room details (feet):' : 'Plinth room details (meters):';
+          plinthDetailsLabel.textContent = (item.unit || '').toLowerCase() === 'sqf' ? 'Plinth room details (feet):' : 'Plinth room details (meters):';
         }
       } else {
         updateRowTotal(item, tr);
@@ -5002,9 +4993,12 @@ function renderPlinthRooms(item, tr) {
   const container = tr.querySelector('.room-grid');
   container.innerHTML = '';
   
-  const titleLower = (item.title || '').toLowerCase();
-  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
-  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf';
+
+  const plinthDetailsLabel = tr.querySelector('.plinth-details span');
+  if (plinthDetailsLabel) {
+    plinthDetailsLabel.textContent = isSqf ? 'Plinth room details (feet):' : 'Plinth room details (meters):';
+  }
 
   item.rooms.forEach((room) => {
     const div = document.createElement('div');
@@ -5023,16 +5017,17 @@ function renderPlinthRooms(item, tr) {
       `;
     } else {
       // Standard metric inputs
+      const areaSqm = parseFloat(room.areaSqm || (room.l * room.w));
       const l_ft = (room.l * 3.28084).toFixed(1);
       const w_ft = (room.w * 3.28084).toFixed(1);
-      const areaSqft = (room.areaSqm * 10.76391).toFixed(2);
+      const areaSqft = (areaSqm * 10.76391).toFixed(2);
       div.innerHTML = `
         <input type="text" class="room-name" value="${room.name}" style="flex-grow: 2;" placeholder="Room name">
         <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (m)" step="0.01">
         <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
         <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (m)" step="0.01">
         <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">(${l_ft}' x ${w_ft}')</span>
-        <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${areaSqft} sqft</span></span>
+        <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 130px; text-align: right;" class="room-sqm-display">${areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${areaSqft} sqft</span></span>
         <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
       `;
     }
@@ -5053,9 +5048,10 @@ function renderPlinthRooms(item, tr) {
         div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqft.toFixed(2)} sqf`;
       } else {
         room.areaSqm = room.l * room.w;
+        room.areaSqft = room.areaSqm * 10.76391;
         const lf = (room.l * 3.28084).toFixed(1);
         const wf = (room.w * 3.28084).toFixed(1);
-        const asf = (room.areaSqm * 10.76391).toFixed(2);
+        const asf = room.areaSqft.toFixed(2);
         
         div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
         div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">${asf} sqft</span>`;
@@ -5079,9 +5075,7 @@ function renderPlinthRooms(item, tr) {
 
 function addPlinthRoom(item, tr) {
   const nextNo = item.rooms.length + 1;
-  const titleLower = (item.title || '').toLowerCase();
-  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
-  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf';
 
   item.rooms.push({
     id: Date.now() + Math.random(),
@@ -5096,15 +5090,13 @@ function addPlinthRoom(item, tr) {
 }
 
 function updatePlinthCalculations(item, tr) {
-  const titleLower = (item.title || '').toLowerCase();
-  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
-  const isSqf = (item.unit || '').toLowerCase() === 'sqf' || isFeetOnlyType;
+  const isSqf = (item.unit || '').toLowerCase() === 'sqf';
 
   if (isSqf) {
     item.totalAreaSqft = item.rooms.reduce((acc, curr) => acc + (curr.areaSqft || (curr.l * curr.w)), 0);
     item.totalAreaSqm = item.totalAreaSqft * 0.092903;
   } else {
-    item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + curr.areaSqm, 0);
+    item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + (curr.areaSqm || (curr.l * curr.w)), 0);
     item.totalAreaSqft = item.totalAreaSqm * 10.76391;
   }
   
