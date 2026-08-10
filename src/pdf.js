@@ -547,7 +547,7 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
 
   const contractorPct = report.contractorPct !== undefined ? report.contractorPct : (tpl.contractorPct !== undefined ? tpl.contractorPct : 15);
   const showContractorProfit = contractorPct > 0;
-  const hasMainDepreciatedItems = mainDepreciatedItems && mainDepreciatedItems.length > 0 && report.totalA > 0;
+  const hasMainDepreciatedItems = depreciatedItems && depreciatedItems.length > 0 && (report.totalA || 0) > 0;
 
   let subtotalsHtml = '';
   
