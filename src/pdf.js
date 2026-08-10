@@ -96,7 +96,7 @@ function renderQuantityRateItem(item) {
   const titleLower = (item.title || '').toLowerCase();
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
   const unit = (item.unit || '').toLowerCase();
-  const isFeet = ['sqf', 'sqft', 'ft', 'rft'].some(u => unit.includes(u));
+  const isFeet = ['sqf', 'sqft', 'ft', 'rft', 'cft'].some(u => unit.includes(u)) || isFeetOnlyType;
   const isMetric = ['sqm', 'cum', 'm', 'rm'].some(u => unit.includes(u));
 
   // Build measurement rows
@@ -117,13 +117,7 @@ function renderQuantityRateItem(item) {
 
       let dimStr = '';
       if (hasDims) {
-        if (isFeetOnlyType) {
-          const partsFeet = [];
-          if (hasL) partsFeet.push(l.toFixed(2) + ' ft');
-          if (hasB) partsFeet.push(b.toFixed(2) + ' ft');
-          if (hasH) partsFeet.push(h.toFixed(2) + ' ft');
-          dimStr = partsFeet.join(' × ');
-        } else if (isFeet) {
+        if (isFeet) {
           const partsFeet = [];
           const partsMeters = [];
           if (hasL) { partsFeet.push(l.toFixed(2) + ' ft'); partsMeters.push((l * 0.3048).toFixed(2) + ' m'); }
@@ -147,16 +141,15 @@ function renderQuantityRateItem(item) {
       }
 
       let subQtyHtml = '';
-      if (isFeetOnlyType) {
-        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}`;
-      } else if (isFeet) {
+      if (isFeet) {
         let convertedQty = subQty;
         let dualUnit = '';
-        if (unit.includes('sqf')) {
+        if (unit.includes('sqf') || unit.includes('sqft')) {
           convertedQty = subQty * 0.092903;
           dualUnit = 'sqm';
-        } else if (unit.includes('cum')) {
-          convertedQty = subQty;
+        } else if (unit.includes('cft') || unit.includes('cum')) {
+          convertedQty = subQty * 0.0283168;
+          dualUnit = 'cum';
         } else {
           convertedQty = subQty * 0.3048;
           dualUnit = 'm';
@@ -191,16 +184,15 @@ function renderQuantityRateItem(item) {
     }).join('');
 
     let totalQtyHtml = `${item.quantity.toFixed(2)} ${item.unit}`;
-    if (isFeetOnlyType) {
-      // Do nothing, keep single unit format
-    } else if (isFeet) {
+    if (isFeet) {
       let convertedQty = item.quantity;
       let dualUnit = '';
-      if (unit.includes('sqf')) {
+      if (unit.includes('sqf') || unit.includes('sqft')) {
         convertedQty = item.quantity * 0.092903;
         dualUnit = 'sqm';
-      } else if (unit.includes('cum')) {
-        convertedQty = item.quantity;
+      } else if (unit.includes('cft') || unit.includes('cum')) {
+        convertedQty = item.quantity * 0.0283168;
+        dualUnit = 'cum';
       } else {
         convertedQty = item.quantity * 0.3048;
         dualUnit = 'm';
@@ -248,16 +240,15 @@ function renderQuantityRateItem(item) {
   } else {
     // Fallback: no measurements
     let dualQtyText = '';
-    if (isFeetOnlyType) {
-      dualQtyText = '';
-    } else if (isFeet) {
+    if (isFeet) {
       let convertedQty = item.quantity;
       let dualUnit = '';
-      if (unit.includes('sqf')) {
+      if (unit.includes('sqf') || unit.includes('sqft')) {
         convertedQty = item.quantity * 0.092903;
         dualUnit = 'sqm';
-      } else if (unit.includes('cum')) {
-        convertedQty = item.quantity;
+      } else if (unit.includes('cft') || unit.includes('cum')) {
+        convertedQty = item.quantity * 0.0283168;
+        dualUnit = 'cum';
       } else {
         convertedQty = item.quantity * 0.3048;
         dualUnit = 'm';
@@ -375,94 +366,68 @@ function renderPlinthAreaItem(item) {
         
         <!-- Room Details -->
         ${(() => {
-          if (isFeetOnlyType) {
-            return item.rooms.map(r => {
-              const l_ft = parseFloat(r.l).toFixed(1);
-              const w_ft = parseFloat(r.w).toFixed(1);
-              const area_sqft = parseFloat(r.areaSqft || (r.l * r.w)).toFixed(2);
-              return `
-                <div class="pdf-row" style="margin-bottom: 2px;">
-                  <div style="width: 45mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
-                  <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-                  <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
-                    <span style="width: 45mm; text-align: left;">${l_ft} ft x ${w_ft} ft =</span>
-                    <span style="width: 25mm; text-align: right;">${area_sqft} sqf</span>
+          return item.rooms.map(r => {
+            const rawL = parseFloat(r.l) || 0;
+            const rawW = parseFloat(r.w) || 0;
+            const isSqfUnit = (item.unit === 'sqf' || isFeetOnlyType);
+
+            let l_m, w_m, area_sqm, l_ft, w_ft, area_sqft;
+
+            if (isSqfUnit) {
+              l_ft = rawL.toFixed(1);
+              w_ft = rawW.toFixed(1);
+              area_sqft = parseFloat(r.areaSqft || (rawL * rawW)).toFixed(2);
+
+              l_m = (rawL * 0.3048).toFixed(2);
+              w_m = (rawW * 0.3048).toFixed(2);
+              area_sqm = (parseFloat(area_sqft) * 0.092903).toFixed(2);
+            } else {
+              l_m = rawL.toFixed(2);
+              w_m = rawW.toFixed(2);
+              area_sqm = parseFloat(r.areaSqm || (rawL * rawW)).toFixed(2);
+
+              l_ft = (rawL * 3.28084).toFixed(1);
+              w_ft = (rawW * 3.28084).toFixed(1);
+              area_sqft = (parseFloat(area_sqm) * 10.76391).toFixed(2);
+            }
+
+            return `
+              <div class="pdf-row" style="margin-bottom: 2px;">
+                <div style="width: 45mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
+                <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
+                <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end; padding-right: 45mm;">
+                  <div style="display: flex; justify-content: flex-end; width: 100%;">
+                    <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
+                    <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
+                  </div>
+                  <div style="display: flex; justify-content: flex-end; width: 100%; color: #475569; font-size: 9.5pt;">
+                    <span style="width: 45mm; text-align: left;">(${l_ft} ft x ${w_ft} ft) =</span>
+                    <span style="width: 25mm; text-align: right;">(${area_sqft} sqf)</span>
                   </div>
                 </div>
-              `;
-            }).join('');
-          } else {
-            return item.rooms.map(r => {
-              const l_m = parseFloat(r.l).toFixed(2);
-              const w_m = parseFloat(r.w).toFixed(2);
-              const area_sqm = parseFloat(r.areaSqm).toFixed(2);
-              
-              if (item.unit === 'sqf') {
-                const l_ft = (parseFloat(r.l) * 3.28084).toFixed(1);
-                const w_ft = (parseFloat(r.w) * 3.28084).toFixed(1);
-                const area_sqft = (parseFloat(r.areaSqm) * 10.76391).toFixed(2);
-                return `
-                  <div class="pdf-row" style="margin-bottom: 2px;">
-                    <div style="width: 45mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
-                    <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-                    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end; padding-right: 45mm;">
-                      <div style="display: flex; justify-content: flex-end; width: 100%;">
-                        <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
-                        <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
-                      </div>
-                      <div style="display: flex; justify-content: flex-end; width: 100%; color: #475569; font-size: 9.5pt;">
-                        <span style="width: 45mm; text-align: left;">(${l_ft} ft x ${w_ft} ft) =</span>
-                        <span style="width: 25mm; text-align: right;">(${area_sqft} sqf)</span>
-                      </div>
-                    </div>
-                  </div>
-                `;
-              } else {
-                return `
-                  <div class="pdf-row" style="margin-bottom: 1px;">
-                    <div style="width: 45mm; flex-shrink: 0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${r.name}</div>
-                    <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
-                    <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
-                      <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
-                      <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
-                    </div>
-                  </div>
-                `;
-              }
-            }).join('');
-          }
+              </div>
+            `;
+          }).join('');
         })()}
         
         <!-- Total Plinth Area -->
         ${(() => {
-          if (isFeetOnlyType) {
-            return `
-              <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
-                <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
-                  <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
-                  <span style="display: inline-block; width: 25mm; text-align: right;">${parseFloat(item.totalAreaSqft || item.quantity).toFixed(2)} sqf</span>
-                </div>
+          const totalSqftVal = parseFloat(item.totalAreaSqft || (item.unit === 'sqf' ? item.quantity : (item.totalAreaSqm ? item.totalAreaSqm * 10.76391 : 0)) || 0);
+          const totalSqmVal = parseFloat(item.totalAreaSqm || (totalSqftVal * 0.092903) || 0);
+          return `
+            <div class="pdf-row" style="font-weight: 500; margin-bottom: 1px;">
+              <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
+                <span style="display: inline-block; width: 45mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
+                <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqmVal.toFixed(2)} sqm</span>
               </div>
-            `;
-          } else {
-            return `
-              <div class="pdf-row" style="font-weight: 500; margin-bottom: 1px;">
-                <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
-                  <span style="display: inline-block; width: 45mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
-                  <span style="display: inline-block; width: 25mm; text-align: right;">${parseFloat(item.totalAreaSqm).toFixed(2)} sqm</span>
-                </div>
+            </div>
+            <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
+              <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
+                <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area in sq.foot =</span>
+                <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqftVal.toFixed(2)} sqf</span>
               </div>
-              
-              ${(item.unit === 'sqf' && parseFloat(item.totalAreaSqft) > 0) ? `
-                <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
-                  <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
-                    <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area in sq.foot =</span>
-                    <span style="display: inline-block; width: 25mm; text-align: right;">${parseFloat(item.totalAreaSqft).toFixed(2)} sqf</span>
-                  </div>
-                </div>
-              ` : ''}
-            `;
-          }
+            </div>
+          `;
         })()}
         
         <!-- Rate Line -->
