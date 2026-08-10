@@ -367,6 +367,10 @@ function renderPlinthAreaItem(item) {
   const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
   const rawCost = (isSqfUnit ? totalSqftVal : totalSqmVal) * effectiveRate;
   
+  const deductionPct = parseFloat(item.deductionPct) || 0;
+  const deductionAmount = Math.round(rawCost * (deductionPct / 100));
+  const netTotalCost = Math.round(rawCost - deductionAmount);
+
   let depInfoHtml = '';
   if (item.customDepreciation) {
     const totalPct = (item.customDepreciationPct || 0) * (item.customDepreciationAge || 0);
@@ -388,25 +392,16 @@ function renderPlinthAreaItem(item) {
             const rawL = parseFloat(r.l) || 0;
             const rawW = parseFloat(r.w) || 0;
 
-            let l_m, w_m, area_sqm, l_ft, w_ft, area_sqft;
+            const roomSqm = (rawL * rawW);
+            const roomSqft = roomSqm * 10.76391;
 
-            if (isSqfUnit) {
-              l_ft = rawL.toFixed(1);
-              w_ft = rawW.toFixed(1);
-              area_sqft = parseFloat(r.areaSqft || (rawL * rawW)).toFixed(2);
+            const l_m = rawL.toFixed(2);
+            const w_m = rawW.toFixed(2);
+            const area_sqm = roomSqm.toFixed(2);
 
-              l_m = (rawL * 0.3048).toFixed(2);
-              w_m = (rawW * 0.3048).toFixed(2);
-              area_sqm = (parseFloat(area_sqft) * 0.092903).toFixed(2);
-            } else {
-              l_m = rawL.toFixed(2);
-              w_m = rawW.toFixed(2);
-              area_sqm = parseFloat(r.areaSqm || (rawL * rawW)).toFixed(2);
-
-              l_ft = (rawL * 3.28084).toFixed(1);
-              w_ft = (rawW * 3.28084).toFixed(1);
-              area_sqft = (parseFloat(area_sqm) * 10.76391).toFixed(2);
-            }
+            const l_ft = (rawL * 3.28084).toFixed(1);
+            const w_ft = (rawW * 3.28084).toFixed(1);
+            const area_sqft = roomSqft.toFixed(2);
 
             return `
               <div class="pdf-row" style="margin-bottom: 2px;">
@@ -452,13 +447,21 @@ function renderPlinthAreaItem(item) {
         </div>
         
         <!-- Deduction Line (if deduction exists) -->
-        ${item.deductionPct > 0 ? `
+        ${deductionPct > 0 ? `
           <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
             <div style="flex-grow: 1;">
-              Ded. ${item.deductionPct}% for ${item.deductionLabel || 'non conformity with CPWD norms'}
+              Ded. ${deductionPct}% for ${item.deductionLabel || 'non conformity with CPWD norms'}
             </div>
             <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0; color: #000000;">
-              = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(item.deductionAmount)}
+              = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(deductionAmount)}
+            </div>
+          </div>
+          <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
+            <div style="flex-grow: 1; font-weight: bold;">
+              Net Amount
+            </div>
+            <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0; color: #000000;">
+              = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(netTotalCost)}
             </div>
           </div>
         ` : ''}
