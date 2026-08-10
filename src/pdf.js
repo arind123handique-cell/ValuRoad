@@ -1081,12 +1081,6 @@ export function exportToPDF(report, sketcherImage, isPrint = false, options = {}
         height: estimateItemHeight(item)
       });
     });
-  } else {
-    blocks.push({
-      type: 'empty-notice',
-      html: `<div style="text-align: center; margin-top: 20mm; color: #64748b;">No items included in this valuation.</div>`,
-      height: 30
-    });
   }
 
   // Subtotals
