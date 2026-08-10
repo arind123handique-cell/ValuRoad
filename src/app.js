@@ -4991,34 +4991,50 @@ function renderPlinthRooms(item, tr) {
   const container = tr.querySelector('.room-grid');
   container.innerHTML = '';
   
+  const titleLower = (item.title || '').toLowerCase();
+  const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+  const isSqfUnit = (item.unit || '').toLowerCase() === 'sqf' || (item.unit || '').toLowerCase() === 'sqft' || isFeetOnlyType;
+
   const plinthDetailsLabel = tr.querySelector('.plinth-details span');
   if (plinthDetailsLabel) {
-    plinthDetailsLabel.textContent = 'Plinth room details (meters):';
+    plinthDetailsLabel.textContent = isSqfUnit ? 'Plinth room details (feet):' : 'Plinth room details (meters):';
   }
 
   item.rooms.forEach((room) => {
     const div = document.createElement('div');
     div.className = 'room-row';
 
-    const l_m = parseFloat(room.l) || 0;
-    const w_m = parseFloat(room.w) || 0;
+    const rawL = parseFloat(room.l) || 0;
+    const rawW = parseFloat(room.w) || 0;
     
-    const areaSqm = l_m * w_m;
-    const areaSqft = areaSqm * 10.76391;
+    let areaSqm, areaSqft, altDimText, areaDisplayText;
+
+    if (isSqfUnit) {
+      areaSqft = rawL * rawW;
+      areaSqm = areaSqft * 0.092903;
+      const l_m = (rawL * 0.3048).toFixed(2);
+      const w_m = (rawW * 0.3048).toFixed(2);
+      altDimText = `(${l_m}m x ${w_m}m)`;
+      areaDisplayText = `${areaSqft.toFixed(2)} sqft<br><span style="font-size: 0.75rem; color: var(--accent); font-weight: 600;">${areaSqm.toFixed(2)} sqm</span>`;
+    } else {
+      areaSqm = rawL * rawW;
+      areaSqft = areaSqm * 10.76391;
+      const l_ft = (rawL * 3.28084).toFixed(1);
+      const w_ft = (rawW * 3.28084).toFixed(1);
+      altDimText = `(${l_ft}' x ${w_ft}')`;
+      areaDisplayText = `${areaSqm.toFixed(2)} sqm`;
+    }
     
     room.areaSqm = areaSqm;
     room.areaSqft = areaSqft;
 
-    const l_ft = (l_m * 3.28084).toFixed(1);
-    const w_ft = (w_m * 3.28084).toFixed(1);
-
     div.innerHTML = `
       <input type="text" class="room-name" value="${room.name || ''}" style="flex-grow: 2;" placeholder="Room name">
-      <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="L (m)" step="0.01">
+      <input type="number" class="room-l" value="${room.l}" style="width: 70px;" placeholder="${isSqfUnit ? 'L (ft)' : 'L (m)'}" step="0.01">
       <span style="align-self: center; font-size: 0.8rem; color: var(--text-muted);">x</span>
-      <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="W (m)" step="0.01">
-      <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">(${l_ft}' x ${w_ft}')</span>
-      <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 140px; text-align: right;" class="room-sqm-display">${areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.75rem; color: var(--accent); font-weight: 600;">${areaSqft.toFixed(2)} sqft</span></span>
+      <input type="number" class="room-w" value="${room.w}" style="width: 70px;" placeholder="${isSqfUnit ? 'W (ft)' : 'W (m)'}" step="0.01">
+      <span style="align-self: center; font-size: 0.72rem; color: var(--text-muted); width: 100px; text-align: center;" class="room-feet-display">${altDimText}</span>
+      <span style="align-self: center; font-size: 0.85rem; font-weight: 500; width: 140px; text-align: right;" class="room-sqm-display">${areaDisplayText}</span>
       <button type="button" class="btn-danger delete-room-btn" style="padding: 0.2rem 0.4rem; background-color: var(--text-muted);"><i data-lucide="minus" style="width: 12px; height: 12px;"></i></button>
     `;
 
@@ -5032,14 +5048,21 @@ function renderPlinthRooms(item, tr) {
       room.l = parseFloat(div.querySelector('.room-l').value) || 0;
       room.w = parseFloat(div.querySelector('.room-w').value) || 0;
       
-      room.areaSqm = room.l * room.w;
-      room.areaSqft = room.areaSqm * 10.76391;
-      
-      const lf = (room.l * 3.28084).toFixed(1);
-      const wf = (room.w * 3.28084).toFixed(1);
-      
-      div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
-      div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm<br><span style="font-size: 0.75rem; color: var(--accent); font-weight: 600;">${room.areaSqft.toFixed(2)} sqft</span>`;
+      if (isSqfUnit) {
+        room.areaSqft = room.l * room.w;
+        room.areaSqm = room.areaSqft * 0.092903;
+        const lm = (room.l * 0.3048).toFixed(2);
+        const wm = (room.w * 0.3048).toFixed(2);
+        div.querySelector('.room-feet-display').innerText = `(${lm}m x ${wm}m)`;
+        div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqft.toFixed(2)} sqft<br><span style="font-size: 0.75rem; color: var(--accent); font-weight: 600;">${room.areaSqm.toFixed(2)} sqm</span>`;
+      } else {
+        room.areaSqm = room.l * room.w;
+        room.areaSqft = room.areaSqm * 10.76391;
+        const lf = (room.l * 3.28084).toFixed(1);
+        const wf = (room.w * 3.28084).toFixed(1);
+        div.querySelector('.room-feet-display').innerText = `(${lf}' x ${wf}')`;
+        div.querySelector('.room-sqm-display').innerHTML = `${room.areaSqm.toFixed(2)} sqm`;
+      }
       
       updatePlinthCalculations(item, tr);
     };

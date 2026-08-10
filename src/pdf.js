@@ -431,10 +431,12 @@ function renderPlinthAreaItem(item) {
                     <span style="width: 45mm; text-align: left;">${l_m} m x ${w_m} m =</span>
                     <span style="width: 25mm; text-align: right;">${area_sqm} sqm</span>
                   </div>
+                  ${isSqfUnit ? `
                   <div style="display: flex; justify-content: flex-end; width: 100%; color: #475569; font-size: 9.5pt;">
                     <span style="width: 45mm; text-align: left;">(${l_ft} ft x ${w_ft} ft) =</span>
                     <span style="width: 25mm; text-align: right;">(${area_sqft} sqf)</span>
                   </div>
+                  ` : ''}
                 </div>
               </div>
             `;
@@ -448,12 +450,14 @@ function renderPlinthAreaItem(item) {
             <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqmVal.toFixed(2)} sqm</span>
           </div>
         </div>
+        ${isSqfUnit ? `
         <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
           <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
             <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area in sq.foot =</span>
             <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqftVal.toFixed(2)} sqf</span>
           </div>
         </div>
+        ` : ''}
         
         <!-- Rate Line -->
         <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
