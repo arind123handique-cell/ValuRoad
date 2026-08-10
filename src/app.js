@@ -5504,11 +5504,21 @@ function calculateAndRenderTotals() {
     const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
 
     if (item.type === 'plinth-area') {
-      const roomSqm = (item.rooms || []).reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
-      item.totalAreaSqm = roomSqm;
-      item.totalAreaSqft = roomSqm * 10.76391;
+      const roomSum = (item.rooms || []).reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
+      let roomTotalSqm, roomTotalSqft;
 
-      if (isSqfUnit && item.rate === 2206) {
+      if (isSqfUnit) {
+        roomTotalSqft = roomSum;
+        roomTotalSqm = roomTotalSqft * 0.092903;
+      } else {
+        roomTotalSqm = roomSum;
+        roomTotalSqft = roomTotalSqm * 10.76391;
+      }
+
+      item.totalAreaSqm = roomTotalSqm;
+      item.totalAreaSqft = roomTotalSqft;
+
+      if (isSqfUnit && (item.rate === 2206 || !item.rate)) {
         item.rate = 205.00;
       }
 
