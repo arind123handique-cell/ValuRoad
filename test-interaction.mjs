@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const URL = 'http://127.0.0.1:3000/?test=true';
+const URL = 'http://localhost:3000/?test=true';
 const TIMEOUT = 10000;
 
 async function runInteractionTest() {
@@ -38,6 +38,7 @@ async function runInteractionTest() {
     console.log("Creating project...");
     await page.click('#dash-create-project-btn');
     await page.waitForTimeout(1000);
+    await page.fill('#proj-name', 'Valuation estimate for highways');
     await page.fill('#proj-work-name', 'Test Project for Owner Lifecycle');
     await page.fill('#proj-location', 'Test Location');
     await page.click('#proj-editor-save-btn');

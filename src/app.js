@@ -803,7 +803,8 @@ function renderProjects() {
   const table = document.getElementById('projects-table');
 
   const filtered = projects.filter(p => {
-    return (p.workName || '').toLowerCase().includes(searchQuery) ||
+    return (p.projectName || p.name || '').toLowerCase().includes(searchQuery) ||
+           (p.workName || '').toLowerCase().includes(searchQuery) ||
            (p.location || '').toLowerCase().includes(searchQuery);
   });
 
@@ -829,9 +830,13 @@ function renderProjects() {
         shareBadge = `<span class="project-share-badge shared-out" style="background-color: #f0fdf4; color: #15803d; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; display: inline-block; margin-top: 0.25rem; font-weight: 500;">Shared with ${p.sharedWith.length} user${p.sharedWith.length > 1 ? 's' : ''}</span>`;
       }
 
+      const displayName = p.projectName || p.name || p.workName || 'Untitled Project';
+      const subWorkName = (p.workName && p.workName !== displayName) ? p.workName : '';
+
       tr.innerHTML = `
         <td>
-          <div style="font-weight: 600; font-size: 0.95rem;">${p.workName || 'Untitled Project'}</div>
+          <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">${displayName}</div>
+          ${subWorkName ? `<div style="font-size: 0.8rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 320px;" title="Official Name of Work: ${subWorkName.replace(/"/g, '&quot;')}">${subWorkName}</div>` : ''}
           ${shareBadge}
         </td>
         <td>
@@ -2192,7 +2197,19 @@ async function exportProjectBulkPdf(selectedVillages, includeSitePlan) {
 
 function renderProjectDetails() {
   if (!activeProject) return;
-  document.getElementById('project-details-work-title').innerText = activeProject.workName || 'Untitled Project';
+  const displayName = activeProject.projectName || activeProject.name || activeProject.workName || 'Untitled Project';
+  document.getElementById('project-details-work-title').innerText = displayName;
+
+  const detailsWorkSub = document.getElementById('project-details-work-sub');
+  if (detailsWorkSub) {
+    if (activeProject.workName && activeProject.workName !== displayName) {
+      detailsWorkSub.innerText = `Official Name of Work: ${activeProject.workName}`;
+      detailsWorkSub.style.display = 'block';
+    } else {
+      detailsWorkSub.style.display = 'none';
+    }
+  }
+
   document.getElementById('project-details-location').innerText = activeProject.location || 'N/A';
 
   const isProjectOwner = !activeProject.ownerId || (auth.currentUser && activeProject.ownerId === auth.currentUser.uid);
@@ -2442,12 +2459,15 @@ function setupProjectEditor() {
 function initNewProject() {
   activeProject = {
     id: 'PROJ_' + Date.now(),
+    projectName: '',
     workName: '',
     location: '',
     nbNote: DEFAULT_NB_NOTE,
     entries: []
   };
   document.getElementById('proj-editor-title').innerText = 'Create Project';
+  const projNameEl = document.getElementById('proj-name');
+  if (projNameEl) projNameEl.value = '';
   document.getElementById('proj-work-name').value = '';
   document.getElementById('proj-location').value = '';
   document.getElementById('proj-nb-note').value = DEFAULT_NB_NOTE;
@@ -2459,6 +2479,8 @@ function editProject(id) {
   if (!p) return;
   activeProject = p;
   document.getElementById('proj-editor-title').innerText = 'Edit Project Details';
+  const projNameEl = document.getElementById('proj-name');
+  if (projNameEl) projNameEl.value = activeProject.projectName || activeProject.name || '';
   document.getElementById('proj-work-name').value = activeProject.workName || '';
   document.getElementById('proj-location').value = activeProject.location || '';
   document.getElementById('proj-nb-note').value = activeProject.nbNote || '';
@@ -2466,16 +2488,22 @@ function editProject(id) {
 }
 
 async function saveProject() {
+  const projNameEl = document.getElementById('proj-name');
+  const projectName = projNameEl ? projNameEl.value.trim() : '';
   const workName = document.getElementById('proj-work-name').value.trim();
   const location = document.getElementById('proj-location').value.trim();
   const nbNote = document.getElementById('proj-nb-note').value.trim();
 
-  if (!workName) {
-    alert('Please enter a Project Work Name / Scheme Description.');
+  if (!projectName && !workName) {
+    alert('Please enter a Project Name or Name of Work.');
     return;
   }
 
-  activeProject.workName = workName;
+  const finalProjectName = projectName || workName;
+  const finalWorkName = workName || projectName;
+
+  activeProject.projectName = finalProjectName;
+  activeProject.workName = finalWorkName;
   activeProject.location = location;
   activeProject.nbNote = nbNote;
 
@@ -3561,7 +3589,7 @@ function loadEntryToEditor() {
     else pane.classList.remove('active');
   });
 
-  document.getElementById('editor-project-context-title').innerText = activeProject.workName || 'Untitled Project';
+  document.getElementById('editor-project-context-title').innerText = activeProject.projectName || activeProject.name || activeProject.workName || 'Untitled Project';
 
   if (activeEntry.status === 'completed') {
     document.getElementById('editor-title').innerText = 'View Owner Valuation (Locked)';
@@ -8012,7 +8040,7 @@ function setupProjectSharingModal() {
     if (!project) return;
 
     currentSharingProjectId = projectId;
-    titleText.innerText = `Project: ${project.workName || 'Untitled Project'}`;
+    titleText.innerText = `Project: ${project.projectName || project.name || project.workName || 'Untitled Project'}`;
     emailInput.value = '';
     errorMsg.style.display = 'none';
 
@@ -10371,7 +10399,7 @@ function refreshBulkProjectSelector() {
   projects.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.workName || p.projectName || `Project ${p.id}`;
+    opt.textContent = p.projectName || p.name || p.workName || `Project ${p.id}`;
     if (activeProject && activeProject.id === p.id) {
       opt.selected = true;
     }

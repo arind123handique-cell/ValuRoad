@@ -282,7 +282,6 @@
             <i data-lucide="arrow-left"></i> Back to Projects
           </button>
           <h2 id="project-details-work-title">Project Name</h2>
-          <p id="project-details-work-sub" style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 0.15rem; display: none;"></p>
           <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;"><i data-lucide="map-pin" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i> <span id="project-details-location">Location</span></p>
         </div>
         <div style="display: flex; gap: 0.75rem; align-self: flex-end; flex-wrap: wrap;">
@@ -940,12 +939,6 @@
                <button type="button" id="sketch-snap-toggle" title="Toggle Snap-to-Grid" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border:1px solid #22c55e;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
                  <i data-lucide="magnet" style="width:13px;height:13px;"></i> SNAP ON
                </button>
-               <button type="button" id="sketch-osnap-toggle" title="Object Snap (F3)" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#22c55e;border:1px solid #22c55e;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
-                 <i data-lucide="crosshair" style="width:13px;height:13px;"></i> OSNAP ON
-               </button>
-               <button type="button" id="sketch-ortho-toggle" title="Ortho Mode (F8)" style="padding:0.22rem 0.5rem;height:auto;font-size:0.75rem;color:#94a3b8;border:1px solid #94a3b8;border-radius:0.4rem;background:transparent;display:inline-flex;align-items:center;gap:0.25rem;">
-                 <i data-lucide="corner-down-right" style="width:13px;height:13px;"></i> ORTHO OFF
-               </button>
                <select id="sketch-grid-size" title="Grid spacing" style="padding:0.22rem 0.3rem;border-radius:0.35rem;border:1px solid var(--border-color);font-size:0.75rem;background:var(--bg-primary);color:var(--text-primary);">
                  <option value="0.1">0.1m</option>
                  <option value="0.25">0.25m</option>
@@ -1124,11 +1117,8 @@
                 <div class="vtool-sep"></div>
                 <button type="button" class="vtool-btn active" id="vtool-grid" title="Toggle Grid Background (Shift+G)"><i data-lucide="grid-3x3"></i></button>
                 <button type="button" class="vtool-btn active" id="vtool-snap" title="Toggle Grid Snap (G)"><i data-lucide="magnet"></i></button>
-                <button type="button" class="vtool-btn active" id="vtool-osnap" title="Object Snap (F3)"><i data-lucide="crosshair"></i></button>
-                <button type="button" class="vtool-btn" id="vtool-ortho" title="Ortho Mode (F8)"><i data-lucide="corner-down-right"></i></button>
                 <div class="vtool-sep"></div>
                 <button type="button" class="vtool-btn vtool-success" id="vtool-save" title="Save Drawing (Ctrl+S)"><i data-lucide="save"></i></button>
-                <button type="button" class="vtool-btn" id="vtool-export-dxf" title="Export AutoCAD DXF"><i data-lucide="file-down"></i></button>
                 <button type="button" class="vtool-btn" id="vtool-undo" title="Undo (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
                 <button type="button" class="vtool-btn" id="vtool-redo" title="Redo (Ctrl+Y)"><i data-lucide="redo-2"></i></button>
                 <button type="button" class="vtool-btn vtool-danger" id="vtool-delete" title="Delete Selected (Del)"><i data-lucide="trash-2"></i></button>
@@ -1136,7 +1126,7 @@
               <canvas id="sketcher-canvas"></canvas>
             </div>
             <p style="font-size:0.78rem;color:var(--text-muted);font-style:italic;margin-top:0.3rem;">
-              <b>Select</b> → move/resize (drag corner handles). <b>Endpoint handles ●</b> reshape lines. <b>Orange ◆</b> repositions dimension labels. <b>Direct input</b>: type <b>12</b> + Enter for length or <b>12x8</b> for building size. <b>F3</b> OSNAP, <b>F8</b> ORTHO, <b>G</b> grid snap.
+              <b>Select</b> → move/resize (drag corner handles). <b>Endpoint handles ●</b> reshape lines. <b>Orange ◆</b> repositions dimension labels. <b>Wall tool</b>: click points, dbl-click to end / ✓ Close Shape to close. <b>G</b> key toggles grid snap.
             </p>
           </div>
 
