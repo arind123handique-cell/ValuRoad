@@ -356,7 +356,16 @@ function renderPlinthAreaItem(item) {
   const titleLower = (item.title || '').toLowerCase();
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
 
-  const rawCost = (item.unit === 'sqf' ? item.totalAreaSqft : item.totalAreaSqm) * item.rate;
+  const totalSqftVal = parseFloat(item.totalAreaSqft || (item.unit === 'sqf' ? item.quantity : (item.totalAreaSqm ? item.totalAreaSqm * 10.76391 : 0)) || 0);
+  const totalSqmVal = parseFloat(item.totalAreaSqm || (totalSqftVal * 0.092903) || 0);
+
+  const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+  let effectiveRate = item.rate;
+  if (isSqfUnit && item.rate === 2206) {
+    effectiveRate = 205.00;
+  }
+  const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
+  const rawCost = (isSqfUnit ? totalSqftVal : totalSqmVal) * effectiveRate;
   
   let depInfoHtml = '';
   if (item.customDepreciation) {
@@ -378,7 +387,6 @@ function renderPlinthAreaItem(item) {
           return item.rooms.map(r => {
             const rawL = parseFloat(r.l) || 0;
             const rawW = parseFloat(r.w) || 0;
-            const isSqfUnit = (item.unit === 'sqf' || isFeetOnlyType);
 
             let l_m, w_m, area_sqm, l_ft, w_ft, area_sqft;
 
@@ -420,46 +428,28 @@ function renderPlinthAreaItem(item) {
         })()}
         
         <!-- Total Plinth Area -->
-        ${(() => {
-          const totalSqftVal = parseFloat(item.totalAreaSqft || (item.unit === 'sqf' ? item.quantity : (item.totalAreaSqm ? item.totalAreaSqm * 10.76391 : 0)) || 0);
-          const totalSqmVal = parseFloat(item.totalAreaSqm || (totalSqftVal * 0.092903) || 0);
-          return `
-            <div class="pdf-row" style="font-weight: 500; margin-bottom: 1px;">
-              <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
-                <span style="display: inline-block; width: 45mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
-                <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqmVal.toFixed(2)} sqm</span>
-              </div>
-            </div>
-            <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
-              <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
-                <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area in sq.foot =</span>
-                <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqftVal.toFixed(2)} sqf</span>
-              </div>
-            </div>
-          `;
-        })()}
+        <div class="pdf-row" style="font-weight: 500; margin-bottom: 1px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
+            <span style="display: inline-block; width: 45mm; text-align: right; margin-right: 5px;">Total plinth area =</span>
+            <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqmVal.toFixed(2)} sqm</span>
+          </div>
+        </div>
+        <div class="pdf-row" style="font-weight: 500; margin-bottom: 2px;">
+          <div style="flex-grow: 1; text-align: right; padding-right: 45mm;">
+            <span style="display: inline-block; width: 55mm; text-align: right; margin-right: 5px;">Total plinth area in sq.foot =</span>
+            <span style="display: inline-block; width: 25mm; text-align: right;">${totalSqftVal.toFixed(2)} sqf</span>
+          </div>
+        </div>
         
         <!-- Rate Line -->
-        ${(() => {
-          const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
-          let effectiveRate = item.rate;
-          if (isSqfUnit && item.rate === 2206) {
-            effectiveRate = 205.00;
-          }
-          const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
-          const effectiveCost = (isSqfUnit ? totalSqftVal : totalSqmVal) * effectiveRate;
-
-          return `
-            <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
-              <div style="flex-grow: 1;">
-                @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
-              </div>
-              <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-                = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveCost)}
-              </div>
-            </div>
-          `;
-        })()}
+        <div class="pdf-row" style="margin-left: -5mm; margin-top: 1px;">
+          <div style="flex-grow: 1;">
+            @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
+          </div>
+          <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
+          </div>
+        </div>
         
         <!-- Deduction Line (if deduction exists) -->
         ${item.deductionPct > 0 ? `
