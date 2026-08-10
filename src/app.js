@@ -3751,6 +3751,8 @@ function loadEntryToEditor() {
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
     if (fieldRoomColor) fieldRoomColor.style.display = 'none';
+    const fieldLineStyle = document.getElementById('prop-field-line-style');
+    if (fieldLineStyle) fieldLineStyle.style.display = 'none';
     fieldLabel.style.display = 'flex';
  
     // Show font settings for most object types
@@ -3812,7 +3814,20 @@ function loadEntryToEditor() {
         if (colorInput) colorInput.value = shape.color || '#bfdbfe';
       }
       inputLabel.value = shape.label || '';
-    } else if (shape.type === 'line' || shape.type === 'polygon') {
+    } else if (shape.type === 'line' || shape.type === 'polyline') {
+      if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
+      inputLabel.value = shape.label || '';
+      const fieldLineStyle2 = document.getElementById('prop-field-line-style');
+      if (fieldLineStyle2) {
+        fieldLineStyle2.style.display = 'flex';
+        const ltEl = document.getElementById('prop-input-line-type');
+        const lcEl = document.getElementById('prop-input-line-color');
+        const lwEl = document.getElementById('prop-input-line-width');
+        if (ltEl) ltEl.value = shape.lineType || shape.style || 'solid';
+        if (lcEl) lcEl.value = shape.color || '#334155';
+        if (lwEl) lwEl.value = shape.lineWidth || 2;
+      }
+    } else if (shape.type === 'polygon') {
       if (fieldPushEstimate) fieldPushEstimate.style.display = 'flex';
       inputLabel.value = shape.label || '';
     }
@@ -3823,7 +3838,7 @@ function loadEntryToEditor() {
         'prop-field-label', 'prop-field-width', 'prop-field-height', 'prop-field-road',
         'prop-field-structure-type', 'prop-field-dim-label', 'prop-field-block-style',
         'prop-field-merge', 'prop-field-room-color', 'prop-field-floors', 'prop-field-wall-len-above',
-        'prop-field-road-width'
+        'prop-field-road-width', 'prop-field-line-style'
       ];
       allFields.forEach(id => {
         const f = document.getElementById(id);
@@ -6307,7 +6322,7 @@ function setupSketcherToolbar() {
   if (sketcherToolbarSetupDone) return;
   sketcherToolbarSetupDone = true;
 
-  const tools = ['select', 'building', 'polybuilding', 'room', 'road', 'text', 'line', 'wall', 'boundary-wall', 'gate', 'gate-toran', 'custom-block', 'dimension', 'freehand', 'erase'];
+  const tools = ['select', 'building', 'polybuilding', 'room', 'road', 'text', 'line', 'polyline', 'wall', 'boundary-wall', 'gate', 'gate-toran', 'custom-block', 'dimension', 'freehand', 'erase'];
 
   // Vertical Toolbar Buttons mapping
   const vToolsMap = {
@@ -6320,6 +6335,7 @@ function setupSketcherToolbar() {
     'vtool-polybuilding': 'polybuilding',
     'vtool-freehand': 'freehand',
     'vtool-line': 'line',
+    'vtool-polyline': 'polyline',
     'vtool-dimension': 'dimension',
     'vtool-boundary': 'boundary-wall',
     'vtool-road': 'road',
@@ -6470,11 +6486,62 @@ function setupSketcherToolbar() {
 
   document.getElementById('tool-close-poly').addEventListener('click', () => {
     if (sketcher) {
-      sketcher._commitPolyChain();
+      if (sketcher.mode === 'polyline' && sketcher.polyChain.length >= 2) {
+        sketcher.finishPolyline(false);
+      } else {
+        sketcher._commitPolyChain();
+      }
       document.getElementById('tool-close-poly').style.display = 'none';
       syncAllToolbars('select');
     }
   });
+
+  // ── Line Style Controls (Line Tool & Polyline Tool global defaults) ──
+  const lineTypeGlobal  = document.getElementById('prop-input-line-type');
+  const lineColorGlobal = document.getElementById('prop-input-line-color');
+  const lineWidthGlobal = document.getElementById('prop-input-line-width');
+
+  if (lineTypeGlobal) {
+    lineTypeGlobal.addEventListener('change', () => {
+      if (!sketcher) return;
+      const s = sketcher.selectedShape;
+      if (s && (s.type === 'line' || s.type === 'polyline')) {
+        s.lineType = lineTypeGlobal.value;
+        s.style    = lineTypeGlobal.value;
+        sketcher._saveState && sketcher._saveState();
+        sketcher.draw();
+      }
+      sketcher.currentLineType = lineTypeGlobal.value;
+    });
+  }
+
+  if (lineColorGlobal) {
+    lineColorGlobal.addEventListener('input', () => {
+      if (!sketcher) return;
+      const s = sketcher.selectedShape;
+      if (s && (s.type === 'line' || s.type === 'polyline')) {
+        s.color = lineColorGlobal.value;
+        sketcher._saveState && sketcher._saveState();
+        sketcher.draw();
+      }
+      sketcher.currentLineColor = lineColorGlobal.value;
+    });
+  }
+
+  if (lineWidthGlobal) {
+    lineWidthGlobal.addEventListener('input', () => {
+      if (!sketcher) return;
+      const w = parseFloat(lineWidthGlobal.value);
+      if (!isFinite(w) || w <= 0) return;
+      const s = sketcher.selectedShape;
+      if (s && (s.type === 'line' || s.type === 'polyline')) {
+        s.lineWidth = w;
+        sketcher._saveState && sketcher._saveState();
+        sketcher.draw();
+      }
+      sketcher.currentLineWidth = w;
+    });
+  }
 
   const autoDrawBtn = document.getElementById('sketch-autodraw-btn');
   if (autoDrawBtn) {

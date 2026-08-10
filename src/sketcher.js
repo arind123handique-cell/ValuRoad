@@ -53,9 +53,12 @@ export class SiteSketcher {
     this.orthoMode     = false;
     this.selectedShapes = [];          // multi-select support
 
-    // ── typography ──
+    // ── typography & line styles ──
     this.globalFontSizeBase = 17;
     this.globalFontFamily = 'sans-serif';
+    this.currentLineType  = 'solid';     // 'solid' | 'dashed' | 'dotted' | 'dashdot' | 'phantom'
+    this.currentLineColor = '#334155';
+    this.currentLineWidth = 2;
 
     // ── map bg ──
     this.mapBgImage      = null;
@@ -463,6 +466,22 @@ export class SiteSketcher {
           break;
         }
 
+        case 'polyline': {
+          const pt = this._snap(raw, null);
+          if (this.polyChain.length >= 2) {
+            const startSP = this.w2s(this.polyChain[0].x, this.polyChain[0].y);
+            const currSP  = this.w2s(pt.x, pt.y);
+            if (Math.hypot(currSP.x - startSP.x, currSP.y - startSP.y) < 14) {
+              this.finishPolyline(true);
+              break;
+            }
+          }
+          this.polyChain.push({...pt});
+          if (this.onPolyNodeAdded) this.onPolyNodeAdded(this.polyChain.length);
+          this.draw();
+          break;
+        }
+
         case 'erase': {
           const hit = this._hitTest(raw);
           if (hit) {
@@ -746,9 +765,46 @@ export class SiteSketcher {
     });
   }
 
-  _isLinear(s)     { return ['boundary-wall','gate','gate-toran','line','dimension'].includes(s?.type); }
+  _getLineDash(style) {
+    const t = String(style || 'solid').toLowerCase();
+    if (t === 'dashed') return [8, 6];
+    if (t === 'dotted') return [3, 3];
+    if (t === 'dashdot' || t === 'center') return [12, 4, 3, 4];
+    if (t === 'phantom' || t === 'border') return [16, 4, 3, 4, 3, 4];
+    return [];
+  }
+
+  _isLinear(s)     { return ['boundary-wall','gate','gate-toran','line','polyline','dimension'].includes(s?.type); }
   _isLinearMode()  { return ['boundary-wall','gate','gate-toran','line','dimension'].includes(this.mode); }
   _isBoxMode()     { return ['building','custom-block'].includes(this.mode); }
+
+  finishPolyline(closed = false) {
+    if (this.polyChain.length < 2) {
+      this.polyChain = [];
+      if (this.onPolyNodeAdded) this.onPolyNodeAdded(0);
+      this.draw();
+      return;
+    }
+    this.pushHistory();
+    const shape = {
+      id: Date.now(),
+      type: 'polyline',
+      points: [...this.polyChain],
+      closed: !!closed,
+      lineType: this.currentLineType || 'solid',
+      style: this.currentLineType || 'solid',
+      color: this.currentLineColor || '#334155',
+      lineWidth: this.currentLineWidth || 2,
+      label: ''
+    };
+    this.shapes.push(shape);
+    this.selectedShape = shape;
+    this.selectedShapes = [shape];
+    this.polyChain = [];
+    if (this.onSelectionChange) this.onSelectionChange(shape, [shape]);
+    if (this.onPolyNodeAdded) this.onPolyNodeAdded(0);
+    this.draw();
+  }
 
   _commitWallChain(closed) {
     if (this.wallChain.length < 2) { this.wallChain=[]; return; }
@@ -887,7 +943,7 @@ export class SiteSketcher {
     if (mode==='gate-toran')
       return { id, type:'gate-toran', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE WITH TORAN', dimLabel:`${len.toFixed(2)}m`, dimOffset:-0.8 };
     if (mode==='line')
-      return { id, type:'line', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, style:'dashed', label:'ROW' };
+      return { id, type:'line', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, lineType: this.currentLineType || 'solid', style: this.currentLineType || 'solid', color: this.currentLineColor || '#334155', lineWidth: this.currentLineWidth || 2, label:'' };
     if (mode==='dimension')
       return { id, type:'dimension', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, dimOffset:-1, manualLabel:'', label:`${len.toFixed(2)}m` };
     return null;
@@ -1216,17 +1272,47 @@ export class SiteSketcher {
 
     } else if (s.type==='line') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
-      ctx.strokeStyle='#334155'; ctx.lineWidth=1.5;
-      if(s.style==='dashed')ctx.setLineDash([8,6]);
+      ctx.strokeStyle=s.color || '#334155';
+      ctx.lineWidth=s.lineWidth || 1.5;
+      const dash = this._getLineDash(s.lineType || s.style);
+      ctx.setLineDash(dash);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
-      if(s.label){
+      const lblText = s.label || '';
+      if(lblText){
         const mx=(s1.x+s2.x)/2,my=(s1.y+s2.y)/2;
         const fs = s.fontSize || this.globalFontSizeBase;
         const ff = s.fontFamily || this.globalFontFamily;
-        ctx.font=`italic ${Math.max(8, Math.round(fs * 1.0 * z))}px ${ff}`;ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText(s.label,mx,my-6);
+        ctx.font=`italic ${Math.max(8, Math.round(fs * 0.85 * z))}px ${ff}`;ctx.fillStyle=s.color || '#64748b';ctx.textAlign='center';ctx.fillText(lblText,mx,my-6);
       }
 
-      // ROW autodimension removed — only the ROW line is drawn
+    } else if (s.type==='polyline') {
+      if (s.points && s.points.length > 1) {
+        const pts = s.points.map(pt => this.w2s(pt.x, pt.y));
+        ctx.strokeStyle = s.color || '#334155';
+        ctx.lineWidth = s.lineWidth || 1.5;
+        const dash = this._getLineDash(s.lineType || s.style);
+        ctx.setLineDash(dash);
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        if (s.closed) ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const endIdx = s.closed ? s.points.length : s.points.length - 1;
+        for (let i = 0; i < endIdx; i++) {
+          const p1 = s.points[i], p2 = s.points[(i + 1) % s.points.length];
+          const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          if (segLen > 0.05) {
+            const sp1 = this.w2s(p1.x, p1.y), sp2 = this.w2s(p2.x, p2.y);
+            const mx = (sp1.x + sp2.x) / 2, my = (sp1.y + sp2.y) / 2;
+            const fs = s.fontSize || this.globalFontSizeBase;
+            const ff = s.fontFamily || this.globalFontFamily;
+            ctx.font = `italic ${Math.max(8, Math.round(fs * 0.85 * z))}px ${ff}`;
+            ctx.fillStyle = s.color || '#64748b'; ctx.textAlign = 'center';
+            ctx.fillText(`${segLen.toFixed(2)}m`, mx, my - 6);
+          }
+        }
+      }
 
     } else if (s.type==='boundary-wall') {
       const s1=this.w2s(s.x1,s.y1),s2=this.w2s(s.x2,s.y2);
@@ -1429,8 +1515,30 @@ export class SiteSketcher {
       this.polyChain.forEach(pt=>{const s=this.w2s(pt.x,pt.y);ctx.beginPath();ctx.arc(s.x,s.y,4,0,Math.PI*2);ctx.fillStyle='#475569';ctx.fill();});
     }
 
-    // line-type drag preview
-    if(this._isLinearMode()&&(this.isDown||this.mode==='dimension')&&this.wallChain.length===1){
+    // polyline tool preview
+    if(this.mode==='polyline'&&this.polyChain.length>0){
+      const pts=[...this.polyChain,p].map(pt=>this.w2s(pt.x,pt.y));
+      ctx.strokeStyle=this.currentLineColor||'#334155'; ctx.lineWidth=this.currentLineWidth||2;
+      ctx.setLineDash(this._getLineDash(this.currentLineType));
+      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));ctx.stroke();ctx.setLineDash([]);
+      const last=this.polyChain[this.polyChain.length-1];
+      const plen=Math.hypot(p.x-last.x,p.y-last.y);
+      if(plen>0.02){const sp2=this.w2s((last.x+p.x)/2,(last.y+p.y)/2);this._drawLiveLen(`${plen.toFixed(2)}m`,sp2);}
+      this.polyChain.forEach((pt,idx)=>{const s=this.w2s(pt.x,pt.y);ctx.beginPath();ctx.arc(s.x,s.y,idx===0?6:4,0,Math.PI*2);ctx.fillStyle=idx===0?'#2563eb':'#475569';ctx.fill();});
+    }
+
+    // line tool preview
+    if(this.mode==='line'&&this.wallChain.length===1){
+      const s1=this.w2s(this.wallChain[0].x,this.wallChain[0].y),s2=this.w2s(p.x,p.y);
+      ctx.strokeStyle=this.currentLineColor||'#334155'; ctx.lineWidth=this.currentLineWidth||2;
+      ctx.setLineDash(this._getLineDash(this.currentLineType));
+      ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
+      const llen=Math.hypot(p.x-this.wallChain[0].x,p.y-this.wallChain[0].y);
+      if(llen>0.02){const sp2=this.w2s((this.wallChain[0].x+p.x)/2,(this.wallChain[0].y+p.y)/2);this._drawLiveLen(`${llen.toFixed(2)}m`,sp2);}
+    }
+
+    // other linear modes drag preview
+    if(this._isLinearMode()&&this.mode!=='line'&&(this.isDown||this.mode==='dimension')&&this.wallChain.length===1){
       const s1=this.w2s(this.wallChain[0].x,this.wallChain[0].y),s2=this.w2s(p.x,p.y);
       ctx.strokeStyle=this.mode==='dimension'?'#2563eb':'#64748b';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);

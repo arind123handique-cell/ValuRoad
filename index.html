@@ -1002,8 +1002,27 @@
                 <input type="color" id="prop-input-room-color" value="#bfdbfe" style="width:38px;height:28px;border:1px solid var(--border-color);border-radius:0.3rem;padding:2px;background:var(--bg-secondary);cursor:pointer;">
               </div>
 
-
-
+              <!-- Line Style Properties (for line / polyline shapes) -->
+              <div id="prop-field-line-style" style="display:none;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Type:</label>
+                  <select id="prop-input-line-type" style="width:120px;padding:0.25rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                    <option value="solid">── Continuous</option>
+                    <option value="dashed">- - Dashed</option>
+                    <option value="dotted">··· Dotted</option>
+                    <option value="dashdot">-·- Dash-Dot</option>
+                    <option value="phantom">-·· Phantom</option>
+                  </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Color:</label>
+                  <input type="color" id="prop-input-line-color" value="#334155" style="width:32px;height:28px;border:1px solid var(--border-color);border-radius:0.3rem;padding:2px;background:var(--bg-secondary);cursor:pointer;">
+                </div>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Width:</label>
+                  <input type="number" id="prop-input-line-width" value="2" min="0.5" max="12" step="0.5" style="width:52px;padding:0.3rem 0.45rem;border-radius:0.4rem;border:1px solid var(--border-color);font-size:0.82rem;background:var(--bg-secondary);color:var(--text-primary);">
+                </div>
+              </div>
               <!-- Label -->
               <div id="prop-field-label" style="display:flex;align-items:center;gap:0.5rem;">
                 <label style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">Label:</label>
@@ -1114,7 +1133,8 @@
                 <button type="button" class="vtool-btn" id="vtool-polybuilding" title="Polygon Building (P)"><i data-lucide="hexagon"></i></button>
                 <div class="vtool-sep"></div>
                 <button type="button" class="vtool-btn" id="vtool-freehand" title="Pen / Freehand (F)"><i data-lucide="brush"></i></button>
-                <button type="button" class="vtool-btn" id="vtool-line" title="ROW Line (L)"><i data-lucide="minus"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-line" title="Line Tool (L) – drag to draw"><i data-lucide="minus"></i></button>
+                <button type="button" class="vtool-btn" id="vtool-polyline" title="Polyline Tool (PL) – click to add nodes, close near start"><i data-lucide="spline"></i></button>
                 <button type="button" class="vtool-btn" id="vtool-dimension" title="Dimension (D)"><i data-lucide="ruler"></i></button>
                 <button type="button" class="vtool-btn" id="vtool-boundary" title="Boundary Wall"><i data-lucide="grip-horizontal"></i></button>
                 <button type="button" class="vtool-btn" id="vtool-road" title="Road Way"><i data-lucide="map"></i></button>
