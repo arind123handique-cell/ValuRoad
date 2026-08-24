@@ -2792,6 +2792,7 @@ function setupEditor() {
       s.label = inputLabel.value;
       s.dimLabel = inputDimLabel.value;
       s.height = parseM(inputHeight.value);
+      if (s.type === 'boundary-wall' && inputWallLenAbove) s.wallLenAbove = inputWallLenAbove.value;
     } else if (s.type === 'dimension') {
       s.manualLabel = inputDimLabel.value;
       s.label = s.manualLabel || s.label;
@@ -2912,13 +2913,14 @@ function setupEditor() {
 
         // 2. If height provided, add the "Above Tie Beam" (sqm) item
         if (h > 0) {
+          const lenAbove = (s.type === 'boundary-wall' && s.wallLenAbove) ? (parseFloat(s.wallLenAbove) || len) : len;
           itemsToAdd.push({
-            qty: len * h, 
+            qty: lenAbove * h, 
             unit: 'sqm', 
             title: s.label || 'Boundary Wall (Above Tie Beam)', 
             rate: 1450.00, 
             description: 'Area for sqm', 
-            l: len, b: '', h: h, nos: 1,
+            l: lenAbove, b: '', h: h, nos: 1,
             measurementDesc: `${s.label || 'Boundary Wall'} - Above Tie Beam`
           });
         }
@@ -3738,6 +3740,7 @@ function loadEntryToEditor() {
     const inputBlockStyle = document.getElementById('prop-input-block-style');
     const inputStructType = document.getElementById('prop-input-structure-type');
     const inputFloors     = document.getElementById('prop-input-floors');
+    const inputWallLenAbove = document.getElementById('prop-input-wall-len-above');
     const fieldMerge      = document.getElementById('prop-field-merge');
     const fieldPushEstimate = document.getElementById('prop-field-push-estimate');
     const fieldFont       = document.getElementById('prop-field-font');
@@ -3746,7 +3749,7 @@ function loadEntryToEditor() {
     const inputRoadWidth  = document.getElementById('prop-input-road-width');
  
     // Reset all optional fields hidden; label always shown
-    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldFloors, fieldFont, fieldRoadWidth].forEach(f => {
+    [fieldWidth, fieldHeight, fieldRoad, fieldStructType, fieldDimLabel, fieldBlockStyle, fieldMerge, fieldPushEstimate, fieldFloors, fieldFont, fieldRoadWidth, fieldWallLenAbove].forEach(f => {
       if (f) f.style.display = 'none';
     });
     const fieldRoomColor = document.getElementById('prop-field-room-color');
@@ -3883,14 +3886,13 @@ function loadEntryToEditor() {
       'h': 'vtool-pan',
       'z': 'vtool-zoom',
       'w': 'vtool-wall',
-
-      'l': 'tool-line',
-      'b': 'tool-building',
-      'r': 'tool-room',
-      't': 'tool-text',
-      'p': 'tool-polybuilding',
-      'd': 'tool-dimension',
-      'e': 'tool-erase'
+      'l': 'vtool-line',
+      'b': 'vtool-building',
+      'r': 'vtool-room',
+      't': 'vtool-text',
+      'p': 'vtool-polybuilding',
+      'd': 'vtool-dimension',
+      'f': 'vtool-freehand'
     };
 
     if (tools[key]) {
@@ -4023,8 +4025,9 @@ function loadEntryToEditor() {
           else if (s.x1 !== undefined && s.x2 !== undefined) len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
           
           let h = s.height || 0, l = len;
+          const lenAbove = (s.type === 'boundary-wall' && s.wallLenAbove) ? (parseFloat(s.wallLenAbove) || len) : len;
           itemsToAdd.push({ qty: len, unit: 'Rm', title: s.label || 'Boundary Wall (Upto Tie Beam)', rate: 1850.00, description: 'Length', l: len, b: '', h: '', nos: 1, measurementDesc: `${s.label || 'Boundary Wall'} - Upto Tie Beam` });
-          if (h > 0) itemsToAdd.push({ qty: len * h, unit: 'sqm', title: s.label || 'Boundary Wall (Above Tie Beam)', rate: 1450.00, description: 'Area for sqm', l: len, b: '', h: h, nos: 1, measurementDesc: `${s.label || 'Boundary Wall'} - Above Tie Beam` });
+          if (h > 0) itemsToAdd.push({ qty: lenAbove * h, unit: 'sqm', title: s.label || 'Boundary Wall (Above Tie Beam)', rate: 1450.00, description: 'Area for sqm', l: lenAbove, b: '', h: h, nos: 1, measurementDesc: `${s.label || 'Boundary Wall'} - Above Tie Beam` });
         }
 
         itemsToAdd.forEach((itemData, index) => {

@@ -360,28 +360,15 @@ export class SiteSketcher {
           this.draw(); break;
         }
 
-        case 'boundary-wall': {
-          const pt = this._snap(raw, null);
-          this.wallChain = [{...pt}];
-          this.previewPt = {...pt};
-          this.isDown = false;
-          this.linearDragMoved = false;
-          this.draw(); break;
-        }
-
+        case 'boundary-wall':
         case 'gate':
         case 'gate-toran':
-        case 'line': {
-          const pt = this._snap(raw, null);
-          this.wallChain = [{...pt}];
-          this.previewPt = {...pt};
-          this.draw(); break;
-        }
-
+        case 'line':
         case 'dimension': {
           const pt = this._snap(raw, null);
           if (this.wallChain.length === 0) {
             this.wallChain = [{...pt}];
+            this.previewPt = {...pt};
           } else {
             const p1 = this.wallChain[0];
             let p2 = pt;
@@ -389,20 +376,14 @@ export class SiteSketcher {
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             if (len > 0.05) {
               this.pushHistory();
-              const id = Date.now();
-              const newDim = {
-                id,
-                type: 'dimension',
-                x1: p1.x, y1: p1.y,
-                x2: p2.x, y2: p2.y,
-                dimOffset: -1,
-                manualLabel: '',
-                label: `${len.toFixed(2)}m`
-              };
-              this.shapes.push(newDim);
-              this.selectedShape = newDim;
-              this.mode = 'select';
-              if (this.onSelectionChange) this.onSelectionChange(newDim);
+              const newShape = this._makeLinearShape(this.mode, p1, p2, len);
+              if (newShape) {
+                this.shapes.push(newShape);
+                this.selectedShape = newShape;
+                this.selectedShapes = [newShape];
+                if (this.mode === 'dimension') this.mode = 'select';
+                if (this.onSelectionChange) this.onSelectionChange(newShape, [newShape]);
+              }
             }
             this.wallChain = [];
           }
@@ -510,7 +491,6 @@ export class SiteSketcher {
 
       const raw = this.s2w(sp.x, sp.y);
       let pt = this._snap(raw, this.selectedShape?.id);
-      if (this.mode === 'boundary-wall' && this.wallChain.length === 1 && e.buttons === 1) return;
       if (this.wallChain.length > 0) {
         pt = this._applyAngleConstraint(this.wallChain[this.wallChain.length-1], pt);
       }
@@ -611,7 +591,7 @@ export class SiteSketcher {
 
       const raw = this.previewPt || this.s2w(...[0,0]);
 
-      if ((this.mode==='gate'||this.mode==='gate-toran'||this.mode==='line') && this.wallChain.length===1) {
+      if (this._isLinearMode() && this.wallChain.length === 1) {
         if (!this.linearDragMoved) { this.draw(); return; }
         const p1 = this.wallChain[0];
         let p2 = this._snap(raw, null);
@@ -619,15 +599,14 @@ export class SiteSketcher {
         const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
         if (len > 0.05) {
           this.pushHistory();
-          const id = Date.now();
-          if (this.mode==='boundary-wall')
-            this.shapes.push({ id, type:'boundary-wall', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'Boundary Wall', dimLabel:`${len.toFixed(2)}m`, dimOffset:-1 });
-          else if (this.mode==='gate')
-            this.shapes.push({ id, type:'gate', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE', dimLabel:`${len.toFixed(2)}m`, dimOffset:-1 });
-          else if (this.mode==='gate-toran')
-            this.shapes.push({ id, type:'gate-toran', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, label:'GATE WITH TORAN', dimLabel:`${len.toFixed(2)}m`, dimOffset:-1 });
-          else if (this.mode==='line')
-            this.shapes.push({ id, type:'line', x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y, style:'dashed', label:'ROW' });
+          const newShape = this._makeLinearShape(this.mode, p1, p2, len);
+          if (newShape) {
+            this.shapes.push(newShape);
+            this.selectedShape = newShape;
+            this.selectedShapes = [newShape];
+            if (this.mode === 'dimension') this.mode = 'select';
+            if (this.onSelectionChange) this.onSelectionChange(newShape, [newShape]);
+          }
           this.wallChain=[];
         }
         this.draw();
@@ -739,10 +718,11 @@ export class SiteSketcher {
 
       if (this.isLocked) return;
 
-      // AutoCAD-style dimension input: length, width,height, or widthxheight.
+      // AutoCAD-style dimension input: length, @length<angle, width x height.
       const acceptsDirectInput = this._canAcceptDirectInput();
-      const isDimensionChar = /[0-9.,xXmM*\s]/.test(e.key) && e.key.length === 1;
-      if (acceptsDirectInput && isDimensionChar) {
+      const isDimensionChar = /[0-9.,xXmM*@<>\-\s]/.test(e.key) && e.key.length === 1;
+      const isAngleChar = e.key === '<' || e.key === '@' || e.key === '-';
+      if (acceptsDirectInput && (isDimensionChar || isAngleChar)) {
         e.preventDefault();
         this.inputBuffer += e.key;
         this.showInputHUD = true;
@@ -943,10 +923,19 @@ export class SiteSketcher {
   }
 
   _parseDirectDimensions(input) {
-    const normalized = String(input)
-      .trim()
-      .replace(/[mM]/g, '')
-      .replace(/[xX*]/g, ',');
+    const str = String(input).trim();
+    // AutoCAD polar format: @length<angle  e.g. @5<90  or  @5.5<-45
+    const polarMatch = str.match(/^@?([\d.]+)\s*<\s*(-?[\d.]+)$/);
+    if (polarMatch) {
+      const len   = parseFloat(polarMatch[1]);
+      const angle = parseFloat(polarMatch[2]) * Math.PI / 180; // degrees → radians
+      if (isFinite(len) && len > 0.05) {
+        return [{ polar: true, len, angle }];
+      }
+      return [];
+    }
+    // Standard: length or widthxheight
+    const normalized = str.replace(/[mM]/g, '').replace(/[xX*]/g, ',');
     return normalized
       .split(',')
       .map(part => parseFloat(part.trim()))
@@ -986,14 +975,15 @@ export class SiteSketcher {
   }
 
   _applyDirectDimension(dims) {
-    const len = dims[0];
+    const firstDim = dims[0];
+    const len = (firstDim && typeof firstDim === 'object') ? firstDim.len : firstDim;
 
     if (this.mode === 'select' && this.selectedShape) {
       const s = this.selectedShape;
       this.pushHistory();
       if (s.type === 'building' || s.type === 'custom-block') {
         s.w = len;
-        if (dims[1]) s.h = dims[1];
+        if (dims[1] && typeof dims[1] !== 'object') s.h = dims[1];
         s.dimW = this._fmtDim(s.w);
         s.dimH = this._fmtDim(s.h);
       } else if (this._isLinear(s) || s.type === 'wall' || s.type === 'dimension') {
@@ -1009,7 +999,7 @@ export class SiteSketcher {
     if (this._isBoxMode() && this.previewPt) {
       this.pushHistory();
       const pt = this._snap(this.previewPt, null);
-      const w = dims[0], h = dims[1] || dims[0];
+      const w = len, h = (dims[1] && typeof dims[1] !== 'object') ? dims[1] : len;
       const nb = this.mode === 'building'
         ? { id:Date.now(), type:'building', x:pt.x, y:pt.y, w, h, label:'Building', structureType:'', dimW:this._fmtDim(w), dimH:this._fmtDim(h), dimWOffset:-1.5, dimHOffset:1.5 }
         : { id:Date.now(), type:'custom-block', x:pt.x, y:pt.y, w, h, label:'Misc', blockStyle:'misc', dimW:this._fmtDim(w), dimH:this._fmtDim(h), dimWOffset:-1.5, dimHOffset:1.5 };
@@ -1040,11 +1030,21 @@ export class SiteSketcher {
     if (!last) return;
 
     const p = this.previewPt || last;
-    const newPt = this._pointAtLength(last, p, len);
+    // Compute the new point: polar (@len<angle) takes precedence, else use mouse direction
+    let newPt;
+    if (firstDim && typeof firstDim === 'object' && firstDim.polar) {
+      newPt = { x: last.x + Math.cos(firstDim.angle) * firstDim.len,
+                y: last.y + Math.sin(firstDim.angle) * firstDim.len };
+    } else {
+      newPt = this._pointAtLength(last, p, len);
+    }
 
     if (this.mode === 'wall') {
       this.wallChain.push(newPt);
     } else if (this.mode === 'room' || this.mode === 'polybuilding') {
+      this.polyChain.push(newPt);
+      if (this.onPolyNodeAdded) this.onPolyNodeAdded(this.polyChain.length);
+    } else if (this.mode === 'polyline') {
       this.polyChain.push(newPt);
       if (this.onPolyNodeAdded) this.onPolyNodeAdded(this.polyChain.length);
     } else if (this._isLinearMode()) {
@@ -1068,12 +1068,28 @@ export class SiteSketcher {
     ctx.save();
     ctx.font = 'bold 13px sans-serif';
     const txt = this.inputBuffer;
-    const tw = ctx.measureText(txt).width + 12;
-    ctx.fillStyle = '#2563eb';
-    ctx.fillRect(sp.x + 15, sp.y - 30, tw, 24);
+    const isPolar = txt.includes('<') || txt.includes('@');
+    const label = isPolar ? `\u2220 ${txt}` : `\u2194 ${txt}`;
+    const tw = ctx.measureText(label).width + 14;
+    // Main HUD box
+    ctx.fillStyle = '#1e40af';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(sp.x + 14, sp.y - 34, tw, 22, 4)
+                  : ctx.fillRect(sp.x + 14, sp.y - 34, tw, 22);
+    ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(txt, sp.x + 21, sp.y - 18);
+    ctx.fillText(label, sp.x + 21, sp.y - 23);
+    // Hint below for polyline mode
+    if (this.mode === 'polyline' && this.polyChain.length > 0) {
+      const hint = `Enter=add pt  \u2220len<deg (e.g. 5<90)  Esc=finish`;
+      ctx.font = '10px sans-serif';
+      const hw = ctx.measureText(hint).width + 10;
+      ctx.fillStyle = 'rgba(30,64,175,0.82)';
+      ctx.fillRect(sp.x + 14, sp.y - 9, hw, 16);
+      ctx.fillStyle = '#bfdbfe';
+      ctx.fillText(hint, sp.x + 19, sp.y + 0);
+    }
     ctx.restore();
   }
 
@@ -1572,10 +1588,10 @@ export class SiteSketcher {
       if(llen>0.02){const sp2=this.w2s((this.wallChain[0].x+p.x)/2,(this.wallChain[0].y+p.y)/2);this._drawLiveLen(`${llen.toFixed(2)}m`,sp2);}
     }
 
-    // other linear modes drag preview
-    if(this._isLinearMode()&&this.mode!=='line'&&(this.isDown||this.mode==='dimension')&&this.wallChain.length===1){
+    // other linear modes preview (drag or click-click)
+    if(this._isLinearMode()&&this.mode!=='line'&&this.wallChain.length===1){
       const s1=this.w2s(this.wallChain[0].x,this.wallChain[0].y),s2=this.w2s(p.x,p.y);
-      ctx.strokeStyle=this.mode==='dimension'?'#2563eb':'#64748b';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
+      ctx.strokeStyle=this.mode==='dimension'?'#2563eb':(this.mode==='boundary-wall'?'#991b1b':'#64748b');ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
       ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();ctx.setLineDash([]);
       const len=Math.hypot(p.x-this.wallChain[0].x,p.y-this.wallChain[0].y);
       if(len>0.02){const sp2=this.w2s((this.wallChain[0].x+p.x)/2,(this.wallChain[0].y+p.y)/2);this._drawLiveLen(`${len.toFixed(2)}m`,sp2);}
