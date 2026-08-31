@@ -90,8 +90,10 @@ function renderQuantityRateItem(item, itemIndex = null) {
     itemNoText = 'Item No. ' + itemNoText;
   }
 
-  const rawCost = item.quantity * item.rate;
-  const hasDeduction = item.deductionPct > 0;
+  const measurements = item.measurements && item.measurements.length > 0 ? item.measurements : [];
+  const dispQty = measurements.length > 0
+    ? Number((measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0)).toFixed(3))
+    : Number((parseFloat(item.quantity) || 0).toFixed(2));
 
   const titleLower = (item.title || '').toLowerCase();
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
@@ -99,9 +101,19 @@ function renderQuantityRateItem(item, itemIndex = null) {
   const isFeet = ['sqf', 'sqft', 'ft', 'rft', 'cft'].some(u => unit.includes(u)) || isFeetOnlyType;
   const isMetric = ['sqm', 'cum', 'm', 'rm'].some(u => unit.includes(u));
 
+  const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+  let effectiveRate = item.rate;
+  if (isSqfUnit && item.rate === 2206) effectiveRate = 205.00;
+  const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
+
+  const rawCost = Number((dispQty * effectiveRate).toFixed(2));
+  const deductionPct = parseFloat(item.deductionPct) || 0;
+  const deductionAmount = Math.round(rawCost * (deductionPct / 100));
+  const netTotalCost = Math.round(rawCost - deductionAmount);
+  const hasDeduction = deductionPct > 0;
+
   // Build measurement rows
   let measurementRowsHtml = '';
-  const measurements = item.measurements && item.measurements.length > 0 ? item.measurements : [];
 
   if (measurements.length > 0) {
     const mRowsHtml = measurements.map(m => {
@@ -154,7 +166,7 @@ function renderQuantityRateItem(item, itemIndex = null) {
           convertedQty = subQty * 0.3048;
           dualUnit = 'm';
         }
-        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+        subQtyHtml = `${subQty.toFixed(3)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
       } else if (isMetric) {
         let convertedQty = subQty;
         let dualUnit = '';
@@ -168,9 +180,9 @@ function renderQuantityRateItem(item, itemIndex = null) {
           convertedQty = subQty * 3.28084;
           dualUnit = 'ft';
         }
-        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
+        subQtyHtml = `${subQty.toFixed(3)}<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
       } else {
-        subQtyHtml = `${(parseFloat(subQty) || 0).toFixed(2)}`;
+        subQtyHtml = `${subQty.toFixed(3)}`;
       }
 
       return `
@@ -183,32 +195,32 @@ function renderQuantityRateItem(item, itemIndex = null) {
       `;
     }).join('');
 
-    let totalQtyHtml = `${item.quantity.toFixed(2)} ${item.unit}`;
+    let totalQtyHtml = `${dispQty.toFixed(3)} ${item.unit}`;
     if (isFeet) {
-      let convertedQty = item.quantity;
+      let convertedQty = dispQty;
       let dualUnit = '';
       if (unit.includes('sqf') || unit.includes('sqft')) {
-        convertedQty = item.quantity * 0.092903;
+        convertedQty = dispQty * 0.092903;
         dualUnit = 'sqm';
       } else if (unit.includes('cft') || unit.includes('cum')) {
-        convertedQty = item.quantity * 0.0283168;
+        convertedQty = dispQty * 0.0283168;
         dualUnit = 'cum';
       } else {
-        convertedQty = item.quantity * 0.3048;
+        convertedQty = dispQty * 0.3048;
         dualUnit = 'm';
       }
       totalQtyHtml += `<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
     } else if (isMetric) {
-      let convertedQty = item.quantity;
+      let convertedQty = dispQty;
       let dualUnit = '';
       if (unit.includes('sqm')) {
-        convertedQty = item.quantity * 10.76391;
+        convertedQty = dispQty * 10.76391;
         dualUnit = 'sqft';
       } else if (unit.includes('cum')) {
-        convertedQty = item.quantity * 35.3147;
+        convertedQty = dispQty * 35.3147;
         dualUnit = 'cft';
       } else {
-        convertedQty = item.quantity * 3.28084;
+        convertedQty = dispQty * 3.28084;
         dualUnit = 'ft';
       }
       totalQtyHtml += `<br><span style="font-size: 8pt; color: #475569; font-weight: normal;">(${convertedQty.toFixed(2)} ${dualUnit})</span>`;
@@ -241,42 +253,43 @@ function renderQuantityRateItem(item, itemIndex = null) {
     // Fallback: no measurements
     let dualQtyText = '';
     if (isFeet) {
-      let convertedQty = item.quantity;
+      let convertedQty = dispQty;
       let dualUnit = '';
       if (unit.includes('sqf') || unit.includes('sqft')) {
-        convertedQty = item.quantity * 0.092903;
+        convertedQty = dispQty * 0.092903;
         dualUnit = 'sqm';
       } else if (unit.includes('cft') || unit.includes('cum')) {
-        convertedQty = item.quantity * 0.0283168;
+        convertedQty = dispQty * 0.0283168;
         dualUnit = 'cum';
       } else {
-        convertedQty = item.quantity * 0.3048;
+        convertedQty = dispQty * 0.3048;
         dualUnit = 'm';
       }
       dualQtyText = ` (${convertedQty.toFixed(2)} ${dualUnit})`;
     } else if (isMetric) {
-      let convertedQty = item.quantity;
+      let convertedQty = dispQty;
       let dualUnit = '';
       if (unit.includes('sqm')) {
-        convertedQty = item.quantity * 10.76391;
+        convertedQty = dispQty * 10.76391;
         dualUnit = 'sqft';
       } else if (unit.includes('cum')) {
-        convertedQty = item.quantity * 35.3147;
+        convertedQty = dispQty * 35.3147;
         dualUnit = 'cft';
       } else {
-        convertedQty = item.quantity * 3.28084;
+        convertedQty = dispQty * 3.28084;
         dualUnit = 'ft';
       }
       dualQtyText = ` (${convertedQty.toFixed(2)} ${dualUnit})`;
     }
 
+    const formattedQtyStr = (dispQty % 1 === 0 || dispQty.toString().split('.')[1]?.length <= 2) ? dispQty.toFixed(2) : dispQty.toFixed(3);
     measurementRowsHtml = `
       <div class="pdf-row" style="margin-bottom: 1px;">
         <div style="margin-left: 20mm; width: 40mm; flex-shrink: 0;">Quantity</div>
         <div style="width: 5mm; text-align: center; flex-shrink: 0;">:</div>
         <div style="flex-grow: 1; display: flex; justify-content: flex-end; padding-right: 45mm;">
-          <span style="width: 35mm; text-align: left;">x &nbsp;&nbsp;&nbsp;&nbsp; ${item.quantity.toFixed(2)} ${item.unit} =</span>
-          <span style="width: 30mm; text-align: right;">${item.quantity.toFixed(2)} ${item.unit}${dualQtyText}</span>
+          <span style="width: 35mm; text-align: left;">x &nbsp;&nbsp;&nbsp;&nbsp; ${formattedQtyStr} ${item.unit} =</span>
+          <span style="width: 30mm; text-align: right;">${formattedQtyStr} ${item.unit}${dualQtyText}</span>
         </div>
       </div>
     `;
@@ -298,23 +311,14 @@ function renderQuantityRateItem(item, itemIndex = null) {
       ${measurementRowsHtml}
       
       <!-- Rate Line -->
-      ${(() => {
-        const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
-        let effectiveRate = item.rate;
-        if (isSqfUnit && item.rate === 2206) effectiveRate = 205.00;
-        const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
-        const effectiveCost = item.quantity * effectiveRate;
-        return `
-          <div class="pdf-row" style="margin-bottom: 1px;">
-            <div style="margin-left: 20mm; flex-grow: 1;">
-              @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
-            </div>
-            <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-              = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveCost)}
-            </div>
-          </div>
-        `;
-      })()}
+      <div class="pdf-row" style="margin-bottom: 1px;">
+        <div style="margin-left: 20mm; flex-grow: 1;">
+          @ &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(effectiveRate)}/${displayRateUnit} &nbsp;&nbsp;&nbsp;&nbsp; ${isFeetOnlyType ? "Rate as per Zirat value vide Memo No.RKG. 23/2020/61-A Dtd. 29th Feb' 2020 of DC, Golaghat." : "(As per approved rate)"}
+        </div>
+        <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
+          = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(rawCost)}
+        </div>
+      </div>
 
       <!-- Deduction Line -->
       ${hasDeduction ? `
@@ -323,7 +327,7 @@ function renderQuantityRateItem(item, itemIndex = null) {
             Ded. ${item.deductionPct}% for ${item.deductionLabel || 'non conformity with CPWD norms'}
           </div>
           <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(item.deductionAmount)}
+            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(deductionAmount)}
           </div>
         </div>
         
@@ -333,7 +337,7 @@ function renderQuantityRateItem(item, itemIndex = null) {
             Net Amount
           </div>
           <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.totalCost)}
+            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(netTotalCost)}
           </div>
         </div>
       ` : ''}
@@ -357,17 +361,19 @@ function renderPlinthAreaItem(item, itemIndex = null) {
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
   const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
 
-  const totalSqmVal = item.rooms && item.rooms.length > 0
+  const rawSqm = item.rooms && item.rooms.length > 0
     ? item.rooms.reduce((acc, r) => acc + ((parseFloat(r.l) || 0) * (parseFloat(r.w) || 0)), 0)
     : parseFloat(item.totalAreaSqm || item.quantity || 0);
-  const totalSqftVal = totalSqmVal * 10.76391;
+  const totalSqmVal = Number(rawSqm.toFixed(2));
+  const totalSqftVal = Number((totalSqmVal * 10.76391).toFixed(2));
 
   let effectiveRate = item.rate;
   if (isSqfUnit && (item.rate === 2206 || !item.rate)) {
     effectiveRate = 205.00;
   }
   const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
-  const rawCost = (isSqfUnit ? totalSqftVal : totalSqmVal) * effectiveRate;
+  const dispQty = isSqfUnit ? totalSqftVal : totalSqmVal;
+  const rawCost = Number((dispQty * effectiveRate).toFixed(2));
   
   const deductionPct = parseFloat(item.deductionPct) || 0;
   const deductionAmount = Math.round(rawCost * (deductionPct / 100));
@@ -484,8 +490,11 @@ function renderLumpSumItem(item, itemIndex = null) {
     titleText = ': ' + titleText;
   }
   
-  const rawCost = item.rate;
-  const hasDeduction = item.deductionPct > 0;
+  const rawCost = Number((item.rate || 0).toFixed(2));
+  const deductionPct = parseFloat(item.deductionPct) || 0;
+  const deductionAmount = Math.round(rawCost * (deductionPct / 100));
+  const netTotalCost = Math.round(rawCost - deductionAmount);
+  const hasDeduction = deductionPct > 0;
 
   return `
     <div class="pdf-item-block" style="margin-bottom: 6mm; color: #000000; font-size: 10.5pt; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; page-break-inside: avoid; break-inside: avoid;">
@@ -510,7 +519,7 @@ function renderLumpSumItem(item, itemIndex = null) {
             Ded. ${item.deductionPct}% for ${item.deductionLabel || 'non conformity with CPWD norms'}
           </div>
           <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(item.deductionAmount)}
+            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. -${formatIndianCurrency(deductionAmount)}
           </div>
         </div>
         
@@ -520,7 +529,7 @@ function renderLumpSumItem(item, itemIndex = null) {
             Net Amount
           </div>
           <div style="width: 45mm; text-align: right; font-weight: bold; flex-shrink: 0;">
-            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(item.totalCost)}
+            = &nbsp;&nbsp;&nbsp;&nbsp; Rs. ${formatIndianCurrency(netTotalCost)}
           </div>
         </div>
       ` : ''}

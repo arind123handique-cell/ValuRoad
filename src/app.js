@@ -1382,9 +1382,17 @@ function exportSingleEstimateToExcel(entryId) {
       }
       const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'L/S');
 
-      const rawCost = (item.type === 'plinth-area')
-        ? (isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm) * effectiveRate
-        : (item.type === 'quantity-rate' ? item.quantity * effectiveRate : effectiveRate);
+      const totalSqmVal = Number(parseFloat(item.totalAreaSqm || item.quantity || 0).toFixed(2));
+      const totalSqftVal = Number((totalSqmVal * 10.76391).toFixed(2));
+      const dispQty = (item.type === 'plinth-area')
+        ? (isSqfUnit ? totalSqftVal : totalSqmVal)
+        : (item.type === 'quantity-rate' ? (item.measurements && item.measurements.length > 0 ? Number((item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0)).toFixed(3)) : Number((parseFloat(item.quantity) || 0).toFixed(2))) : 1);
+
+      const rawCost = (item.type === 'plinth-area' || item.type === 'quantity-rate')
+        ? Number((dispQty * effectiveRate).toFixed(2))
+        : Number(effectiveRate.toFixed(2));
+      const deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+      const netTotalCost = Math.round(rawCost - deductionAmount);
 
       htmlContent += `
         <tr>
@@ -1399,12 +1407,12 @@ function exportSingleEstimateToExcel(entryId) {
           <tr>
             <td style="padding-left:15px;" colspan="4">Ded. ${item.deductionPct}% for ${item.deductionLabel || 'non conformity'}</td>
             <td>=</td>
-            <td class="text-right">Rs. -${formatIndianCurrency(item.deductionAmount)}</td>
+            <td class="text-right">Rs. -${formatIndianCurrency(deductionAmount)}</td>
           </tr>
           <tr style="font-weight: bold;">
             <td style="padding-left:15px;" colspan="4">Net Amount</td>
             <td>=</td>
-            <td class="text-right">Rs. ${formatIndianCurrency(item.totalCost)}</td>
+            <td class="text-right">Rs. ${formatIndianCurrency(netTotalCost)}</td>
           </tr>
         `;
       }
@@ -2932,16 +2940,18 @@ function setupEditor() {
       }
 
       itemsToAdd.forEach((itemData, index) => {
+        const isSqfUnit = (itemData.unit === 'sqf' || itemData.unit === 'sqft');
+        const roundedQty = Number(parseFloat(itemData.qty).toFixed(isSqfUnit ? 2 : 3));
         const newItem = {
           id: 'ITEM_' + Date.now() + '_' + index,
           itemNo: (activeEntry.items.length + 1).toString(),
           type: 'quantity-rate',
           title: itemData.title,
           description: itemData.description,
-          quantity: itemData.qty,
+          quantity: roundedQty,
           unit: itemData.unit,
           rate: itemData.rate,
-          totalCost: itemData.qty * itemData.rate,
+          totalCost: Math.round(roundedQty * itemData.rate),
           includeInValuation: true,
           excludeFromDepreciation: false,
           customDepreciation: false,
@@ -2957,7 +2967,7 @@ function setupEditor() {
             l: itemData.l !== '' ? parseFloat(itemData.l).toFixed(2) : '',
             b: itemData.b !== '' ? parseFloat(itemData.b).toFixed(2) : '',
             h: itemData.h !== '' ? parseFloat(itemData.h).toFixed(2) : '',
-            subQty: itemData.qty
+            subQty: roundedQty
           }]
         };
 
@@ -3505,26 +3515,51 @@ export function migrateEntry(entry) {
     const titleLower = (item.title || '').toLowerCase();
     const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
     
-    if (isFeetOnlyType) {
-      if (item.type === 'plinth-area' && item.rooms) {
+    if (item.type === 'plinth-area') {
+      if (isFeetOnlyType) {
         item.unit = 'sqf';
         if (!item.rate || item.rate === 2206) item.rate = 205.00;
-
+      }
+      if (item.rooms && item.rooms.length > 0) {
         item.rooms.forEach(r => {
           const l = parseFloat(r.l) || 0;
           const w = parseFloat(r.w) || 0;
-          r.areaSqm = l * w;
-          r.areaSqft = r.areaSqm * 10.76391;
+          r.areaSqm = Number((l * w).toFixed(2));
+          r.areaSqft = Number((r.areaSqm * 10.76391).toFixed(2));
         });
-        
-        item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
-        item.totalAreaSqft = item.totalAreaSqm * 10.76391;
-        item.quantity = Number(item.totalAreaSqft.toFixed(2));
-        
-        const rawCost = item.quantity * item.rate;
-        item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
-        item.totalCost = Math.round(rawCost - item.deductionAmount);
+        const roomTotalSqm = item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
+        item.totalAreaSqm = Number(roomTotalSqm.toFixed(2));
+        item.totalAreaSqft = Number((item.totalAreaSqm * 10.76391).toFixed(2));
+      } else {
+        item.totalAreaSqm = Number((parseFloat(item.totalAreaSqm || item.quantity || 0)).toFixed(2));
+        item.totalAreaSqft = Number((item.totalAreaSqm * 10.76391).toFixed(2));
       }
+      const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
+      item.quantity = isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm;
+      
+      const rawCost = Number((item.quantity * item.rate).toFixed(2));
+      item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
+    } else if (item.type === 'quantity-rate') {
+      if (isFeetOnlyType && item.rate === 2206) {
+        item.rate = 205.00;
+      }
+      if (item.measurements && item.measurements.length > 0) {
+        item.measurements.forEach(m => {
+          m.subQty = calcMeasurementSubQty(m);
+        });
+        const total = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
+        item.quantity = Number(total.toFixed(3));
+      } else {
+        item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
+      }
+      const rawCost = Number((item.quantity * item.rate).toFixed(2));
+      item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
+    } else if (item.type === 'lump-sum') {
+      const rawCost = Number((item.rate || 0).toFixed(2));
+      item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
     }
   });
   return entry;
@@ -4031,16 +4066,18 @@ function loadEntryToEditor() {
         }
 
         itemsToAdd.forEach((itemData, index) => {
+          const isSqfUnit = (itemData.unit === 'sqf' || itemData.unit === 'sqft');
+          const roundedQty = Number(parseFloat(itemData.qty).toFixed(isSqfUnit ? 2 : 3));
           const newItem = {
             id: 'ITEM_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 5),
             itemNo: (activeEntry.items.length + 1).toString(),
             type: 'quantity-rate',
             title: itemData.title,
             description: itemData.description,
-            quantity: itemData.qty,
+            quantity: roundedQty,
             unit: itemData.unit,
             rate: itemData.rate,
-            totalCost: itemData.qty * itemData.rate,
+            totalCost: Math.round(roundedQty * itemData.rate),
             includeInValuation: true,
             excludeFromDepreciation: false,
             customDepreciation: false,
@@ -4056,7 +4093,7 @@ function loadEntryToEditor() {
               l: itemData.l !== '' ? parseFloat(itemData.l).toFixed(2) : '',
               b: itemData.b !== '' ? parseFloat(itemData.b).toFixed(2) : '',
               h: itemData.h !== '' ? parseFloat(itemData.h).toFixed(2) : '',
-              subQty: itemData.qty
+              subQty: roundedQty
             }]
           };
           activeEntry.items.push(newItem);
@@ -4739,9 +4776,12 @@ function renderItemRow(item) {
 
 function updateRowTotal(item, tr) {
   if (item.type === 'plinth-area') {
-    const isSqf = (item.unit || '').toLowerCase() === 'sqf';
-    const qty = isSqf ? item.totalAreaSqft : item.totalAreaSqm;
-    const rawCost = qty * item.rate;
+    const titleLower = (item.title || '').toLowerCase();
+    const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
+    const isSqf = (item.unit || '').toLowerCase() === 'sqf' || (item.unit || '').toLowerCase() === 'sqft' || isFeetOnlyType;
+    const qty = Number((isSqf ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)).toFixed(2));
+    item.quantity = qty;
+    const rawCost = Number((qty * item.rate).toFixed(2));
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
@@ -4758,13 +4798,15 @@ function updateRowTotal(item, tr) {
         if (totalCell) totalCell.textContent = item.quantity.toFixed(3) + ' ' + (item.unit || '');
         if (totalQtySpan) totalQtySpan.textContent = item.quantity.toFixed(3);
       }
+    } else {
+      item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
     }
-    const rawCost = item.quantity * item.rate;
+    const rawCost = Number((item.quantity * item.rate).toFixed(2));
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
   } else if (item.type === 'lump-sum') {
-    const rawCost = item.rate;
+    const rawCost = Number((item.rate || 0).toFixed(2));
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
@@ -5064,8 +5106,9 @@ function addPlinthRoom(item, tr) {
 }
 
 function updatePlinthCalculations(item, tr) {
-  item.totalAreaSqm = item.rooms.reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
-  item.totalAreaSqft = item.totalAreaSqm * 10.76391;
+  const roomTotalSqm = (item.rooms || []).reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
+  item.totalAreaSqm = Number(roomTotalSqm.toFixed(2));
+  item.totalAreaSqft = Number((item.totalAreaSqm * 10.76391).toFixed(2));
 
   const titleLower = (item.title || '').toLowerCase();
   const isFeetOnlyType = titleLower.includes('temporary') || titleLower.includes('shed') || titleLower.includes('commercial') || titleLower.includes('kacha') || titleLower.includes('kachap');
@@ -5083,14 +5126,14 @@ function updatePlinthCalculations(item, tr) {
   }
 
   const qty = isSqf ? item.totalAreaSqft : item.totalAreaSqm;
-  const rawCost = qty * item.rate;
+  item.quantity = Number(qty.toFixed(2));
+  const rawCost = Number((item.quantity * item.rate).toFixed(2));
   const deductInput = tr ? tr.querySelector('.plinth-deduct-pct') : null;
   if (deductInput) {
     item.deductionPct = parseFloat(deductInput.value) || 0;
   }
   item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
   item.totalCost = Math.round(rawCost - item.deductionAmount);
-  item.quantity = Number(qty.toFixed(2));
 
   if (tr) {
     const totalDisplay = tr.querySelector('.plinth-total-display');
@@ -5099,7 +5142,7 @@ function updatePlinthCalculations(item, tr) {
     }
 
     const qtyInput = tr.querySelector('.item-qty-input');
-    if (qtyInput) qtyInput.value = qty.toFixed(2);
+    if (qtyInput) qtyInput.value = item.quantity.toFixed(2);
 
     const unitSelect = tr.querySelector('.item-unit-select');
     if (unitSelect && isFeetOnlyType) unitSelect.value = 'sqf';
@@ -5474,10 +5517,8 @@ function calculateAndRenderTotals() {
 
     if (item.type === 'plinth-area') {
       const roomTotalSqm = (item.rooms || []).reduce((acc, curr) => acc + (parseFloat(curr.l || 0) * parseFloat(curr.w || 0)), 0);
-      const roomTotalSqft = roomTotalSqm * 10.76391;
-
-      item.totalAreaSqm = roomTotalSqm;
-      item.totalAreaSqft = roomTotalSqft;
+      item.totalAreaSqm = Number(roomTotalSqm.toFixed(2));
+      item.totalAreaSqft = Number((item.totalAreaSqm * 10.76391).toFixed(2));
 
       if (isSqfUnit && (item.rate === 2206 || !item.rate)) {
         item.rate = 205.00;
@@ -5485,22 +5526,31 @@ function calculateAndRenderTotals() {
 
       const effectiveRate = item.rate;
       const qty = isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm;
-      const rawCost = qty * effectiveRate;
+      item.quantity = Number(qty.toFixed(2));
+      const rawCost = Number((item.quantity * effectiveRate).toFixed(2));
 
       const deductionPct = parseFloat(item.deductionPct) || 0;
       item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
-      item.quantity = Number(qty.toFixed(2));
     } else if (item.type === 'quantity-rate') {
       if (isSqfUnit && item.rate === 2206) {
         item.rate = 205.00;
       }
-      const rawCost = (item.quantity || 0) * (item.rate || 0);
+      if (item.measurements && item.measurements.length > 0) {
+        const totalQty = item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0);
+        item.quantity = Number(totalQty.toFixed(3));
+      } else {
+        item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
+      }
+      const rawCost = Number(((item.quantity || 0) * (item.rate || 0)).toFixed(2));
       const deductionPct = parseFloat(item.deductionPct) || 0;
       item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
     } else if (item.type === 'lump-sum') {
-      item.totalCost = Math.round(item.rate || 0);
+      const rawCost = Number((item.rate || 0).toFixed(2));
+      const deductionPct = parseFloat(item.deductionPct) || 0;
+      item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
+      item.totalCost = Math.round(rawCost - item.deductionAmount);
     }
   });
 
@@ -11257,8 +11307,8 @@ function renderBulkPreview() {
 
           // Re-compute Cost
           const qty = (struct.category === 'Temporary Building' || struct.category === 'Temp Shed' || struct.category === 'Commercial Building') ? struct.area_sqft : struct.area_sqm;
-          const rawCost = qty * struct.rate;
-          const deductAmount = rawCost * (struct.deduction_pct / 100);
+          const rawCost = Number((qty * struct.rate).toFixed(2));
+          const deductAmount = Math.round(rawCost * (struct.deduction_pct / 100));
           struct.total_cost = Math.round(rawCost - deductAmount);
 
           card.querySelector('.struct-cost-display').innerText = `₹ ${formatIndianCurrency(struct.total_cost)}`;
@@ -11523,8 +11573,9 @@ async function generateBulkEstimates() {
 
         // Re-compute to verify consistency
         const isSqf = plinthItem.unit === 'sqf';
-        const qty = isSqf ? plinthItem.totalAreaSqft : plinthItem.totalAreaSqm;
-        const rawCost = qty * plinthItem.rate;
+        const qty = Number((isSqf ? plinthItem.totalAreaSqft : plinthItem.totalAreaSqm).toFixed(2));
+        plinthItem.quantity = qty;
+        const rawCost = Number((qty * plinthItem.rate).toFixed(2));
         plinthItem.deductionAmount = Math.round(rawCost * (plinthItem.deductionPct / 100));
         plinthItem.totalCost = Math.round(rawCost - plinthItem.deductionAmount);
 
