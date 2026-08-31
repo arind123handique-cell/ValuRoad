@@ -4512,7 +4512,10 @@ function renderItemRow(item) {
     <td>${detailHtml}</td>
     <td class="text-right" style="vertical-align: middle;">${quantityCol}</td>
     <td style="vertical-align: middle;"><input type="number" class="item-rate-input text-right" value="${item.rate}"></td>
-    <td style="vertical-align: middle; font-weight: bold; text-align: right; font-size: 0.95rem;" class="item-cost-display">Rs. ${formatIndianCurrency(item.totalCost)}</td>
+    <td style="vertical-align: middle; font-weight: bold; text-align: right; font-size: 0.95rem;" class="item-cost-display">
+      <div>Rs. ${formatIndianCurrency(item.totalCost)}</div>
+      ${item.deductionPct > 0 ? `<div style="font-size: 0.72rem; font-weight: normal; color: var(--text-muted); margin-top: 2px;">(Gross: Rs. ${formatIndianCurrency((item.type === 'plinth-area' ? (item.unit === 'sqf' ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)) : item.quantity) * item.rate)} -${item.deductionPct}%)</div>` : ''}
+    </td>
     <td style="vertical-align: middle; text-align: center;">
       <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: center;">
         <button type="button" class="btn-secondary copy-item-row-btn" style="padding: 0.25rem 0.5rem; background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-primary);" title="Duplicate Item"><i data-lucide="copy" style="width: 14px; height: 14px;"></i></button>
@@ -4637,7 +4640,24 @@ function renderItemRow(item) {
     updateRowTotal(item, tr);
   });
 
-  if (item.type === 'quantity-rate') {
+  if (item.type === 'plinth-area') {
+    const qtyInput = tr.querySelector('.item-qty-input');
+    if (qtyInput) {
+      qtyInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 0;
+        const isSqf = (item.unit || '').toLowerCase() === 'sqf' || (item.unit || '').toLowerCase() === 'sqft';
+        if (isSqf) {
+          item.totalAreaSqft = val;
+          item.totalAreaSqm = Number((val / 10.76391).toFixed(2));
+        } else {
+          item.totalAreaSqm = val;
+          item.totalAreaSqft = Number((val * 10.76391).toFixed(2));
+        }
+        item.quantity = val;
+        updateRowTotal(item, tr);
+      });
+    }
+  } else if (item.type === 'quantity-rate') {
     tr.querySelector('.item-qty-input').addEventListener('input', (e) => {
       item.quantity = parseFloat(e.target.value) || 0;
       updateRowTotal(item, tr);
@@ -4811,7 +4831,17 @@ function updateRowTotal(item, tr) {
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
   }
-  tr.querySelector('.item-cost-display').innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
+  const costDisplay = tr.querySelector('.item-cost-display');
+  if (costDisplay) {
+    const rawCost = (item.type === 'plinth-area')
+      ? Number(((item.unit === 'sqf' ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)) * item.rate).toFixed(2))
+      : (item.type === 'quantity-rate' ? Number((item.quantity * item.rate).toFixed(2)) : Number((item.rate || 0).toFixed(2)));
+    if (item.deductionPct > 0) {
+      costDisplay.innerHTML = `<div>Rs. ${formatIndianCurrency(item.totalCost)}</div><div style="font-size: 0.72rem; font-weight: normal; color: var(--text-muted); margin-top: 2px;">(Gross: Rs. ${formatIndianCurrency(rawCost)} -${item.deductionPct}%)</div>`;
+    } else {
+      costDisplay.innerHTML = `<div>Rs. ${formatIndianCurrency(item.totalCost)}</div>`;
+    }
+  }
   calculateAndRenderTotals();
 }
 
@@ -5151,7 +5181,13 @@ function updatePlinthCalculations(item, tr) {
     if (rateInput && isFeetOnlyType) rateInput.value = item.rate;
 
     const costDisplay = tr.querySelector('.item-cost-display');
-    if (costDisplay) costDisplay.innerText = 'Rs. ' + formatIndianCurrency(item.totalCost);
+    if (costDisplay) {
+      if (item.deductionPct > 0) {
+        costDisplay.innerHTML = `<div>Rs. ${formatIndianCurrency(item.totalCost)}</div><div style="font-size: 0.72rem; font-weight: normal; color: var(--text-muted); margin-top: 2px;">(Gross: Rs. ${formatIndianCurrency(rawCost)} -${item.deductionPct}%)</div>`;
+      } else {
+        costDisplay.innerHTML = `<div>Rs. ${formatIndianCurrency(item.totalCost)}</div>`;
+      }
+    }
   }
   calculateAndRenderTotals();
 }
