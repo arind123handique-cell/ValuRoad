@@ -2,17 +2,31 @@ import { getPdfTemplateSettings, migrateEntry } from './app.js';
 
 const SITE_PLAN_MARGIN_MM = 4;
 
-// Utility to format number into Indian Currency Style (e.g. 30,14,993.00)
+// Utility to format number into Indian Currency Style (e.g. 30,14,993 or 30,14,993.50)
 export function formatIndianCurrency(num) {
-  if (isNaN(num) || num === null) return '0.00';
-  const val = parseFloat(num).toFixed(2);
-  const parts = val.split('.');
+  if (isNaN(num) || num === null || num === undefined) return '0';
+  const n = Number(num);
+  let isNegative = false;
+  if (n < 0 || Object.is(n, -0)) isNegative = true;
+
+  const rounded = Math.round(n);
+  let valStr;
+  if (Math.abs(n - rounded) < 0.005) {
+    valStr = Math.abs(rounded).toString();
+  } else {
+    valStr = Math.abs(n).toFixed(2);
+  }
+
+  const parts = valStr.split('.');
   let lastThree = parts[0].substring(parts[0].length - 3);
   const otherParts = parts[0].substring(0, parts[0].length - 3);
   if (otherParts !== '') {
     lastThree = ',' + lastThree;
   }
-  const formatted = otherParts.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree + '.' + parts[1];
+  let formatted = (isNegative ? '-' : '') + otherParts.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+  if (parts.length > 1 && parts[1] !== '00') {
+    formatted += '.' + parts[1];
+  }
   return formatted;
 }
 
@@ -106,7 +120,7 @@ function renderQuantityRateItem(item, itemIndex = null) {
   if (isSqfUnit && item.rate === 2206) effectiveRate = 205.00;
   const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
 
-  const rawCost = Number((dispQty * effectiveRate).toFixed(2));
+  const rawCost = Math.round(dispQty * effectiveRate);
   const deductionPct = parseFloat(item.deductionPct) || 0;
   const deductionAmount = Math.round(rawCost * (deductionPct / 100));
   const netTotalCost = Math.round(rawCost - deductionAmount);
@@ -373,7 +387,7 @@ function renderPlinthAreaItem(item, itemIndex = null) {
   }
   const displayRateUnit = isSqfUnit ? 'sqft' : (item.unit || 'sqm');
   const dispQty = isSqfUnit ? totalSqftVal : totalSqmVal;
-  const rawCost = Number((dispQty * effectiveRate).toFixed(2));
+  const rawCost = Math.round(dispQty * effectiveRate);
   
   const deductionPct = parseFloat(item.deductionPct) || 0;
   const deductionAmount = Math.round(rawCost * (deductionPct / 100));
@@ -490,7 +504,7 @@ function renderLumpSumItem(item, itemIndex = null) {
     titleText = ': ' + titleText;
   }
   
-  const rawCost = Number((item.rate || 0).toFixed(2));
+  const rawCost = Math.round(item.rate || 0);
   const deductionPct = parseFloat(item.deductionPct) || 0;
   const deductionAmount = Math.round(rawCost * (deductionPct / 100));
   const netTotalCost = Math.round(rawCost - deductionAmount);

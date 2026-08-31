@@ -1389,8 +1389,8 @@ function exportSingleEstimateToExcel(entryId) {
         : (item.type === 'quantity-rate' ? (item.measurements && item.measurements.length > 0 ? Number((item.measurements.reduce((sum, m) => sum + (parseFloat(m.subQty) || 0), 0)).toFixed(3)) : Number((parseFloat(item.quantity) || 0).toFixed(2))) : 1);
 
       const rawCost = (item.type === 'plinth-area' || item.type === 'quantity-rate')
-        ? Number((dispQty * effectiveRate).toFixed(2))
-        : Number(effectiveRate.toFixed(2));
+        ? Math.round(dispQty * effectiveRate)
+        : Math.round(effectiveRate);
       const deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
       const netTotalCost = Math.round(rawCost - deductionAmount);
 
@@ -3537,7 +3537,7 @@ export function migrateEntry(entry) {
       const isSqfUnit = (item.unit === 'sqf' || item.unit === 'sqft' || isFeetOnlyType);
       item.quantity = isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm;
       
-      const rawCost = Number((item.quantity * item.rate).toFixed(2));
+      const rawCost = Math.round(item.quantity * item.rate);
       item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
     } else if (item.type === 'quantity-rate') {
@@ -3553,11 +3553,11 @@ export function migrateEntry(entry) {
       } else {
         item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
       }
-      const rawCost = Number((item.quantity * item.rate).toFixed(2));
+      const rawCost = Math.round(item.quantity * item.rate);
       item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
     } else if (item.type === 'lump-sum') {
-      const rawCost = Number((item.rate || 0).toFixed(2));
+      const rawCost = Math.round(item.rate || 0);
       item.deductionAmount = Math.round(rawCost * ((item.deductionPct || 0) / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
     }
@@ -4801,7 +4801,7 @@ function updateRowTotal(item, tr) {
     const isSqf = (item.unit || '').toLowerCase() === 'sqf' || (item.unit || '').toLowerCase() === 'sqft' || isFeetOnlyType;
     const qty = Number((isSqf ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)).toFixed(2));
     item.quantity = qty;
-    const rawCost = Number((qty * item.rate).toFixed(2));
+    const rawCost = Math.round(qty * item.rate);
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
@@ -4821,12 +4821,12 @@ function updateRowTotal(item, tr) {
     } else {
       item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
     }
-    const rawCost = Number((item.quantity * item.rate).toFixed(2));
+    const rawCost = Math.round(item.quantity * item.rate);
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
   } else if (item.type === 'lump-sum') {
-    const rawCost = Number((item.rate || 0).toFixed(2));
+    const rawCost = Math.round(item.rate || 0);
     const pct = parseFloat(item.deductionPct) || 0;
     item.deductionAmount = Math.round(rawCost * (pct / 100));
     item.totalCost = Math.round(rawCost - item.deductionAmount);
@@ -4834,8 +4834,8 @@ function updateRowTotal(item, tr) {
   const costDisplay = tr.querySelector('.item-cost-display');
   if (costDisplay) {
     const rawCost = (item.type === 'plinth-area')
-      ? Number(((item.unit === 'sqf' ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)) * item.rate).toFixed(2))
-      : (item.type === 'quantity-rate' ? Number((item.quantity * item.rate).toFixed(2)) : Number((item.rate || 0).toFixed(2)));
+      ? Math.round((item.unit === 'sqf' ? (item.totalAreaSqft || 0) : (item.totalAreaSqm || 0)) * item.rate)
+      : (item.type === 'quantity-rate' ? Math.round(item.quantity * item.rate) : Math.round(item.rate || 0));
     if (item.deductionPct > 0) {
       costDisplay.innerHTML = `<div>Rs. ${formatIndianCurrency(item.totalCost)}</div><div style="font-size: 0.72rem; font-weight: normal; color: var(--text-muted); margin-top: 2px;">(Gross: Rs. ${formatIndianCurrency(rawCost)} -${item.deductionPct}%)</div>`;
     } else {
@@ -5157,7 +5157,7 @@ function updatePlinthCalculations(item, tr) {
 
   const qty = isSqf ? item.totalAreaSqft : item.totalAreaSqm;
   item.quantity = Number(qty.toFixed(2));
-  const rawCost = Number((item.quantity * item.rate).toFixed(2));
+  const rawCost = Math.round(item.quantity * item.rate);
   const deductInput = tr ? tr.querySelector('.plinth-deduct-pct') : null;
   if (deductInput) {
     item.deductionPct = parseFloat(deductInput.value) || 0;
@@ -5563,7 +5563,7 @@ function calculateAndRenderTotals() {
       const effectiveRate = item.rate;
       const qty = isSqfUnit ? item.totalAreaSqft : item.totalAreaSqm;
       item.quantity = Number(qty.toFixed(2));
-      const rawCost = Number((item.quantity * effectiveRate).toFixed(2));
+      const rawCost = Math.round(item.quantity * effectiveRate);
 
       const deductionPct = parseFloat(item.deductionPct) || 0;
       item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
@@ -5578,12 +5578,12 @@ function calculateAndRenderTotals() {
       } else {
         item.quantity = Number((parseFloat(item.quantity) || 0).toFixed(2));
       }
-      const rawCost = Number(((item.quantity || 0) * (item.rate || 0)).toFixed(2));
+      const rawCost = Math.round((item.quantity || 0) * (item.rate || 0));
       const deductionPct = parseFloat(item.deductionPct) || 0;
       item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
     } else if (item.type === 'lump-sum') {
-      const rawCost = Number((item.rate || 0).toFixed(2));
+      const rawCost = Math.round(item.rate || 0);
       const deductionPct = parseFloat(item.deductionPct) || 0;
       item.deductionAmount = Math.round(rawCost * (deductionPct / 100));
       item.totalCost = Math.round(rawCost - item.deductionAmount);
